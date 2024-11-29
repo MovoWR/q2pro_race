@@ -649,7 +649,6 @@ static void CL_AddLasers(void)
     int         i;
     int         time;
 	extern cvar_t* cl_race_alpha;
-    float alphaValue = Cvar_GetCappedValue(cl_race_alpha, 0.0f, 1.0f);
 
     memset(&ent, 0, sizeof(ent));
 
@@ -675,13 +674,11 @@ static void CL_AddLasers(void)
             // Set alpha value directly
             ent.alpha = alpha;
         }
-
         ent.skinnum = l->color;
         ent.flags = RF_TRANSLUCENT | RF_BEAM;
         VectorCopy(l->start, ent.origin);
         VectorCopy(l->end, ent.oldorigin);
         ent.frame = l->width;
-
         V_AddEntity(&ent);
     }
 }

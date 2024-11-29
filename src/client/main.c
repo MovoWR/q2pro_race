@@ -139,6 +139,8 @@ centity_t   cl_entities[MAX_EDICTS];
 cmdbuf_t    cl_cmdbuf;
 char        cl_cmdbuf_text[MAX_STRING_CHARS];
 
+static int ref_msec, phys_msec, main_msec;
+
 //======================================================================
 
 typedef enum {
@@ -2198,49 +2200,64 @@ static void CL_WriteConfig_f(void)
         Com_Printf("Wrote %s.\n", buffer);
 }
 
-static void CL_Say_c(genctx_t *ctx, int argnum)
-{
-    CL_Name_g(ctx);
-}
+static void CL_Say_c(genctx_t *ctx, int argnum) { CL_Name_g(ctx); }
 
-static size_t CL_Mapname_m(char *buffer, size_t size)
-{
+static size_t CL_Mapname_m(char *buffer, size_t size) {
     return Q_strlcpy(buffer, cl.mapname, size);
 }
 
-static size_t CL_Server_m(char *buffer, size_t size)
-{
+static size_t CL_Server_m(char *buffer, size_t size) {
     return Q_strlcpy(buffer, cls.servername, size);
 }
 
-static size_t CL_Ups_m(char *buffer, size_t size)
-{
+static size_t CL_Ups_m(char *buffer, size_t size) {
     vec3_t vel;
+  float speed;
 
-    if (!cls.demo.playback && cl_predict->integer &&
-        !(cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
+  if (cl.frame.clientNum == CLIENTNUM_NONE) {
+    if (size) {
+      *buffer = 0;
+    }
+    return 0;
+  }
+
+  if (!cls.demo.playback && cl.frame.clientNum == cl.clientNum &&
+      cl_predict->integer) {
         VectorCopy(cl.predicted_velocity, vel);
     } else {
         VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
     }
+  vel[2] = 0.0f; // don't care about vertical speed in speedometer
 
-    return Q_snprintf(buffer, size, "%.f", VectorLength(vel));
+  speed = VectorLength(vel);
+
+  // don't print anything if not moving as spectator.
+  if (cl.frame.ps.pmove.pm_type != PM_NORMAL && speed == 0) {
+    if (size) {
+      *buffer = 0;
+    }
+    return 0;
+  }
+
+  return Q_scnprintf(buffer, size, "%.f", speed);
 }
 
-//
-// q2jump draw_dynamic
-//
-static color_t CL_Ups_dc(void)
-{
-    vec3_t vel;
+static color_t CL_Ups_dc(void);
+
+static color_t CL_Ups_dc(void) {
     static float prev_speed;
     float new_speed;
+  vec3_t vel;
     color_t out_clr;
     
     out_clr.u32 = U32_WHITE;
     
-    if (!cls.demo.playback && cl_predict->integer &&
-        !(cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
+  if (cl.frame.clientNum == CLIENTNUM_NONE) {
+    return out_clr;
+  }
+
+  if (!cls.demo.playback && cl.frame.clientNum == cl.clientNum &&
+      cl_predict->integer) {
         VectorCopy(cl.predicted_velocity, vel);
     } else {
         VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
@@ -2261,13 +2278,75 @@ static color_t CL_Ups_dc(void)
     return out_clr;
 }
 
-static size_t CL_Timer_m(char *buffer, size_t size)
-{
+static size_t CL_Rups_m(char *buffer, size_t size) {
+  vec3_t vel;
+  float speed;
+
+  if (!cls.demo.playback && cl_predict->integer &&
+      !(cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
+    VectorCopy(cl.predicted_velocity, vel);
+  } else {
+    VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
+  }
+
+  speed = VectorLength(vel);
+
+  // don't print anything if not moving as spectator.
+  if (cl.frame.ps.pmove.pm_type != PM_NORMAL && speed == 0) {
+    if (size) {
+      *buffer = 0;
+    }
+    return 0;
+  }
+
+  return Q_scnprintf(buffer, size, "%.f", speed);
+}
+
+//static color_t CL_Rups_dc(void);
+
+static color_t CL_Rups_dc(void) {
+  static float prev_speed;
+  float new_speed;
+  vec3_t vel;
+  color_t out_clr;
+
+  out_clr.u32 = U32_WHITE;
+
+  if (cl.frame.clientNum == CLIENTNUM_NONE) {
+    return out_clr;
+  }
+
+  if (!cls.demo.playback && cl.frame.clientNum == cl.clientNum &&
+      cl_predict->integer) {
+    VectorCopy(cl.predicted_velocity, vel);
+  } else {
+    VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
+  }
+
+  // Compare speeds
+  new_speed = VectorLength(vel);
+#define EPSILON 0.01f
+  if (new_speed > prev_speed + EPSILON) {
+    out_clr.u32 = U32_GREEN; // Speeding up
+  } else if (new_speed < prev_speed - EPSILON) {
+    out_clr.u32 = U32_RED; // Slowing down
+  } else {
+    out_clr.u32 = U32_WHITE; // Neutral or constant speed
+  }
+
+  prev_speed = new_speed;
+
+  return out_clr;
+}
+
+static size_t CL_Timer_m(char *buffer, size_t size) {
     int hour, min, sec;
 
     sec = cl.time / 1000;
-    min = sec / 60; sec %= 60;
-    hour = min / 60; min %= 60;
+  min = sec / 60;
+  sec %= 60;
+  hour = min / 60;
+  min %= 60;
 
     if (hour) {
         return Q_snprintf(buffer, size, "%i:%i:%02i", hour, min, sec);
@@ -2275,8 +2354,7 @@ static size_t CL_Timer_m(char *buffer, size_t size)
     return Q_snprintf(buffer, size, "%i:%02i", min, sec);
 }
 
-static size_t CL_DemoPos_m(char *buffer, size_t size)
-{
+static size_t CL_DemoPos_m(char *buffer, size_t size) {
     int sec, min, framenum;
 
     if (cls.demo.playback)
@@ -2284,39 +2362,59 @@ static size_t CL_DemoPos_m(char *buffer, size_t size)
     else if (!MVD_GetDemoStatus(NULL, NULL, &framenum))
         framenum = 0;
 
-    sec = framenum / BASE_FRAMERATE; framenum %= BASE_FRAMERATE;
-    min = sec / 60; sec %= 60;
+  sec = framenum / 10;
+  framenum %= 10;
+  min = sec / 60;
+  sec %= 60;
 
     return Q_snprintf(buffer, size, "%d:%02d.%d", min, sec, framenum);
 }
 
-static size_t CL_Fps_m(char *buffer, size_t size)
-{
+static size_t CL_Mfps_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", C_FPS);
 }
 
-static size_t R_Fps_m(char *buffer, size_t size)
-{
-    return Q_snprintf(buffer, size, "%i", R_FPS);
+static size_t R_Fps_m(char *buffer, size_t size) {
+  if (ref_msec == 0) {
+    if (size) {
+      *buffer = 0;
+    }
+
+    return 0;
+  }
+
+  return Q_scnprintf(buffer, size, "%.1f", 1000 / (float)ref_msec);
 }
 
-static size_t CL_Mps_m(char *buffer, size_t size)
-{
-    return Q_snprintf(buffer, size, "%i", C_MPS);
+static size_t R_Mfps_m(char *buffer, size_t size) {
+  return Q_scnprintf(buffer, size, "%i", R_FPS);
 }
 
-static size_t CL_Pps_m(char *buffer, size_t size)
-{
+static size_t CL_Mps_m(char *buffer, size_t size) {
+  if (phys_msec == 0) {
+    if (size) {
+      *buffer = 0;
+    }
+
+    return 0;
+}
+
+  return Q_scnprintf(buffer, size, "%.1f", 1000 / (float)phys_msec);
+}
+
+static size_t CL_Mmps_m(char *buffer, size_t size) {
+  return Q_scnprintf(buffer, size, "%i", C_MPS);
+}
+
+static size_t CL_Pps_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", C_PPS);
 }
 
-static size_t CL_Ping_m(char *buffer, size_t size)
-{
+static size_t CL_Ping_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cls.measure.ping);
 }
 
-static size_t CL_Lag_m(char *buffer, size_t size)
-{
+static size_t CL_Lag_m(char *buffer, size_t size) {
     float f = 0.0f;
 
     if (cls.netchan.total_received)
@@ -2325,48 +2423,33 @@ static size_t CL_Lag_m(char *buffer, size_t size)
     return Q_snprintf(buffer, size, "%.2f%%", f * 100.0f);
 }
 
-static size_t CL_Health_m(char *buffer, size_t size)
-{
+static size_t CL_Health_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cl.frame.ps.stats[STAT_HEALTH]);
 }
 
-static size_t CL_Ammo_m(char *buffer, size_t size)
-{
+static size_t CL_Ammo_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cl.frame.ps.stats[STAT_AMMO]);
 }
 
-static size_t CL_Armor_m(char *buffer, size_t size)
-{
+static size_t CL_Armor_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cl.frame.ps.stats[STAT_ARMOR]);
 }
 
-static size_t CL_WeaponModel_m(char *buffer, size_t size)
-{
+static size_t CL_WeaponModel_m(char *buffer, size_t size) {
     int i = cl.csr.models + (cl.frame.ps.gunindex & GUNINDEX_MASK);
     return Q_strlcpy(buffer, cl.configstrings[i], size);
 }
 
-static size_t CL_NumEntities_m(char *buffer, size_t size)
-{
+static size_t CL_NumEntities_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cl.frame.numEntities);
 }
 
-static size_t CL_Surface_m(char *buffer, size_t size)
-{
-    trace_t trace;
-    vec3_t end;
 
-    if (cls.state != ca_active)
-        return Q_strlcpy(buffer, "", size);
-
-    VectorMA(cl.refdef.vieworg, 8192, cl.v_forward, end);
-    CL_Trace(&trace, cl.refdef.vieworg, end, vec3_origin, vec3_origin, MASK_SOLID | MASK_WATER);
-    return Q_strlcpy(buffer, trace.surface->name, size);
-}
 static size_t CL_PlayerPosZ_m(char *buffer, size_t size) {
     return Q_scnprintf(buffer, size, "%.0f",
                        SHORT2COORD(cl.frame.ps.pmove.origin[2]));
 }
+
 /*
 ===============
 CL_WriteConfig
@@ -3028,13 +3111,15 @@ static void CL_InitLocal(void)
     //
     Cmd_AddMacro("cl_mapname", CL_Mapname_m);
     Cmd_AddMacro("cl_server", CL_Server_m);
+    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
+    Cmd_AddMacroDynamic("cl_rups", CL_Rups_m, CL_Rups_dc); // real units per second (takes into account Z-axis)
     Cmd_AddMacro("cl_timer", CL_Timer_m);
     Cmd_AddMacro("cl_demopos", CL_DemoPos_m);
-    Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m, NULL);
-    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
-    Cmd_AddMacro("cl_fps", CL_Fps_m);
+    Cmd_AddMacro("cl_mfps", CL_Mfps_m); // measured frames per second
     Cmd_AddMacro("r_fps", R_Fps_m);
+    Cmd_AddMacro("r_mfps", R_Mfps_m); // measured rendered frames per second
     Cmd_AddMacro("cl_mps", CL_Mps_m);   // moves per second
+    Cmd_AddMacro("cl_mmps", CL_Mmps_m); // measured moves per second
     Cmd_AddMacro("cl_pps", CL_Pps_m);   // packets per second
     Cmd_AddMacro("cl_ping", CL_Ping_m);
     Cmd_AddMacro("cl_lag", CL_Lag_m);
@@ -3043,16 +3128,14 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_armor", CL_Armor_m);
     Cmd_AddMacro("cl_weaponmodel", CL_WeaponModel_m);
     Cmd_AddMacro("cl_numentities", CL_NumEntities_m);
-    Cmd_AddMacro("cl_surface", CL_Surface_m);
-
+    Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m);
 
     //
     // q2jump strafe_helper
     //
     cl_drawStrafeHelper = Cvar_Get("cl_drawstrafehelper", "0", CVAR_ARCHIVE);
     cl_strafeHelperCenter = Cvar_Get("cl_strafehelpercenter", "1", CVAR_ARCHIVE);
-    cl_strafeHelperCenterMarker =
-        Cvar_Get("cl_strafehelpercentermarker", "1", CVAR_ARCHIVE);
+    cl_strafeHelperCenterMarker = Cvar_Get("cl_strafehelpercentermarker", "1", CVAR_ARCHIVE);
     cl_strafeHelperHeight = Cvar_Get("cl_strafehelperheight", "25", CVAR_ARCHIVE);
     cl_strafeHelperScale = Cvar_Get("cl_strafehelperscale", "1.5", CVAR_ARCHIVE);
     cl_strafeHelperY = Cvar_Get("cl_strafehelpery", "100", CVAR_ARCHIVE);

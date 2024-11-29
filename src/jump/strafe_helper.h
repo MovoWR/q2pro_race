@@ -2,11 +2,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "inc/shared/shared.h"
-#include <math.h>
 
+#include <math.h>
+#define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 #define DEG_TO_RAD(deg) ((deg) * ((float)M_PI / 180.0f))
-#define OPTIMAL_ANGLE_TOLERANCE DEG_TO_RAD(cl_strafehelper_tolerance->value) // Angle tolerance in degrees
+#define OPTIMAL_ANGLE_TOLERANCE DEG_TO_RAD(CLAMP(cl_strafehelper_tolerance->value, 0.0f, 10.0f))
+
+
 
 
 
