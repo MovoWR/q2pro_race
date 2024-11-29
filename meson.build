@@ -76,7 +76,8 @@ ui_src = [
   'src/client/ui/script.c',
   'src/client/ui/servers.c',
   'src/client/ui/ui.c',
-  'src/jump/strafe_helper/strafe_helper.c',
+  'src/jump/strafe_helper.c',
+  'src/jump/strafe_helper_customization.c',
 ]
 
 refresh_src = [

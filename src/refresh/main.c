@@ -93,7 +93,9 @@ cvar_t *gl_vertexlight;
 cvar_t *gl_lightgrid;
 cvar_t *gl_polyblend;
 cvar_t *gl_showerrors;
-
+cvar_t *cl_drawworldorigin; //q2jump-pro
+cvar_t *cl_worldorigin_size; //q2jump-pro
+cvar_t *cl_worldorigin_linewidth; //q2jump-pro
 // ==============================================================================
 
 static void GL_SetupFrustum(void)
@@ -373,6 +375,62 @@ static void GL_DrawSpriteModel(const model_t *model)
     qglDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     GL_UnlockArrays();
 }
+//
+// q2jump-pro
+// not fully working yet TODO
+static void GL_DrawWorldOrigin(void)
+{
+    if (!cl_drawworldorigin->integer || !cl_worldorigin_size->integer) {
+        return;
+    }
+
+    const int origin_size = cl_worldorigin_size->integer;
+
+    // points for the axes
+    vec3_t points[6] = {
+        {-1 * origin_size, 0, 0},
+        { 1 * origin_size, 0, 0},
+        { 0, -1 * origin_size, 0},
+        { 0,  1 * origin_size, 0},
+        { 0, 0, -1 * origin_size},
+        { 0, 0,  1 * origin_size}
+    };
+
+    // Clear the tessellation buffer
+    memset(tess.vertices, 0, sizeof(tess.vertices));
+
+    for (int i = 0; i < 6; i++) {
+        VectorCopy(points[i], tess.vertices + i * 4); // Copy vertex position
+    }
+    // Set up rendering state
+    GL_LoadMatrix(glr.viewmatrix);
+    GL_LoadUniforms();
+    GL_BindTexture(TMU_TEXTURE, TEXNUM_WHITE);
+    GL_BindArrays(VA_NULLMODEL);
+
+    // Make the lines always visible and transparent
+    GL_StateBits(GLS_DEPTHTEST_DISABLE | GL_BLEND);
+    GL_ArrayBits(GLA_VERTEX);
+
+
+
+    // Fetch and clamp line width
+    float line_width = cl_worldorigin_linewidth->value;
+    if (line_width < 1.0f) line_width = 1.0f;
+    if (line_width > 10.0f) line_width = 10.0f;
+
+    // Set line width for better visibility
+    glLineWidth(line_width);
+
+    // Draw the axes
+    GL_LockArrays(6);
+    qglDrawArrays(GL_LINES, 0, 6);
+    GL_UnlockArrays();
+
+    glLineWidth(1.0f); // Restore default line width
+    GL_StateBits(GLS_DEFAULT);
+}
+
 
 static void GL_DrawNullModel(void)
 {
@@ -797,7 +855,7 @@ void R_RenderFrame(const refdef_t *fd)
         qglBindFramebuffer(GL_FRAMEBUFFER, 0);
         glr.framebuffer_bound = false;
     }
-
+    GL_DrawWorldOrigin();
     // go back into 2D mode
     GL_Setup2D();
 
@@ -1019,15 +1077,17 @@ static void GL_Register(void)
     gl_novis = Cvar_Get("gl_novis", "0", 0);
     gl_novis->changed = gl_novis_changed;
     gl_lockpvs = Cvar_Get("gl_lockpvs", "0", CVAR_CHEAT);
-    gl_lightmap = Cvar_Get("gl_lightmap", "0", CVAR_CHEAT);
-    gl_fullbright = Cvar_Get("r_fullbright", "0", CVAR_CHEAT);
+    gl_lightmap = Cvar_Get("gl_lightmap", "0", 0);// q2jump
+    gl_fullbright = Cvar_Get("r_fullbright", "0", 0); // q2jump
     gl_fullbright->changed = gl_lightmap_changed;
     gl_vertexlight = Cvar_Get("gl_vertexlight", "0", 0);
     gl_vertexlight->changed = gl_lightmap_changed;
     gl_lightgrid = Cvar_Get("gl_lightgrid", "1", 0);
     gl_polyblend = Cvar_Get("gl_polyblend", "1", 0);
     gl_showerrors = Cvar_Get("gl_showerrors", "1", 0);
-
+    cl_drawworldorigin = Cvar_Get("cl_drawworldorigin", "0", 0);//q2jump-pro
+    cl_worldorigin_size = Cvar_Get("cl_worldorigin_size", "4096", 0);   //q2jump-pro
+    cl_worldorigin_linewidth = Cvar_Get("cl_worldorigin_linewidth", "1", 0);//q2jump-pro
     gl_lightmap_changed(NULL);
     gl_modulate_entities_changed(NULL);
     gl_swapinterval_changed(gl_swapinterval);

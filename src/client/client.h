@@ -607,6 +607,17 @@ extern cvar_t    *cl_strafeHelperCenterMarker;
 extern cvar_t    *cl_strafeHelperHeight;
 extern cvar_t    *cl_strafeHelperScale;
 extern cvar_t    *cl_strafeHelperY;
+extern cvar_t    *cl_strafehelper_color_accelerating;
+extern cvar_t    *cl_strafehelper_color_optimal;
+extern cvar_t    *cl_strafehelper_color_centermarker;
+extern cvar_t    *cl_race_color;
+extern cvar_t    *cl_race_width;
+extern cvar_t    *cl_race_life;
+extern cvar_t    *cl_strafehelper_color_highlight;
+extern cvar_t 	 *cl_strafehelper_tolerance;
+
+
+
 
 
 //=============================================================================

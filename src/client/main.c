@@ -18,6 +18,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // cl_main.c  -- client main loop
 
 #include "client.h"
+#include "src/jump/strafe_helper_customization.h"
+#include "src/jump/strafe_helper.h"
+
+
+
+
 
 cvar_t  *rcon_address;
 
@@ -109,6 +115,20 @@ cvar_t *cl_strafeHelperCenterMarker;
 cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
+cvar_t *cl_strafehelper_color_accelerating;
+cvar_t *cl_strafehelper_color_optimal;
+cvar_t *cl_strafehelper_color_centermarker;
+cvar_t *cl_race_color;
+cvar_t *cl_race_life;
+cvar_t *cl_race_width;
+cvar_t *cl_race_alpha;
+cvar_t *cl_strafehelper_color_highlight;
+cvar_t *cl_strafehelper_tolerance;
+
+
+
+
+
 
 client_static_t cls;
 client_state_t  cl;
@@ -2343,7 +2363,10 @@ static size_t CL_Surface_m(char *buffer, size_t size)
     CL_Trace(&trace, cl.refdef.vieworg, end, vec3_origin, vec3_origin, MASK_SOLID | MASK_WATER);
     return Q_strlcpy(buffer, trace.surface->name, size);
 }
-
+static size_t CL_PlayerPosZ_m(char *buffer, size_t size) {
+    return Q_scnprintf(buffer, size, "%.0f",
+                       SHORT2COORD(cl.frame.ps.pmove.origin[2]));
+}
 /*
 ===============
 CL_WriteConfig
@@ -3007,6 +3030,7 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_server", CL_Server_m);
     Cmd_AddMacro("cl_timer", CL_Timer_m);
     Cmd_AddMacro("cl_demopos", CL_DemoPos_m);
+    Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m, NULL);
     Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
     Cmd_AddMacro("cl_fps", CL_Fps_m);
     Cmd_AddMacro("r_fps", R_Fps_m);
@@ -3032,6 +3056,27 @@ static void CL_InitLocal(void)
     cl_strafeHelperHeight = Cvar_Get("cl_strafehelperheight", "25", CVAR_ARCHIVE);
     cl_strafeHelperScale = Cvar_Get("cl_strafehelperscale", "1.5", CVAR_ARCHIVE);
     cl_strafeHelperY = Cvar_Get("cl_strafehelpery", "100", CVAR_ARCHIVE);
+    //
+    // q2jump strafe_helper #2
+    //
+    cl_strafehelper_color_accelerating = Cvar_Get("cl_strafehelper_color_accelerating", "0 128 32 96", CVAR_ARCHIVE);
+    cl_strafehelper_color_optimal = Cvar_Get("cl_strafehelper_color_optimal", "0 255 64 192", CVAR_ARCHIVE);
+    cl_strafehelper_color_centermarker = Cvar_Get("cl_strafehelper_color_centermarker", "255 255 255 192", CVAR_ARCHIVE);
+    cl_strafehelper_color_highlight = Cvar_Get("cl_strafehelper_color_highlight", "255 255 255 255", CVAR_ARCHIVE);
+    cl_strafehelper_tolerance = Cvar_Get("cl_strafehelper_tolerance", "0.15", CVAR_ARCHIVE);
+	//
+    //	q2jump raceline
+    //
+    cl_race_width = Cvar_Get("cl_race_width", "4", CVAR_ARCHIVE); // Default to width of 4
+    cl_race_color = Cvar_Get("cl_race_color", "green", CVAR_ARCHIVE); // Default to red color
+    cl_race_alpha = Cvar_Get("cl_race_alpha", "0.5", CVAR_ARCHIVE); // Register new cvar for alpha intensity
+    cl_race_life = Cvar_Get("cl_race_life", "200", CVAR_ARCHIVE); // Default lifetime of 100
+
+
+
+
+
+
 }
 
 static const cmdreg_t c_ignores[] = {

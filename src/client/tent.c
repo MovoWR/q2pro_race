@@ -629,12 +629,27 @@ static laser_t *CL_AllocLaser(void)
     return NULL;
 }
 
+
+// q2jump - adding capped cvars
+float Cvar_GetCappedValue(cvar_t *cvar, float min, float max);
+float Cvar_GetCappedValue(cvar_t *cvar, float min, float max) {
+    float value = cvar->value;
+    if (value < min) {
+        return min;
+    } else if (value > max) {
+        return max;
+    }
+    return value;
+}
+
 static void CL_AddLasers(void)
 {
     laser_t     *l;
     entity_t    ent;
     int         i;
     int         time;
+	extern cvar_t* cl_race_alpha;
+    float alphaValue = Cvar_GetCappedValue(cl_race_alpha, 0.0f, 1.0f);
 
     memset(&ent, 0, sizeof(ent));
 
@@ -643,12 +658,22 @@ static void CL_AddLasers(void)
         if (time <= 0) {
             continue;
         }
+        float alpha = cl_race_alpha->value;
+        if (alpha <= 0.0f) {
+            // Laser is invisible
+            continue;
+        } else if (alpha > 1.0f) {
+            // Clamp alpha to maximum value of 1.0
+            alpha = 1.0f;
+        }
 
         if (l->color == -1) {
-            ent.rgba = l->rgba;
-            ent.alpha = (float)time / (float)l->lifetime;
+            // Normal alpha calculation based on remaining lifetime
+            ent.alpha = alpha * ((float)time / (float)l->lifetime);
+            ent.rgba = l->rgba;  // Use predefined RGBA
         } else {
-            ent.alpha = 0.30f;
+            // Set alpha value directly
+            ent.alpha = alpha;
         }
 
         ent.skinnum = l->color;
@@ -660,7 +685,7 @@ static void CL_AddLasers(void)
         V_AddEntity(&ent);
     }
 }
-
+/////q2jump raceline
 static void CL_ParseLaser(unsigned colors)
 {
     laser_t *l;
@@ -671,11 +696,26 @@ static void CL_ParseLaser(unsigned colors)
 
     VectorCopy(te.pos1, l->start);
     VectorCopy(te.pos2, l->end);
-    l->lifetime = 100;
-    l->color = (colors >> ((Q_rand() % 4) * 8)) & 0xff;
-    l->width = 4;
-}
+	l->lifetime = Cvar_GetCappedValue(cl_race_life , 0.0f, 5000.0f); // lifetime of raceline - 0-5000
+	l->width = Cvar_GetCappedValue(cl_race_width, 0.0f, 20.0f);			// width of raceline - 0-20
 
+    // Use the color from the cvar cl_race_color
+    const char *color = cl_race_color->string;
+    if (strcmp(color, "red") == 0) {
+        l->color = 0xf2f2f0f0; // RED
+    } else if (strcmp(color, "green") == 0) {
+        l->color = 0xd0d1d2d3; // GREEN
+    } else if (strcmp(color, "blue") == 0) {
+        l->color = 0xf3f3f1f1; // BLUE
+    } else if (strcmp(color, "yellow") == 0) {
+        l->color = 0xdcdddedf; // YELLOW
+    } else if (strcmp(color, "orange") == 0) {
+        l->color = 0xe0e1e2e3; // ORANGE
+    } else {
+        // Default to red if the color is not recognized
+        l->color = 0xf2f2f0f0;
+}
+}
 /*
 ==============================================================
 
@@ -1670,4 +1710,5 @@ void CL_InitTEnts(void)
     cl_railspiral_color->generator = Com_Color_g;
     cl_railspiral_color_changed(cl_railspiral_color);
     cl_railspiral_radius = Cvar_Get("cl_railspiral_radius", "3", 0);
+    cl_race_color = Cvar_Get("cl_race_color", "red", 0); ///q2jump
 }
