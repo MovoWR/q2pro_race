@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "src/refresh/gl.h"
-#include <string.h>
+
 
 uint32_t ParseColorCvar(cvar_t *cvar)
 {
@@ -41,11 +41,5 @@ void shc_drawFilledRectangle(const float x, const float y,
 	const uint32_t color = getColorForElement(element_id);
 	R_DrawFill32(roundf(x), roundf(y), roundf(w), roundf(h), color);
 }
-
-void shc_drawString(float x, float y, const char *string, float scale, enum shc_ElementId element_id)
- {
- 	const uint32_t color = getColorForElement(element_id);
- 	R_DrawString(x, y, 0, -1, string, color);
- }
-
+//
 

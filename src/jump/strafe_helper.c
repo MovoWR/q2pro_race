@@ -55,14 +55,7 @@ static float angle_maximum;
 
 
 
-
-// @param forward		The forward direction vector.
-// @param velocity		The player's current velocity vector.
-// @param wishdir		The desired movement direction.
-// @param wishspeed		The desired speed.
-// @param accel			The acceleration factor.
-// @param frametime		The frame duration in seconds.
-
+// Strafe Calculations
 void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float velocity[3],
                                         const float wishdir[3],
@@ -116,6 +109,7 @@ static float angleToPixel(const float angle, const float scale,
 
 
 
+// Rendering Functions
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
                        const float hud_width, const float hud_height) {
 	float angle_x, angle_width;
@@ -160,10 +154,17 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 	bool isOptimal = fabsf(angle_current - angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
 		if (isOptimal) {
 			shc_drawFilledRectangle(
-				angleToPixel(angle_current + offset, params->scale, hud_width) - 2.0f,				//x
-				upper_y + params->height + 20.0f,													//y
-				2.0f,																				//w
-				params->height / 2.0f,																//h
-				shc_ElementId_HighlightOptimal);}
-
+            angleToPixel(angle_current + offset, params->scale, hud_width) - 2.0f, //x
+            upper_y + params->height + 20.0f, //y
+            4.0f, //w
+            params->height / 2.0f, //h
+            shc_ElementId_HighlightOptimal);
+    }
 }
+
+
+
+
+
+
+

@@ -377,49 +377,56 @@ static void GL_DrawSpriteModel(const model_t *model)
 }
 //
 // q2jump-pro
-// not fully working yet TODO
+//
 static void GL_DrawWorldOrigin(void)
 {
     if (!cl_drawworldorigin->integer || !cl_worldorigin_size->integer) {
         return;
     }
 
-    const int origin_size = cl_worldorigin_size->integer;
+    const float origin_size = cl_worldorigin_size->value;
+    if (origin_size <= 0.0f) {
+        return;
+    }
 
-    // points for the axes
+    // Define the points for the axes
     vec3_t points[6] = {
-        {-1 * origin_size, 0, 0},
-        { 1 * origin_size, 0, 0},
-        { 0, -1 * origin_size, 0},
-        { 0,  1 * origin_size, 0},
-        { 0, 0, -1 * origin_size},
-        { 0, 0,  1 * origin_size}
+        {-origin_size, 0, 0},  // X-axis start
+        { origin_size, 0, 0},  // X-axis end
+        {0, -origin_size, 0},  // Y-axis start
+        {0,  origin_size, 0},  // Y-axis end
+        {0, 0, -origin_size},  // Z-axis start
+        {0, 0,  origin_size}   // Z-axis end
     };
 
-    // Clear the tessellation buffer
+    // Clear tessellation buffer
     memset(tess.vertices, 0, sizeof(tess.vertices));
 
+    // Copy vertex positions
     for (int i = 0; i < 6; i++) {
-        VectorCopy(points[i], tess.vertices + i * 4); // Copy vertex position
+        VectorCopy(points[i], tess.vertices + i * 4);
     }
+
+    // Assign colors for the axes
+    WN32(tess.vertices +  3, U32_RED);   // X-axis start
+    WN32(tess.vertices +  7, U32_RED);   // X-axis end
+    WN32(tess.vertices + 11, U32_GREEN); // Y-axis start
+    WN32(tess.vertices + 15, U32_GREEN); // Y-axis end
+    WN32(tess.vertices + 19, U32_BLUE);  // Z-axis start
+    WN32(tess.vertices + 23, U32_BLUE);  // Z-axis end
+
     // Set up rendering state
     GL_LoadMatrix(glr.viewmatrix);
     GL_LoadUniforms();
     GL_BindTexture(TMU_TEXTURE, TEXNUM_WHITE);
     GL_BindArrays(VA_NULLMODEL);
+    GL_StateBits(GLS_DEPTHTEST_DISABLE); // Ensure visibility through walls
+    GL_ArrayBits(GLA_VERTEX | GLA_COLOR);
 
-    // Make the lines always visible and transparent
-    GL_StateBits(GLS_DEPTHTEST_DISABLE | GL_BLEND);
-    GL_ArrayBits(GLA_VERTEX);
-
-
-
-    // Fetch and clamp line width
+    // Set line width for visibility
     float line_width = cl_worldorigin_linewidth->value;
     if (line_width < 1.0f) line_width = 1.0f;
     if (line_width > 10.0f) line_width = 10.0f;
-
-    // Set line width for better visibility
     glLineWidth(line_width);
 
     // Draw the axes
@@ -427,7 +434,8 @@ static void GL_DrawWorldOrigin(void)
     qglDrawArrays(GL_LINES, 0, 6);
     GL_UnlockArrays();
 
-    glLineWidth(1.0f); // Restore default line width
+    // Restore default states
+    glLineWidth(1.0f);
     GL_StateBits(GLS_DEFAULT);
 }
 
