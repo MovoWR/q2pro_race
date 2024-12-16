@@ -310,15 +310,15 @@ Handles user intended acceleration
 */
 static void PM_Accelerate(const vec3_t wishdir, float wishspeed, float accel)
 {
-//
+    int         i;
+    float       addspeed, accelspeed, currentspeed;
+
 // q2jump strafe_helper
-//
 #if USE_CLIENT
     StrafeHelper_SetAccelerationValues(pml.forward, pml.velocity, wishdir,
                                        wishspeed, accel, pml.frametime);
 #endif
-    int         i;
-    float       addspeed, accelspeed, currentspeed;
+
 
     currentspeed = DotProduct(pml.velocity, wishdir);
     addspeed = wishspeed - currentspeed;

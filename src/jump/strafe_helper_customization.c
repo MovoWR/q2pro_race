@@ -27,8 +27,8 @@ uint32_t getColorForElement(const enum shc_ElementId element_id)
 			return ParseColorCvar(cl_strafehelper_color_optimal);
 		case shc_ElementId_CenterMarker:
 			return ParseColorCvar(cl_strafehelper_color_centermarker);
-       	case shc_ElementId_HighlightOptimal:
-       		return ParseColorCvar(cl_strafehelper_color_highlight);
+       	case shc_ElementId_Indicator:
+       		return ParseColorCvar(cl_strafehelper_color_indicator);
 		default:
 			assert(0);
 			return MakeColor(255, 255, 255, 255);

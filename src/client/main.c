@@ -106,24 +106,33 @@ extern cvar_t *gl_modulate_entities;
 extern cvar_t *gl_brightness;
 #endif
 
-//
+
 // q2jump strafe_helper
-//
 cvar_t *cl_drawStrafeHelper;
+cvar_t *cl_strafehelperIndicator;
 cvar_t *cl_strafeHelperCenter;
 cvar_t *cl_strafeHelperCenterMarker;
+cvar_t *cl_strafehelper_tolerance;
 cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
+// width
+cvar_t *cl_strafehelper_center_width;
+cvar_t *cl_strafehelper_optimal_width;
+//indicator
+cvar_t *cl_strafehelper_indicator_pos;
+cvar_t *cl_strafehelper_indicator_size;
+// color settings
 cvar_t *cl_strafehelper_color_accelerating;
 cvar_t *cl_strafehelper_color_optimal;
 cvar_t *cl_strafehelper_color_centermarker;
+cvar_t *cl_strafehelper_color_indicator;
+// race line
 cvar_t *cl_race_color;
 cvar_t *cl_race_life;
 cvar_t *cl_race_width;
 cvar_t *cl_race_alpha;
-cvar_t *cl_strafehelper_color_highlight;
-cvar_t *cl_strafehelper_tolerance;
+
 
 
 
@@ -3023,7 +3032,7 @@ static void CL_InitLocal(void)
     //
     // register our variables
     //
-    cl_gun = Cvar_Get("cl_gun", "1", 0);
+    cl_gun = Cvar_Get("cl_gun", "0", 0);
     cl_gun->changed = cl_gun_changed;
     cl_gunalpha = Cvar_Get("cl_gunalpha", "1", 0);
     cl_gunfov = Cvar_Get("cl_gunfov", "90", 0);
@@ -3037,12 +3046,12 @@ static void CL_InitLocal(void)
     cl_predict = Cvar_Get("cl_predict", "1", 0);
     cl_predict->changed = cl_predict_changed;
     cl_kickangles = Cvar_Get("cl_kickangles", "1", CVAR_CHEAT);
-    cl_warn_on_fps_rounding = Cvar_Get("cl_warn_on_fps_rounding", "1", 0);
-    cl_maxfps = Cvar_Get("cl_maxfps", "62", 0);
+    cl_warn_on_fps_rounding = Cvar_Get("cl_warn_on_fps_rounding", "0", 0);
+    cl_maxfps = Cvar_Get("cl_maxfps", "120", 0);
     cl_maxfps->changed = cl_sync_changed;
     cl_async = Cvar_Get("cl_async", "1", 0);
     cl_async->changed = cl_sync_changed;
-    r_maxfps = Cvar_Get("r_maxfps", "0", 0);
+    r_maxfps = Cvar_Get("r_maxfps", "120", 0);
     r_maxfps->changed = cl_sync_changed;
     cl_autopause = Cvar_Get("cl_autopause", "1", 0);
     cl_rollhack = Cvar_Get("cl_rollhack", "1", 0);
@@ -3123,7 +3132,7 @@ static void CL_InitLocal(void)
     info_hand->changed = info_hand_changed;
     info_fov = Cvar_Get("fov", "90", CVAR_USERINFO | CVAR_ARCHIVE);
     info_gender = Cvar_Get("gender", "male", CVAR_USERINFO | CVAR_ARCHIVE);
-    info_gender->modified = false; // clear this so we know when user sets it manually
+    info_gender->modified = false;
     info_uf = Cvar_Get("uf", "", CVAR_USERINFO);
 
 
@@ -3132,15 +3141,8 @@ static void CL_InitLocal(void)
     //
     Cmd_AddMacro("cl_mapname", CL_Mapname_m);
     Cmd_AddMacro("cl_server", CL_Server_m);
-    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
-    Cmd_AddMacroDynamic("cl_rups", CL_Rups_m, CL_Rups_dc); // real units per second (takes into account Z-axis)
     Cmd_AddMacro("cl_timer", CL_Timer_m);
     Cmd_AddMacro("cl_demopos", CL_DemoPos_m);
-    Cmd_AddMacro("cl_mfps", CL_Mfps_m); // measured frames per second
-    Cmd_AddMacro("r_fps", R_Fps_m);
-    Cmd_AddMacro("r_mfps", R_Mfps_m); // measured rendered frames per second
-    Cmd_AddMacro("cl_mps", CL_Mps_m);   // moves per second
-    Cmd_AddMacro("cl_mmps", CL_Mmps_m); // measured moves per second
     Cmd_AddMacro("cl_pps", CL_Pps_m);   // packets per second
     Cmd_AddMacro("cl_ping", CL_Ping_m);
     Cmd_AddMacro("cl_lag", CL_Lag_m);
@@ -3150,41 +3152,43 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_weaponmodel", CL_WeaponModel_m);
     Cmd_AddMacro("cl_numentities", CL_NumEntities_m);
     Cmd_AddMacro("cl_surface", CL_Surface_m);
+    Cmd_AddMacro("r_mfps", R_Mfps_m); // measured rendered frames per second
+    Cmd_AddMacro("r_fps", R_Fps_m);
+    Cmd_AddMacro("cl_mfps", CL_Mfps_m); // measured frames per second
+    Cmd_AddMacro("cl_mmps", CL_Mmps_m); // measured moves per second
+    Cmd_AddMacro("cl_mps", CL_Mps_m);   // moves per second
+    Cmd_AddMacroDynamic("cl_rups", CL_Rups_m, CL_Rups_dc); // real units per second (takes into account Z-axis)
+    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
     Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m);
     Cmd_AddMacro("cl_playerpos_y", CL_PlayerPosY_m);
     Cmd_AddMacro("cl_playerpos_x", CL_PlayerPosX_m);
 
 
-
-    //
     // q2jump strafe_helper
-    //
-    cl_drawStrafeHelper = Cvar_Get("cl_drawstrafehelper", "0", CVAR_ARCHIVE);
-    cl_strafeHelperCenter = Cvar_Get("cl_strafehelpercenter", "1", CVAR_ARCHIVE);
-    cl_strafeHelperCenterMarker = Cvar_Get("cl_strafehelpercentermarker", "1", CVAR_ARCHIVE);
-    cl_strafeHelperHeight = Cvar_Get("cl_strafehelperheight", "25", CVAR_ARCHIVE);
-    cl_strafeHelperScale = Cvar_Get("cl_strafehelperscale", "1.5", CVAR_ARCHIVE);
-    cl_strafeHelperY = Cvar_Get("cl_strafehelpery", "100", CVAR_ARCHIVE);
-    //
-    // q2jump strafe_helper #2
-    //
-    cl_strafehelper_color_accelerating = Cvar_Get("cl_strafehelper_color_accelerating", "0 128 32 96", CVAR_ARCHIVE);
-    cl_strafehelper_color_optimal = Cvar_Get("cl_strafehelper_color_optimal", "0 255 64 192", CVAR_ARCHIVE);
-    cl_strafehelper_color_centermarker = Cvar_Get("cl_strafehelper_color_centermarker", "255 255 255 192", CVAR_ARCHIVE);
-    cl_strafehelper_color_highlight = Cvar_Get("cl_strafehelper_color_highlight", "255 255 255 255", CVAR_ARCHIVE);
-    cl_strafehelper_tolerance = Cvar_Get("cl_strafehelper_tolerance", "0.15", CVAR_ARCHIVE);
-	//
-    //	q2jump raceline
-    //
-    cl_race_width = Cvar_Get("cl_race_width", "4", CVAR_ARCHIVE); // Default to width of 4
-    cl_race_color = Cvar_Get("cl_race_color", "green", CVAR_ARCHIVE); // Default to red color
-    cl_race_alpha = Cvar_Get("cl_race_alpha", "0.5", CVAR_ARCHIVE); // Register new cvar for alpha intensity
-    cl_race_life = Cvar_Get("cl_race_life", "200", CVAR_ARCHIVE); // Default lifetime of 100
-
-
-
-
-
+    cl_drawStrafeHelper = Cvar_Get("sh_draw", "0", CVAR_ARCHIVE);
+    cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
+    cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
+    cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
+    cl_strafehelper_tolerance = Cvar_Get("sh_tolerance", "0.20", CVAR_ARCHIVE);
+    cl_strafeHelperHeight = Cvar_Get("sh_height", "20", CVAR_ARCHIVE);
+    cl_strafeHelperScale = Cvar_Get("sh_scale", "1.5", CVAR_ARCHIVE);
+    cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
+    // width
+    cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
+    cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
+    //indicator
+    cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "635 350", CVAR_ARCHIVE);
+    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "2 6", CVAR_ARCHIVE);
+    // color settings
+    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 32 96", CVAR_ARCHIVE);
+    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 64 192", CVAR_ARCHIVE);
+    cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 192", CVAR_ARCHIVE);
+    cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
+    // race line
+    cl_race_width = Cvar_Get("race_width", "4", CVAR_ARCHIVE);
+    cl_race_color = Cvar_Get("race_color", "green", CVAR_ARCHIVE);
+    cl_race_alpha = Cvar_Get("race_alpha", "0.5", CVAR_ARCHIVE);
+    cl_race_life = Cvar_Get("race_life", "200", CVAR_ARCHIVE);
 
 }
 
