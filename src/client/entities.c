@@ -318,9 +318,10 @@ check_player_lerp(server_frame_t *oldframe, server_frame_t *frame, int framediv)
         goto dup;
 
     // no lerping if player entity was teleported (origin check)
-    if (abs(ops->pmove.origin[0] - ps->pmove.origin[0]) > 256 * 8 ||
-        abs(ops->pmove.origin[1] - ps->pmove.origin[1]) > 256 * 8 ||
-        abs(ops->pmove.origin[2] - ps->pmove.origin[2]) > 256 * 8) {
+#define MAX_SPEED           4096 // 4096 is the highest speed you can get
+    if (abs(ops->pmove.origin[0] - ps->pmove.origin[0]) > MAX_SPEED ||
+        abs(ops->pmove.origin[1] - ps->pmove.origin[1]) > MAX_SPEED ||
+        abs(ops->pmove.origin[2] - ps->pmove.origin[2]) > MAX_SPEED) {
         goto dup;
     }
 
@@ -338,10 +339,7 @@ check_player_lerp(server_frame_t *oldframe, server_frame_t *frame, int framediv)
     }
 
     // no lerping if teleport bit was flipped
-    if (!cl.csr.extended && (ops->pmove.pm_flags ^ ps->pmove.pm_flags) & PMF_TELEPORT_BIT)
-        goto dup;
-
-    if (cl.csr.extended && (ops->rdflags ^ ps->rdflags) & RDF_TELEPORT_BIT)
+    if ((ops->pmove.pm_flags ^ ps->pmove.pm_flags) & PMF_TELEPORT_BIT)
         goto dup;
 
     // no lerping if POV number changed
