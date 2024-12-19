@@ -17,7 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "gl.h"
-
+#include "src/jump/strafe_helper_customization.h"
 tesselator_t tess;
 
 #define FACE_HASH_SIZE  256
@@ -335,22 +335,23 @@ void GL_DrawBeams(void)
         VectorCopy(ent->origin, segs[0]);
         VectorCopy(ent->oldorigin, segs[1]);
 
-        if (ent->skinnum == -1)
-            color.u32 = ent->rgba.u32;
-        else
-            color.u32 = d_8to24table[ent->skinnum & 0xff];
+
+        color.u32 = ent->rgba.u32;
+
         color.u8[3] *= ent->alpha;
+
 
         width = abs((int16_t)ent->frame) * scale;
 
-        if (ent->flags & RF_GLOW)
+        if (ent->flags & RF_GLOW) {
             GL_DrawLightningBeam(segs[0], segs[1], color, width);
-        else if (gl_beamstyle->integer)
+        } else if (gl_beamstyle->integer) {
             GL_DrawPolyBeam(segs, 1, color, width);
-        else
+        } else {
             GL_DrawSimpleBeam(segs[0], segs[1], color, width);
-    }
+        }
 
+    }
     GL_FlushBeamSegments();
 }
 

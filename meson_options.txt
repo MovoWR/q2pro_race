@@ -30,7 +30,7 @@ option('client-ui',
 
 option('default-game',
   type: 'string',
-  value: '',
+  value: 'jump',
   description: 'Default value for "game" console variable')
 
 option('game-abi-hack',

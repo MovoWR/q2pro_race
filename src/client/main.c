@@ -107,7 +107,7 @@ extern cvar_t *gl_brightness;
 #endif
 
 
-// q2jump strafe_helper
+// q2pro_race strafe_helper
 cvar_t *cl_drawStrafeHelper;
 cvar_t *cl_strafehelperIndicator;
 cvar_t *cl_strafeHelperCenter;
@@ -2852,7 +2852,7 @@ static const cmdreg_t c_client[] = {
     { "weapnext" }, { "weapprev" },
     
     //
-    // q2jump completions
+    // q2pro_race completions
     //
     {"team"},
 
@@ -3077,7 +3077,7 @@ static void CL_InitLocal(void)
     rcon_address = Cvar_Get("rcon_address", "", CVAR_PRIVATE);
     rcon_address->generator = Com_Address_g;
 
-    cl_thirdperson = Cvar_Get("cl_thirdperson", "0", CVAR_CHEAT);
+    cl_thirdperson = Cvar_Get("cl_thirdperson", "0", 0); // q2pro_race
     cl_thirdperson_angle = Cvar_Get("cl_thirdperson_angle", "0", 0);
     cl_thirdperson_range = Cvar_Get("cl_thirdperson_range", "60", 0);
 
@@ -3158,13 +3158,13 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_mmps", CL_Mmps_m); // measured moves per second
     Cmd_AddMacro("cl_mps", CL_Mps_m);   // moves per second
     Cmd_AddMacroDynamic("cl_rups", CL_Rups_m, CL_Rups_dc); // real units per second (takes into account Z-axis)
-    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc); // q2jump draw_dynamic
+    Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc);// q2pro_race - draw_dynamic from q2pro_jump
     Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m);
     Cmd_AddMacro("cl_playerpos_y", CL_PlayerPosY_m);
     Cmd_AddMacro("cl_playerpos_x", CL_PlayerPosX_m);
 
 
-    // q2jump strafe_helper
+    // q2pro_race strafe_helper
     cl_drawStrafeHelper = Cvar_Get("sh_draw", "0", CVAR_ARCHIVE);
     cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
     cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
@@ -3186,7 +3186,7 @@ static void CL_InitLocal(void)
     cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
     // race line
     cl_race_width = Cvar_Get("race_width", "4", CVAR_ARCHIVE);
-    cl_race_color = Cvar_Get("race_color", "green", CVAR_ARCHIVE);
+    cl_race_color = Cvar_Get("race_color", "0 255 0", CVAR_ARCHIVE);
     cl_race_alpha = Cvar_Get("race_alpha", "0.5", CVAR_ARCHIVE);
     cl_race_life = Cvar_Get("race_life", "200", CVAR_ARCHIVE);
 

@@ -318,7 +318,7 @@ check_player_lerp(server_frame_t *oldframe, server_frame_t *frame, int framediv)
         goto dup;
 
     // no lerping if player entity was teleported (origin check)
-#define MAX_SPEED           4096 // 4096 is the highest speed you can get
+#define MAX_SPEED           4096 // q2pro_jump -4096 is the highest speed you can get
     if (abs(ops->pmove.origin[0] - ps->pmove.origin[0]) > MAX_SPEED ||
         abs(ops->pmove.origin[1] - ps->pmove.origin[1]) > MAX_SPEED ||
         abs(ops->pmove.origin[2] - ps->pmove.origin[2]) > MAX_SPEED) {
@@ -339,7 +339,10 @@ check_player_lerp(server_frame_t *oldframe, server_frame_t *frame, int framediv)
     }
 
     // no lerping if teleport bit was flipped
-    if ((ops->pmove.pm_flags ^ ps->pmove.pm_flags) & PMF_TELEPORT_BIT)
+    if (!cl.csr.extended && (ops->pmove.pm_flags ^ ps->pmove.pm_flags) & PMF_TELEPORT_BIT)
+        goto dup;
+
+    if (cl.csr.extended && (ops->rdflags ^ ps->rdflags) & RDF_TELEPORT_BIT)
         goto dup;
 
     // no lerping if POV number changed
@@ -1489,8 +1492,7 @@ CL_GetEntitySoundOrigin
 Called to get the sound spatialization origin
 ===============
 */
-void CL_GetEntitySoundOrigin(unsigned entnum, vec3_t org)
-{
+void CL_GetEntitySoundOrigin(unsigned entnum, vec3_t org) {
     const centity_t *ent;
     const mmodel_t  *mod;
     vec3_t          mid;
@@ -1509,12 +1511,14 @@ void CL_GetEntitySoundOrigin(unsigned entnum, vec3_t org)
     ent = &cl_entities[entnum];
     LerpVector(ent->prev.origin, ent->current.origin, cl.lerpfrac, org);
 
-    // offset the origin for BSP models
-    if (ent->current.solid == PACKED_BSP) {
-        mod = cl.model_clip[ent->current.modelindex];
-        if (mod) {
-            VectorAvg(mod->mins, mod->maxs, mid);
-            VectorAdd(org, mid, org);
+        // offset the origin for BSP models
+        if (ent->current.solid == PACKED_BSP) {
+            mod = cl.model_clip[ent->current.modelindex];
+            if (mod) {
+                VectorAvg(mod->mins, mod->maxs, mid);
+                VectorAdd(org, mid, org);
+            }
         }
     }
-}
+
+

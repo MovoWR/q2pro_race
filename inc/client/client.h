@@ -130,12 +130,13 @@ void SCR_UpdateScreen(void);
 #define UI_MULTILINE        BIT(9)
 #define UI_DRAWCURSOR       BIT(10)
 //
-// q2jump draw_dynamic
+// q2pro_race - draw_dynamic from q2pro_jump
 //
 #define UI_DYNAMICCOLOR     BIT(11)
 
 extern const uint32_t   colorTable[8];
-
+uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);
+bool shc_ParseColorCvar(const char *cvarValue, uint32_t *outUint32, color_t *outColor);
 bool SCR_ParseColor(const char *s, color_t *color);
 
 float V_CalcFov(float fov_x, float width, float height);

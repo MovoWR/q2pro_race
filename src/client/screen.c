@@ -265,7 +265,11 @@ bool SCR_ParseColor(const char *s, color_t *color)
         return true;
     }
 
-    // parse name or index
+    if (shc_ParseColorCvar(s, NULL, color)) {
+    }
+
+
+    // Parse name or index
     i = Com_ParseColor(s);
     if (i >= q_countof(colorTable)) {
         return false;
@@ -819,7 +823,7 @@ static void SCR_Draw_f(void)
         if (!strcmp(c, "alt")) {
             flags |= UI_ALTCOLOR;
         } else if (!strcmp(c, "dynamic")) {
-	    // q2jump draw_dynamic
+            // q2pro_race - draw_dynamic from q2pro_jump
             flags |= UI_DYNAMICCOLOR;
             flags &= ~UI_IGNORECOLOR;
         } else if (strcmp(c, "none")) {
@@ -838,7 +842,7 @@ static void SCR_Draw_f(void)
     }
   
     //
-    // q2jump draw_dynamic
+    // q2pro_race draw_dynamic
     //
     if (flags & UI_DYNAMICCOLOR) {
         if (!macro || !macro->colorfunction) {
@@ -956,7 +960,7 @@ static void SCR_DrawObjects(void)
         }
         if (obj->macro) {
             //
-            // q2jump draw_dynamic
+            // q2pro_race - draw_dynamic from q2pro_jump
             //
             if ((obj->flags & UI_DYNAMICCOLOR) && obj->macro->colorfunction) {
                 R_SetColor(obj->macro->colorfunction().u32);
@@ -2292,7 +2296,7 @@ draw:
 }
 
 //
-// q2jump strafe_helper
+// q2pro_race strafe_helper
 //
 static void SCR_DrawStrafeHelper(void) {
   const struct StrafeHelperParams params = {
@@ -2321,7 +2325,7 @@ static void SCR_Draw2D(void)
     // crosshair has its own color and alpha
     SCR_DrawCrosshair();
     //
-    // q2jump strafe_helper
+    // q2pro_race strafe_helper
     //
     if (cl_drawStrafeHelper->integer) {
       SCR_DrawStrafeHelper();

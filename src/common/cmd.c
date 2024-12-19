@@ -739,7 +739,7 @@ Cmd_AddMacro
 ============
 */
 //
-// q2jump draw_dynamic
+// q2pro_race - draw_dynamic from q2pro_jump
 //
 void Cmd_AddMacroDynamic(const char *name, xmacro_t function, xdynamiccolor_t colorfunction)
 {
@@ -764,7 +764,7 @@ void Cmd_AddMacroDynamic(const char *name, xmacro_t function, xdynamiccolor_t co
     macro = Cmd_Malloc(sizeof(*macro));
     macro->name = name;
     macro->function = function;
-    macro->colorfunction = colorfunction; // q2jump draw_dynamic
+    macro->colorfunction = colorfunction; // q2pro_race - draw_dynamic from q2pro_jump
     macro->next = cmd_macros;
     cmd_macros = macro;
 

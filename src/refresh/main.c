@@ -93,9 +93,9 @@ cvar_t *gl_vertexlight;
 cvar_t *gl_lightgrid;
 cvar_t *gl_polyblend;
 cvar_t *gl_showerrors;
-cvar_t *cl_drawworldorigin; //q2jump-pro
-cvar_t *cl_worldorigin_size; //q2jump-pro
-cvar_t *cl_worldorigin_linewidth; //q2jump-pro
+cvar_t *cl_drawworldorigin; //q2pro_race
+cvar_t *cl_worldorigin_size; //q2pro_race
+cvar_t *cl_worldorigin_linewidth; //q2pro_race
 // ==============================================================================
 
 static void GL_SetupFrustum(void)
@@ -376,7 +376,7 @@ static void GL_DrawSpriteModel(const model_t *model)
     GL_UnlockArrays();
 }
 //
-// q2jump-pro
+// q2pro_race
 //
 static void GL_DrawWorldOrigin(void)
 {
@@ -1085,17 +1085,17 @@ static void GL_Register(void)
     gl_novis = Cvar_Get("gl_novis", "0", 0);
     gl_novis->changed = gl_novis_changed;
     gl_lockpvs = Cvar_Get("gl_lockpvs", "0", CVAR_CHEAT);
-    gl_lightmap = Cvar_Get("gl_lightmap", "0", 0);// q2jump
-    gl_fullbright = Cvar_Get("r_fullbright", "0", 0); // q2jump
+    gl_lightmap = Cvar_Get("gl_lightmap", "0", 0);// q2pro_race
+    gl_fullbright = Cvar_Get("r_fullbright", "0", 0); // q2pro_race
     gl_fullbright->changed = gl_lightmap_changed;
     gl_vertexlight = Cvar_Get("gl_vertexlight", "0", 0);
     gl_vertexlight->changed = gl_lightmap_changed;
     gl_lightgrid = Cvar_Get("gl_lightgrid", "1", 0);
     gl_polyblend = Cvar_Get("gl_polyblend", "1", 0);
     gl_showerrors = Cvar_Get("gl_showerrors", "1", 0);
-    cl_drawworldorigin = Cvar_Get("cl_drawworldorigin", "0", 0);//q2jump-pro
-    cl_worldorigin_size = Cvar_Get("cl_worldorigin_size", "4096", 0);   //q2jump-pro
-    cl_worldorigin_linewidth = Cvar_Get("cl_worldorigin_linewidth", "1", 0);//q2jump-pro
+    cl_drawworldorigin = Cvar_Get("cl_drawworldorigin", "0", 0);//q2pro_race
+    cl_worldorigin_size = Cvar_Get("cl_worldorigin_size", "4096", 0);   //q2pro_race
+    cl_worldorigin_linewidth = Cvar_Get("cl_worldorigin_linewidth", "1", 0);//q2pro_race
     gl_lightmap_changed(NULL);
     gl_modulate_entities_changed(NULL);
     gl_swapinterval_changed(gl_swapinterval);

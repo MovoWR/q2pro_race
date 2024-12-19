@@ -599,7 +599,7 @@ extern cvar_t   *info_gender;
 extern cvar_t   *info_uf;
 
 //
-// q2jump strafe_helper
+// q2pro_race strafe_helper
 //
 extern cvar_t    *cl_drawStrafeHelper;
 extern cvar_t    *cl_strafeHelperCenter;

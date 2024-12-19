@@ -9,10 +9,6 @@ extern "C" {
 #define OPTIMAL_ANGLE_TOLERANCE DEG_TO_RAD(CLAMP(cl_strafehelper_tolerance->value, 0.0f, 10.0f))
 
 
-
-
-
-
 struct StrafeHelperParams {
     int center;
     int center_marker;

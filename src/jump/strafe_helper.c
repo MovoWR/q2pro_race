@@ -141,14 +141,15 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 		optimal_width,
 		params->height,
 		shc_ElementId_OptimalAngle);
-
-	// Draw center marker
-	shc_drawFilledRectangle(
-		angleToPixel(angle_current + offset, params->scale, hud_width) - (center_width / 2.0f),
-		upper_y + params->height / 2.0f,
-		center_width,
-		params->height / 2.0f,
-		shc_ElementId_CenterMarker);
+	if (params->center_marker) {
+		// Draw center marker
+		shc_drawFilledRectangle(
+			angleToPixel(angle_current + offset, params->scale, hud_width) - (center_width / 2.0f),
+			upper_y + params->height / 2.0f,
+			center_width,
+			params->height / 2.0f,
+			shc_ElementId_CenterMarker);
+	}
 
 	// Draw Indicator
 	if (cl_strafehelperIndicator->value && isOptimal && insideAccelerationZone && speedIncreased) {
