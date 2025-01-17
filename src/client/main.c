@@ -3030,6 +3030,7 @@ static void CL_InitLocal(void)
         var = Cvar_Get(va("adr%i", i), "", CVAR_ARCHIVE);
         var->generator = Com_Address_g;
     }
+    Cmd_AddCommand("sh", SH_Cmd_f);
 
     //
     // register our variables
