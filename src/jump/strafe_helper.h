@@ -45,9 +45,13 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float wishspeed,
                                         const float accel,
                                         const float frametime);
-void StrafeHelper_Draw(const struct StrafeHelperParams *params,
-                       const float hud_width, const float hud_height);
+    // StrafeHud
+    void StrafeHelper_Draw(const struct StrafeHelperParams* params,
+                           float hud_width, float hud_height, int indicator_pic, int font_pic);
 
+// Indicator
+void sh_indicator_draw(const struct StrafeHelperParams* params,
+                       float hud_width, float hud_height, int indicator_pic, int font_pic);
 
 #ifndef STRAFE_HELPER_H
 #define STRAFE_HELPER_H

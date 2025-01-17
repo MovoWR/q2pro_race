@@ -116,6 +116,7 @@ cvar_t *cl_strafehelper_tolerance;
 cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
+cvar_t *cl_strafehelper_indicator_pic;
 // width
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_width;
@@ -2996,6 +2997,7 @@ static const cmdreg_t c_client[] = {
     {"coord"},
     {"drop"},
     {"skinlist"},
+    {"repstats"},
 
     { NULL }
 };
@@ -3166,7 +3168,6 @@ static void CL_InitLocal(void)
 
     // q2pro_race strafe_helper
     cl_drawStrafeHelper = Cvar_Get("sh_draw", "0", CVAR_ARCHIVE);
-    cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
     cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
     cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
     cl_strafehelper_tolerance = Cvar_Get("sh_tolerance", "0.20", CVAR_ARCHIVE);
@@ -3180,16 +3181,21 @@ static void CL_InitLocal(void)
     cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "635 350", CVAR_ARCHIVE);
     cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "2 6", CVAR_ARCHIVE);
     // color settings
-    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 32 96", CVAR_ARCHIVE);
-    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 64 192", CVAR_ARCHIVE);
-    cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 192", CVAR_ARCHIVE);
+    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 255 80", CVAR_ARCHIVE);
+    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);
+    cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 255", CVAR_ARCHIVE);
+
+    //indicator
+    cl_strafehelper_tolerance = Cvar_Get("sh_indicator_tolerance", "0.20", CVAR_ARCHIVE);
+    cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
+    cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "0 0", CVAR_ARCHIVE);
+    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "10 5", CVAR_ARCHIVE);
     cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
     // race line
-    cl_race_width = Cvar_Get("race_width", "4", CVAR_ARCHIVE);
+    cl_race_width = Cvar_Get("race_width", "5", CVAR_ARCHIVE);
     cl_race_color = Cvar_Get("race_color", "0 255 0", CVAR_ARCHIVE);
     cl_race_alpha = Cvar_Get("race_alpha", "0.5", CVAR_ARCHIVE);
-    cl_race_life = Cvar_Get("race_life", "200", CVAR_ARCHIVE);
-
+    cl_race_life = Cvar_Get("race_life", "500", CVAR_ARCHIVE);
 }
 
 static const cmdreg_t c_ignores[] = {

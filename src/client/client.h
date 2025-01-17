@@ -620,7 +620,8 @@ extern cvar_t    *cl_strafehelper_optimal_width;
 extern cvar_t    *cl_strafehelperIndicator;
 extern cvar_t    *cl_strafehelper_indicator_pos;
 extern cvar_t    *cl_strafehelper_indicator_size;
-
+extern cvar_t    *cl_strafehelper_indicator_pic;
+extern cvar_t    *scr_indicator;
 
 
 
@@ -1036,6 +1037,7 @@ void    SCR_LagSample(void);
 void    SCR_LagClear(void);
 void    SCR_SetCrosshairColor(void);
 void    SCR_AddNetgraph(void);
+void    SCR_DrawStrafeHelper(void);
 
 float   SCR_FadeAlpha(unsigned startTime, unsigned visTime, unsigned fadeTime);
 int     SCR_DrawStringEx(int x, int y, int flags, size_t maxlen, const char *s, qhandle_t font);
