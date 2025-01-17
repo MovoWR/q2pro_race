@@ -5,7 +5,7 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-
+struct StrafeHelper sh;
 
 
 static float sign(const float value)
@@ -42,12 +42,6 @@ static float vectorNorm(const float v[2])
 {
 	return sqrtf(dotProduct(v, v));
 }
-static float angle_current;
-static float angle_optimal;
-static float angle_minimum;
-static float angle_maximum;
-static float angle_out;
-static float velocity_norm;
 
 
 
@@ -62,28 +56,27 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
 
 	const float v_z = velocity[2];
 	const float w_z = wishdir[2];
-
 	const float wishdir_norm = vectorNorm(wishdir);
 	const float forward_velocity_angle = angleBetweenVectors(wishdir, forward);
 	const float angle_sign = vectorAngleSign(wishdir, velocity);
 	const float two_pi = 2.0f * (float)M_PI;
-	velocity_norm = vectorNorm(velocity);
+    sh.velocity_norm = vectorNorm(velocity);
+    sh.angle_optimal = (wishspeed * (1.0f - accel * frametime) - v_z * w_z) / (sh.velocity_norm * wishdir_norm);
+    sh.angle_optimal = acosf(sh.angle_optimal);
+    sh.angle_optimal = angle_sign * sh.angle_optimal - forward_velocity_angle;
 
-	angle_optimal = (wishspeed * (1.0f - accel * frametime) - v_z * w_z) / (velocity_norm * wishdir_norm);
-	angle_optimal = acosf(angle_optimal);
-	angle_optimal = angle_sign * angle_optimal - forward_velocity_angle;
+    sh.angle_minimum = (wishspeed - v_z * w_z) /
+                       (2.0f - wishdir_norm * wishdir_norm) * wishdir_norm / sh.velocity_norm;
+    sh.angle_minimum = acosf(sh.angle_minimum < 1.0f ? sh.angle_minimum : 1.0f);
+    sh.angle_minimum = angle_sign * sh.angle_minimum - forward_velocity_angle;
 
-	angle_minimum = (wishspeed - v_z * w_z) / (2.0f - wishdir_norm * wishdir_norm) * wishdir_norm / velocity_norm;
-	angle_minimum = acosf(angle_minimum < 1.0f ? angle_minimum : 1.0f);
-	angle_minimum = angle_sign * angle_minimum - forward_velocity_angle;
+    sh.angle_maximum = -0.5f * accel * frametime * wishspeed * wishdir_norm / sh.velocity_norm;
+    sh.angle_maximum = acosf(sh.angle_maximum);
+    sh.angle_maximum = angle_sign * sh.angle_maximum - forward_velocity_angle;
 
-	angle_maximum = -0.5f * accel * frametime * wishspeed * wishdir_norm / velocity_norm;
-	angle_maximum = acosf(angle_maximum);
-	angle_maximum = angle_sign * angle_maximum - forward_velocity_angle;
-
-	angle_current = angleBetweenVectors(forward, velocity);
-	angle_current += truncf((angle_minimum - angle_current) / two_pi) * two_pi;
-	angle_current += truncf((angle_maximum - angle_current) / two_pi) * two_pi;
+	sh.angle_current = angleBetweenVectors(forward, velocity);
+	sh.angle_current += truncf((sh.angle_minimum - sh.angle_current) / two_pi) * two_pi;
+	sh.angle_current += truncf((sh.angle_maximum - sh.angle_current) / two_pi) * two_pi;
 	}
 
 
@@ -105,10 +98,10 @@ static float angleToPixel(const float angle, const float scale,
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
                        const float hud_width, const float hud_height) {
 	static float previous_velocity_norm = 0.0f;
-	bool isOptimal = fabsf(angle_current - angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
-	bool insideAccelerationZone = (angle_current >= angle_minimum && angle_current <= angle_maximum) ||
-								  (angle_current >= angle_maximum && angle_current <= angle_minimum);
-	bool speedIncreased = velocity_norm > previous_velocity_norm;
+	bool isOptimal = fabsf(sh.angle_current - sh.angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
+	bool insideAccelerationZone = (sh.angle_current >= sh.angle_minimum && sh.angle_current <= sh.angle_maximum) ||
+								  (sh.angle_current >= sh.angle_maximum && sh.angle_current <= sh.angle_minimum);
+	bool speedIncreased = sh.velocity_norm > previous_velocity_norm;
 	float angle_x, angle_width;
 	const float upper_y = (hud_height - params->height) / 2.0f + params->y;
     const float center_width = CLAMP(cl_strafehelper_center_width->value, 0.1f, 5.0f);
@@ -116,14 +109,14 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 
 	float offset = 0.0f;
 	if (params->center)	{
-		offset = -angle_current;
+		offset = -sh.angle_current;
 	}
-	if (angle_minimum < angle_maximum) {
-		angle_x = angle_minimum + offset;
-		angle_width = angle_maximum - angle_minimum;
+	if (sh.angle_minimum < sh.angle_maximum) {
+		angle_x = sh.angle_minimum + offset;
+		angle_width = sh.angle_maximum - sh.angle_minimum;
 	} else {
-		angle_x = angle_maximum + offset;
-		angle_width = angle_minimum - angle_maximum;
+		angle_x = sh.angle_maximum + offset;
+		angle_width = sh.angle_minimum - sh.angle_maximum;
 	}
 
 	// Draw accel range
@@ -136,7 +129,7 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 
 	// Draw optimal angle
 	shc_drawFilledRectangle(
-		angleToPixel(angle_optimal + offset, params->scale, hud_width) - (optimal_width / 2.0f),
+		angleToPixel(sh.angle_optimal + offset, params->scale, hud_width) - (optimal_width / 2.0f),
 		upper_y,
 		optimal_width,
 		params->height,
@@ -144,7 +137,7 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 	if (params->center_marker) {
 		// Draw center marker
 		shc_drawFilledRectangle(
-			angleToPixel(angle_current + offset, params->scale, hud_width) - (center_width / 2.0f),
+			angleToPixel(sh.angle_current + offset, params->scale, hud_width) - (center_width / 2.0f),
 			upper_y + params->height / 2.0f,
 			center_width,
 			params->height / 2.0f,
@@ -173,7 +166,7 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 			shc_ElementId_Indicator);
 	}
 
-	previous_velocity_norm = velocity_norm;
+	previous_velocity_norm = sh.velocity_norm;
     }
 
 

@@ -4,6 +4,8 @@ extern "C" {
 #endif
 
 #include <math.h>
+#include "src/client/client.h"
+
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 #define DEG_TO_RAD(deg) ((deg) * ((float)M_PI / 180.0f))
 #define OPTIMAL_ANGLE_TOLERANCE DEG_TO_RAD(CLAMP(cl_strafehelper_tolerance->value, 0.0f, 10.0f))
@@ -20,6 +22,21 @@ struct StrafeHelperParams {
     float speed_y;
 };
 
+
+struct StrafeHelper
+{
+    // [Angles]
+    float angle_optimal;
+    float angle_minimum;
+    float angle_maximum;
+    float angle_current;
+    float angle_diff;
+
+    // [Velocity]
+    float velocity_norm;
+};
+
+extern struct StrafeHelper sh;
 
 
 void StrafeHelper_SetAccelerationValues(const float forward[3],
