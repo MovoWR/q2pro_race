@@ -70,9 +70,10 @@ uint32_t getColorForElement(const enum shc_ElementId element_id) {
 	case shc_ElementId_Indicator:
 		colorString = cl_strafehelper_color_indicator->string;
 		break;
-	default:
-		assert(0);
-		return MakeColor(255, 255, 255, 255);
+    case shc_ElementId_NerdStats:
+        colorString = cl_strafehelper_color_nerdstats->string;
+        break;
+    default: ;
 	}
 	return shc_ParseColorString(colorString, NULL, NULL, NULL, NULL);
 }

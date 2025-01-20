@@ -78,6 +78,7 @@ ui_src = [
   'src/client/ui/ui.c',
   'src/jump/strafe_helper.c',
   'src/jump/sh_menus.c',
+  'src/jump/sh_nerdstats.c',
   'src/jump/sh_indicator_menu.c',
   'src/jump/sh_hud_menu.c',
   'src/jump/strafe_helper_customization.c',

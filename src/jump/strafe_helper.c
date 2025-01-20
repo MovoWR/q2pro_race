@@ -6,10 +6,12 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+NerdStats ns;
+StrafeHelper sh;
+
 bool isOptimal;
 bool insideAccelerationZone;
 bool speedIncreased;
-struct StrafeHelper sh;
 
 
 static float sign(const float value) {
@@ -76,7 +78,67 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
     sh.angle_current = angleBetweenVectors(forward, velocity);
     sh.angle_current += truncf((sh.angle_minimum - sh.angle_current) / two_pi) * two_pi;
     sh.angle_current += truncf((sh.angle_maximum - sh.angle_current) / two_pi) * two_pi;
+
+    sh.angle_diff = sh.angle_current - sh.angle_optimal;
+
+
+    NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);
 }
+
+void NerdStatsUpdate(const float velocity[3],
+                     const float wishdir[3],
+                     const float wishspeed,
+                     const float accel,
+                     float frametime,
+                     float forward_velocity_angle)
+{
+    float currentspeed = DotProduct(velocity, wishdir);
+    float addspeed = wishspeed - currentspeed;
+    float accelspeed = accel * frametime * wishspeed;
+
+    ns.currentspeed_nerd = currentspeed;
+    ns.addspeed_nerd = addspeed;
+    ns.accelspeed_nerd = accelspeed;
+    ns.wishspeed_nerd = wishspeed;
+
+    ns.pred_velocity_x = cl.predicted_velocity[0];
+    ns.pred_velocity_y = cl.predicted_velocity[1];
+    ns.pred_velocity_z = cl.predicted_velocity[2];
+
+    ns.pred_pos_x = cl.predicted_origin[0];
+    ns.pred_pos_y = cl.predicted_origin[1];
+    ns.pred_pos_z = cl.predicted_origin[2];
+
+    if (cl.frame.ps.pmove.pm_type == PM_FREEZE)
+    {
+        OriginUpdate();
+}
+    ns.locmove_x = cl.localmove[0];
+    ns.locmove_y = cl.localmove[1];
+    ns.locmove_z = cl.localmove[2];
+
+    ns.pitch = cl.refdef.viewangles[0];
+    ns.roll = cl.refdef.viewangles[2];
+    ns.viewangles = cl.refdef.viewangles[1]; // YAW
+
+    ns.pmove = cl.frame.ps.pmove.pm_type;
+    ns.forward_velocity_angle_nerd = forward_velocity_angle;
+}
+
+void OriginUpdate(void)
+{
+    ns.pred_pos_x = cl.playerEntityOrigin[0];
+    ns.pred_pos_y = cl.playerEntityOrigin[1];
+    ns.pred_pos_z = cl.playerEntityOrigin[2];
+    ns.viewangles = cl.playerEntityAngles[1]; // YAW
+    ns.pitch = cl.playerEntityAngles[0];
+    ns.roll = cl.playerEntityAngles[2];
+
+
+}
+
+
+
 
 
 static float angleDiffToPixelDiff(const float angle_difference, const float scale,

@@ -2348,6 +2348,7 @@ void SCR_DrawStrafeHelper(void) {
         .y = cl_strafeHelperY->value,
     };
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
+        SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
         sh_indicator_draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
         scr_indicator_changed(scr_indicator);
 

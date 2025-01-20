@@ -118,6 +118,9 @@ cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
 cvar_t *cl_strafehelper_indicator_pic;
+cvar_t *cl_strafehelperNerdStats;
+
+
 // width
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_width;
@@ -129,6 +132,7 @@ cvar_t *cl_strafehelper_color_accelerating;
 cvar_t *cl_strafehelper_color_optimal;
 cvar_t *cl_strafehelper_color_centermarker;
 cvar_t *cl_strafehelper_color_indicator;
+cvar_t *cl_strafehelper_color_nerdstats;
 // race line
 cvar_t *cl_race_color;
 cvar_t *cl_race_life;
@@ -2381,12 +2385,18 @@ static size_t CL_DemoPos_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%d:%02d.%d", min, sec, framenum);
 }
 
-static size_t CL_Mfps_m(char *buffer, size_t size) {
-    return Q_snprintf(buffer, size, "%i", C_FPS);
+size_t CL_Mfps_m(char *buffer, size_t size) {
+    if (phys_msec == 0) { // Avoid division by zero
+        if (size) {
+            *buffer = 0; // Write an empty string to the buffer
+        }
+        return 0;
+    }
+    return Q_scnprintf(buffer, size, "%.2f", 1000.0f / (float)phys_msec);
 }
 
-static size_t R_Fps_m(char *buffer, size_t size) {
-  if (ref_msec == 0) {
+size_t R_Fps_m(char *buffer, size_t size) {
+    if (ref_msec == 0) { // Avoid division by zero
     if (size) {
       *buffer = 0;
     }
@@ -2394,15 +2404,16 @@ static size_t R_Fps_m(char *buffer, size_t size) {
     return 0;
   }
 
-  return Q_scnprintf(buffer, size, "%.1f", 1000 / (float)ref_msec);
+    return Q_scnprintf(buffer, size, "%.2f", 1000.0f / (float)ref_msec);
 }
 
-static size_t R_Mfps_m(char *buffer, size_t size) {
-  return Q_scnprintf(buffer, size, "%i", R_FPS);
+size_t R_Mfps_m(char *buffer, size_t size) {
+
+    return Q_scnprintf(buffer, size, "%.2f", (float)R_FPS);
 }
 
-static size_t CL_Mps_m(char *buffer, size_t size) {
-  if (phys_msec == 0) {
+size_t CL_Mps_m(char *buffer, size_t size) {
+    if (phys_msec == 0) { // Avoid division by zero
     if (size) {
       *buffer = 0;
     }
@@ -2410,22 +2421,22 @@ static size_t CL_Mps_m(char *buffer, size_t size) {
     return 0;
 }
 
-  return Q_scnprintf(buffer, size, "%.1f", 1000 / (float)phys_msec);
+    return Q_scnprintf(buffer, size, "%.2f", 1000.0f / (float)phys_msec);
 }
 
-static size_t CL_Mmps_m(char *buffer, size_t size) {
-  return Q_scnprintf(buffer, size, "%i", C_MPS);
+size_t CL_Mmps_m(char *buffer, size_t size) {
+    return Q_scnprintf(buffer, size, "%.2f", (float)C_MPS);
 }
 
-static size_t CL_Pps_m(char *buffer, size_t size) {
+size_t CL_Pps_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", C_PPS);
 }
 
-static size_t CL_Ping_m(char *buffer, size_t size) {
+size_t CL_Ping_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%i", cls.measure.ping);
 }
 
-static size_t CL_Lag_m(char *buffer, size_t size) {
+size_t CL_Lag_m(char *buffer, size_t size) {
     float f = 0.0f;
 
     if (cls.netchan.total_received)
@@ -3032,6 +3043,7 @@ static void CL_InitLocal(void)
         var->generator = Com_Address_g;
     }
     Cmd_AddCommand("sh", SH_Cmd_f);
+    Cmd_AddCommand("debugnow", SH_DebugNow_f);
 
     //
     // register our variables
@@ -3186,13 +3198,16 @@ static void CL_InitLocal(void)
     cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 255 80", CVAR_ARCHIVE);
     cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);
     cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 255", CVAR_ARCHIVE);
-
+    cl_strafehelper_color_nerdstats = Cvar_Get("sh_color_nerdstats", "50 0 50 100", CVAR_ARCHIVE);
     //indicator
     cl_strafehelper_tolerance = Cvar_Get("sh_indicator_tolerance", "0.20", CVAR_ARCHIVE);
     cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
     cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "0 0", CVAR_ARCHIVE);
     cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "10 5", CVAR_ARCHIVE);
     cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
+    cl_strafehelperNerdStats = Cvar_Get("sh_nerdstats", "0", CVAR_ARCHIVE);
+
+
     // race line
     cl_race_width = Cvar_Get("race_width", "5", CVAR_ARCHIVE);
     cl_race_color = Cvar_Get("race_color", "0 255 0", CVAR_ARCHIVE);
