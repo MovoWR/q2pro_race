@@ -692,7 +692,7 @@ static void CL_ParseLaser(unsigned colors) {
     if (!shc_ParseColorCvar(colorStr, NULL, &parsedColor)) {
         parsedColor.u32 = 0xFF0000FF;
     }
-    l->rgba = parsedColor
+    l->rgba = parsedColor;
 }
 /*
 ==============================================================
