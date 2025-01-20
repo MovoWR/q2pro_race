@@ -3489,7 +3489,7 @@ static sync_mode_t sync_mode;
 #define MIN_REF_HZ MIN_PHYS_HZ
 #define MAX_REF_HZ 1000
 
-static inline int fps_to_msec(int fps)
+static inline int fps_to_msec(float fps)
 {
     return 1000 / fps;
 }

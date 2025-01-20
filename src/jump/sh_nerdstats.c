@@ -273,27 +273,6 @@ void DebugNow(void) {
     // Print debug information immediately
     Com_LPrintf(PRINT_WARNING, "========== DebugNow Triggered ==========\n");
 
-    // Frame Timings Section
-    printSectionHeader("Frame Timings");
-    char formatted[MAX_STRING_CHARS];
-    CL_Mfps_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Client FPS", formatted);
-
-    R_Fps_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Render FPS", formatted);
-
-    CL_Mmps_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Main FPS", formatted);
-
-    CL_Pps_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Packets/sec", formatted);
-
-    CL_Ping_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Ping", formatted);
-
-    CL_Lag_m(formatted, sizeof(formatted));
-    printKeyValueGeneric("Lag", formatted);
-
     // Predicted Velocity Section
     printSectionHeader("Predicted Velocity");
     printKeyValueFloat("UPS", ns.pred_velocity);

@@ -84,5 +84,5 @@ void shc_drawFilledRectangle(const float x, const float y,
 	const uint32_t color = getColorForElement(element_id);
 	R_DrawFill32(roundf(x), roundf(y), roundf(w), roundf(h), color);
 }
-//
+
 

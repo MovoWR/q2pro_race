@@ -81,8 +81,10 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
 
     sh.angle_diff = sh.angle_current - sh.angle_optimal;
 
-
+    if (cl_strafehelperNerdStats->integer)
+    {
     NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);
+}
 }
 
 void NerdStatsUpdate(const float velocity[3],
@@ -92,6 +94,8 @@ void NerdStatsUpdate(const float velocity[3],
                      float frametime,
                      float forward_velocity_angle)
 {
+    if (cl_strafehelperNerdStats->integer)
+    {
     float currentspeed = DotProduct(velocity, wishdir);
     float addspeed = wishspeed - currentspeed;
     float accelspeed = accel * frametime * wishspeed;
@@ -123,6 +127,7 @@ void NerdStatsUpdate(const float velocity[3],
 
     ns.pmove = cl.frame.ps.pmove.pm_type;
     ns.forward_velocity_angle_nerd = forward_velocity_angle;
+}
 }
 
 void OriginUpdate(void)
