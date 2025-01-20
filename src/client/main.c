@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client.h"
 #include "src/jump/strafe_helper_customization.h"
 #include "src/jump/strafe_helper.h"
+#include "src/jump/sh_menus.h"
 
 
 

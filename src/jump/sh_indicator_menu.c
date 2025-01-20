@@ -1,4 +1,4 @@
-#include "strafe_helper.h"
+#include "sh_menus.h"
 #include <src/client/client.h>
 #include "strafe_helper_customization.h"
 #include <math.h>

@@ -1,4 +1,4 @@
-#include "strafe_helper.h"
+#include "sh_menus.h"
 #include <src/client/client.h>
 #include "strafe_helper_customization.h"
 #include <math.h>
@@ -16,10 +16,10 @@ void SH_Help_f(void)
     Com_Printf("========================================================================================\n");
     Com_LPrintf(PRINT_WARNING,"Other commands:\n");
     Com_Printf("========================================================================================\n");
-    Com_Printf("  race_width           Set the thickness of the race line.\n");
+    Com_Printf("  race_width           Set the thickness of the race line. Values: 1 to 20 \n");
     Com_Printf("  race_color           <R> <G> <B> (0-255 each)\n");
-    Com_Printf("  race_alpha           Set transparency level (0-1).\n");
-    Com_Printf("  race_life            Define how long the race line remains visible.\n");
+    Com_Printf("  race_alpha           Set transparency level. Values: 0 to 1.\n");
+    Com_Printf("  race_life            Define how long the race line remains visible.Values: 100 to 5000.\n");
     Com_Printf("  gl_beamstyle         0/1 - 1 new beam style.\n");
 }
 
