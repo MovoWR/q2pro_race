@@ -37,5 +37,7 @@ void SH_Indicator_Tolerance_f(void);
 void DebugTracking(void);
 void GrenadeTimer_Update(void);
 void GrenadeTimer_Add(float firing_time);
+void SH_SetPreset_f(void);
+
 
 #endif //SH_MENUS_H

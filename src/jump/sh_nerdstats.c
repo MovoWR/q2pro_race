@@ -88,10 +88,6 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "UPS:", ns.pred_velocity);
-        R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
-        left_y += lineSpacing;
-
         snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "X:", ns.pred_velocity_x);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
@@ -254,7 +250,7 @@ void printSectionHeader(const char* title) {
 
 // Unified helper for key-value pairs (strings or floats)
 void printKeyValueGeneric(const char* label, const char* value) {
-    Com_Printf("%-25s | %-15s\n", label, value); // Wider label and value columns
+    Com_Printf("%-15s | %-5s\n", label, value); // Wider label and value columns
 }
 
 void printKeyValueFloat(const char* label, float value) {
@@ -275,7 +271,6 @@ void DebugNow(void) {
 
     // Predicted Velocity Section
     printSectionHeader("Predicted Velocity");
-    printKeyValueFloat("UPS", ns.pred_velocity);
     printKeyValueFloat("X", ns.pred_velocity_x);
     printKeyValueFloat("Y", ns.pred_velocity_y);
     printKeyValueFloat("Z", ns.pred_velocity_z);

@@ -13,9 +13,11 @@ void SH_Help_f(void)
     Com_Printf("                       Use 'sh hud' for more details.\n");
     Com_Printf("  indicator            Commands for the indicator.\n");
     Com_Printf("                       Use 'sh indicator' for more details.\n");
+    Com_Printf("  status                Show all set  parem\n");
     Com_Printf("========================================================================================\n");
     Com_LPrintf(PRINT_WARNING,"Other commands:\n");
     Com_Printf("========================================================================================\n");
+    Com_Printf("  sh_nerdstats         1 - display on left, 2 - display on right \n");
     Com_Printf("  race_width           Set the thickness of the race line. Values: 1 to 20 \n");
     Com_Printf("  race_color           <R> <G> <B> (0-255 each)\n");
     Com_Printf("  race_alpha           Set transparency level. Values: 0 to 1.\n");
@@ -47,6 +49,7 @@ void SH_Cmd_g(genctx_t* ctx, int argnum)
             Prompt_AddMatch(ctx, "optimal_width");
             Prompt_AddMatch(ctx, "color_accelerating");
             Prompt_AddMatch(ctx, "color_optimal");
+            Prompt_AddMatch(ctx, "preset");
             Prompt_AddMatch(ctx, "status");
             Prompt_AddMatch(ctx, "help");
         }
@@ -110,6 +113,8 @@ void SH_Cmd_f(void)
             SH_Color_Optimal_f();
         else if (!strcmp(cmd, "color_centermarker"))
             SH_Color_CenterMarker_f();
+        else if (!strcmp(cmd, "preset"))
+            SH_SetPreset_f();
         else if (!strcmp(cmd, "help"))
             SH_Hud_Help_f();
         else
