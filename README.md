@@ -29,16 +29,11 @@ Visual tools for race line customization:
   - `race_alpha`: Set transparency level for optimal visibility.
   - `race_life`: Define how long the race line remains visible.
 
-### Command Auto-Completion
-
-Auto-completion accelerates gameplay by simplifying access to Q2Jump mod commands, reducing typing errors and saving time.
-
 ---
 
 ## Settings (Cvars)
 
 ### Renamed Cvars
-
 
 To enhance clarity, these cvars have been renamed:
 
@@ -49,30 +44,54 @@ To enhance clarity, these cvars have been renamed:
 - ~~`cl_strafeHelperScale`~~ -> `sh_scale`                _Modifies the scaling factor of the strafe helper for better visibility._
 - ~~`cl_strafeHelperY`~~ -> `sh_y`                        _Sets the vertical position of the strafe helper on the HUD._
 
+---
+
+
+
 ### New Configuration Options
 
 Expanded settings for deeper customization:
 
-- **HUD Colors (RGBA)**:
+* **General Commands**
   
-  - `sh_color_accelerating`: Set the color for acceleration zones.
-  - `sh_color_optimal`: Define the color for optimal strafe zones.
-  - `sh_color_centermarker`: Customize the center marker color.
-  - `sh_color_indicator`: Adjust the indicator color.
-- **Indicator Settings**:
+  * **`sh`**: Displays the help menu for available `sh` subcommands and options.
+  * **`sh hud`**: Commands related to the Strafe Helper HUD.
+  * **`sh indicator`**: Commands for configuring the indicator.
+* **Strafe Helper HUD Customization**
   
-  - `sh_tolerance`: Adjust indicator tolerance (degrees) from optimal angle Default value is 0.20
-  - `sh_indicator`: (0-1) -Enable or disable visual indicator. Default value is 0.
-  - `sh_indicator_pos "x y"` Set indicator position (X, Y).
-  - `sh_indicator_size "x y"` Adjust the size of indicator (X, Y).
-
----
+  * Commands for position, scale, height, and colors:
+    
+    * `sh hud scale <value>`: Adjust scale.
+    * `sh hud ypos <value>`: Modify Y position.
+    * `sh hud height <value>`: Set height.
+    * `sh hud center_marker`: Toggle center marker.
+    * `sh hud color_<type> <R> <G> <B> <A>`: Set colors for optimal, accelerating, or center marker elements.
+    * `sh hud preset` to list presets
+      * e.g. `sh hud preset 15`
+* **Indicator**
+  
+  * Supports custom indicator images and dynamic positioning.
+  * New commands:
+    * `sh indicator pic <1-9|off>`: Set or disable indicator images.
+      * sh1.png sh2.png etc. inside jump/pics
+    * `sh indicator pos <X> <Y>`: Adjust indicator position.
+    * `sh indicator size <W> <H>`: Modify indicator size.
+    * `sh indicator color <R> <G> <B> <A>`: Customize indicator colors.
+    * `sh indicator tolerance <value>`: Set tolerance for showing indicator.
+* **Color Presets for HUD Customization**
+  * Predefined color schemes for Strafe Helper - `sh hud preset`.
+  * Apply presets by name, number, or randomly.
+* **NerdStats HUD**
+  * Detailed on-screen display of performance and physics metrics.
+  * `sh_nerdstats`: Toggle NerdStats (1 = left, 2 = right).
+* **Debug Tools**
+  * `debugnow`: Display detailed debug stats on-demand.
 
 ## Installation
 
 1. Extract all files into your Quake 2 directory.
 2. Ensure the original Quake 2 game files are present for compatibility.
-3. Use the `sh_*` settings to personalize the HUD and features to your preferences.
+3. Use the `sh` menu to personalize the HUD and features to your preferences.
 
 ---
 
