@@ -98,7 +98,7 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic);
 
 
 // Indicator
-void sh_indicator_draw(const struct StrafeHelperParams* params,
+void SH_Indicator_Draw(const struct StrafeHelperParams* params,
                        float hud_width, float hud_height, int indicator_pic, int font_pic);
 
 

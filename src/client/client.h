@@ -626,7 +626,14 @@ extern cvar_t    *cl_strafehelper_indicator_pic;
 extern cvar_t    *scr_indicator;
 
 
-
+size_t CL_Mfps_m(char *buffer, size_t size);
+size_t R_Fps_m(char *buffer, size_t size);
+size_t R_Mfps_m(char *buffer, size_t size);
+size_t CL_Mmps_m(char *buffer, size_t size);
+size_t CL_Pps_m(char *buffer, size_t size);
+size_t CL_Ping_m(char *buffer, size_t size);
+size_t CL_Lag_m(char *buffer, size_t size);
+size_t CL_Mps_m(char *buffer, size_t size);
 
 //=============================================================================
 
@@ -666,13 +673,6 @@ void CL_LoadFilterList(string_entry_t **list, const char *name, const char *comm
 
 void cl_timeout_changed(cvar_t *self);
 
-size_t CL_Mfps_m(char *buffer, size_t size);
-size_t R_Fps_m(char *buffer, size_t size);
-size_t R_Mfps_m(char *buffer, size_t size);
-size_t CL_Mmps_m(char *buffer, size_t size);
-size_t CL_Pps_m(char *buffer, size_t size);
-size_t CL_Ping_m(char *buffer, size_t size);
-size_t CL_Lag_m(char *buffer, size_t size);
 
 //
 // precache.c

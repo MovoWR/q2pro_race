@@ -2385,14 +2385,9 @@ static size_t CL_DemoPos_m(char *buffer, size_t size) {
     return Q_snprintf(buffer, size, "%d:%02d.%d", min, sec, framenum);
 }
 
-size_t CL_Mfps_m(char *buffer, size_t size) {
-    if (phys_msec == 0) { // Avoid division by zero
-        if (size) {
-            *buffer = 0; // Write an empty string to the buffer
-        }
-        return 0;
-    }
-    return Q_scnprintf(buffer, size, "%.2f", 1000.0f / (float)phys_msec);
+size_t CL_Mfps_m(char *buffer, size_t size)
+{
+    return Q_scnprintf(buffer, size, "%i", C_FPS);
 }
 
 size_t R_Fps_m(char *buffer, size_t size) {
@@ -2404,7 +2399,7 @@ size_t R_Fps_m(char *buffer, size_t size) {
     return 0;
   }
 
-    return Q_scnprintf(buffer, size, "%.2f", 1000.0f / (float)ref_msec);
+    return Q_scnprintf(buffer, size, "%.1f", 1000 / (float)ref_msec);
 }
 
 size_t R_Mfps_m(char *buffer, size_t size) {

@@ -113,10 +113,7 @@ void NerdStatsUpdate(const float velocity[3],
     ns.pred_pos_y = cl.predicted_origin[1];
     ns.pred_pos_z = cl.predicted_origin[2];
 
-    if (cl.frame.ps.pmove.pm_type == PM_FREEZE)
-    {
-        OriginUpdate();
-}
+
     ns.locmove_x = cl.localmove[0];
     ns.locmove_y = cl.localmove[1];
     ns.locmove_z = cl.localmove[2];
@@ -206,13 +203,16 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     }
 }
 
-void sh_indicator_draw(const struct StrafeHelperParams *params,
-                       float hud_width, float hud_height, int indicator_pic, int font_pic) {
+void SH_Indicator_Draw(const struct StrafeHelperParams* params,
+                       float hud_width, float hud_height, int indicator_pic, int font_pic)
+{
+    static float previous_velocity_norm = 0.0f;
+    bool isOptimal = fabsf(sh.angle_current - sh.angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
+    bool insideAccelerationZone = fabsf(sh.angle_current - sh.angle_minimum) <= fabsf(sh.angle_maximum - sh.angle_minimum);
+    bool speedIncreased = sh.velocity_norm > previous_velocity_norm;
 
-    bool drawIndicator = (cl_strafehelperIndicator->integer == 1 && isOptimal) ||
-                         (cl_strafehelperIndicator->integer == 2 && insideAccelerationZone && speedIncreased);
-
-
+    bool drawIndicator = (cl_strafehelperIndicator->integer == 1 || cl_strafehelperIndicator->integer == 2) &&
+                         insideAccelerationZone && speedIncreased && isOptimal;
     if (drawIndicator) {
         int ind_x, ind_y;
         int ind_width = hud_width / 10.0f;
@@ -248,4 +248,5 @@ void sh_indicator_draw(const struct StrafeHelperParams *params,
                 ind_x, ind_y, ind_width, ind_height, shc_ElementId_Indicator);
         }
     }
+    previous_velocity_norm = sh.velocity_norm;
 }

@@ -2349,9 +2349,12 @@ void SCR_DrawStrafeHelper(void) {
     };
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
         SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
-        sh_indicator_draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
+        SH_Indicator_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
         scr_indicator_changed(scr_indicator);
-
+        if (cl.frame.ps.pmove.pm_type == PM_FREEZE)
+            {
+                OriginUpdate();
+            }
     }
 
 
@@ -2372,9 +2375,8 @@ static void SCR_Draw2D(void)
 
     // crosshair has its own color and alpha
     SCR_DrawCrosshair();
-    //
+
     // q2pro_race strafe_helper
-    //
     if (cl_drawStrafeHelper->integer) {
       SCR_DrawStrafeHelper();
     }
