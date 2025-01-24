@@ -13,7 +13,7 @@ void SH_Help_f(void)
     Com_Printf("                       Use 'sh hud' for more details.\n");
     Com_Printf("  indicator            Commands for the indicator.\n");
     Com_Printf("                       Use 'sh indicator' for more details.\n");
-    Com_Printf("  status                Show all set  parem\n");
+    Com_Printf("  status               Show all set parameters.\n");
     Com_Printf("========================================================================================\n");
     Com_LPrintf(PRINT_WARNING,"Other commands:\n");
     Com_Printf("========================================================================================\n");
