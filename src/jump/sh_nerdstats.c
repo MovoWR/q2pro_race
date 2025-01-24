@@ -9,7 +9,7 @@
 char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
 {
     char formatted[64];
-    const int lineSpacing = CHAR_HEIGHT * 1.5f;
+    const int lineSpacing = CHAR_HEIGHT;
     char buffer[MAX_STRING_CHARS];
 
     const int dataIndent = 20;
