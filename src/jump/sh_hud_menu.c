@@ -7,11 +7,11 @@
 
 
 typedef struct {
-    const char* name;
-    const char* color_optimal;
-    const char* color_accelerating;
-    const char* color_centermarker;
-    const char* description;
+    const char *name;
+    const char *color_optimal;
+    const char *color_accelerating;
+    const char *color_centermarker;
+    const char *description;
 } ColorPreset;
 
 static const ColorPreset presets[] = {
@@ -61,17 +61,14 @@ static const ColorPreset presets[] = {
     {"FeverDream", "255 0 255 255", "0 255 255 80", "255 255 0 255", "Magenta, cyan, and yellow overload"}
 };
 
-void SH_SetPreset_f(void)
-{
-    if (Cmd_Argc() < 4)
-    {
+void SH_SetPreset_f(void) {
+    if (Cmd_Argc() < 4) {
         Com_Printf("Available presets:\n");
         Com_Printf("===============================================================================\n");
         Com_Printf("| %-5s | %-15s | %-50s |\n", "Num", "Name", "Description");
         Com_Printf("===============================================================================\n");
 
-        for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++)
-        {
+        for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
             Com_Printf("| %-5d | %-15s | %-50s |\n", i + 1, presets[i].name, presets[i].description);
             Com_Printf("-------------------------------------------------------------------------------\n");
         }
@@ -84,45 +81,38 @@ void SH_SetPreset_f(void)
     }
 
 
-    const char* selectedpreset = Cmd_Argv(3);
+    const char *selectedpreset = Cmd_Argv(3);
 
     // Handle random preset option
-    if (!_stricmp(selectedpreset, "random"))
-    {
-        srand((unsigned int)time(NULL));
+    if (!_stricmp(selectedpreset, "random")) {
+        srand((unsigned int) time(NULL));
         int randomIndex = rand() % (sizeof(presets) / sizeof(presets[0])); // Get random index
         Cvar_Set("sh_color_optimal", presets[randomIndex].color_optimal);
         Cvar_Set("sh_color_accelerating", presets[randomIndex].color_accelerating);
         Cvar_Set("sh_color_centermarker", presets[randomIndex].color_centermarker);
         Com_Printf("Random preset applied: '%s' - %s\n", presets[randomIndex].name, presets[randomIndex].description);
         return;
-        }
+    }
 
     // Check if input is a number
     int presetNumber = -1;
-    if (sscanf(selectedpreset, "%d", &presetNumber) == 1)
-    {
-        if (presetNumber >= 1 && presetNumber <= sizeof(presets) / sizeof(presets[0]))
-        {
+    if (sscanf(selectedpreset, "%d", &presetNumber) == 1) {
+        if (presetNumber >= 1 && presetNumber <= sizeof(presets) / sizeof(presets[0])) {
             int index = presetNumber - 1; // Convert to 0-based index
             Cvar_Set("sh_color_optimal", presets[index].color_optimal);
             Cvar_Set("sh_color_accelerating", presets[index].color_accelerating);
             Cvar_Set("sh_color_centermarker", presets[index].color_centermarker);
             Com_Printf("Preset '%s' applied: %s\n", presets[index].name, presets[index].description);
             return;
-        }
-        else
-        {
+        } else {
             Com_Printf("Invalid preset number. Use 'sh hud preset' to see available options.\n");
-        return;
-    }
+            return;
+        }
     }
 
     // Check if input matches a preset name
-    for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++)
-    {
-        if (!_stricmp(selectedpreset, presets[i].name))
-        {
+    for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
+        if (!_stricmp(selectedpreset, presets[i].name)) {
             Cvar_Set("sh_color_optimal", presets[i].color_optimal);
             Cvar_Set("sh_color_accelerating", presets[i].color_accelerating);
             Cvar_Set("sh_color_centermarker", presets[i].color_centermarker);
@@ -135,41 +125,34 @@ void SH_SetPreset_f(void)
 }
 
 
-void SH_Enable_f(void)
-{
+void SH_Enable_f(void) {
     Cvar_Set("sh_draw", "1");
     Com_Printf("Strafe helper enabled.\n");
 }
 
-void SH_Disable_f(void)
-{
+void SH_Disable_f(void) {
     Cvar_Set("sh_draw", "0");
     Com_Printf("Strafe helper disabled.\n");
 }
 
-void SH_Scale_f(void)
-{
-    const char* scale = Cmd_ArgsFrom(3);
+void SH_Scale_f(void) {
+    const char *scale = Cmd_ArgsFrom(3);
     float value;
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
     {
         Com_Printf("- Scale: %.2f\n", cl_strafeHelperScale->value);
         return;
     }
-    if (sscanf(scale, "%f", &value) == 1 && value > 0.0f)
-    {
+    if (sscanf(scale, "%f", &value) == 1 && value > 0.0f) {
         Cvar_Set("sh_scale", scale);
         Com_Printf("Strafe helper scale set to: %s\n", scale);
-    }
-    else
-    {
+    } else {
         Com_EPrintf("Invalid scale value. Usage: 'sh hud scale <value>'\n");
     }
 }
 
-void SH_ypos_f(void)
-{
-    const char* ypos = Cmd_ArgsFrom(3);
+void SH_ypos_f(void) {
+    const char *ypos = Cmd_ArgsFrom(3);
     float value;
 
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
@@ -178,20 +161,16 @@ void SH_ypos_f(void)
         return;
     }
 
-    if (sscanf(ypos, "%f", &value) == 1 && value > 0.0f)
-    {
+    if (sscanf(ypos, "%f", &value) == 1 && value > 0.0f) {
         Cvar_Set("sh_y", ypos);
         Com_Printf("Strafe helper Y position set to: %s\n", ypos);
-    }
-    else
-    {
+    } else {
         Com_EPrintf("Invalid Y position value. Usage: 'sh hud ypos <value>'\n");
     }
 }
 
-void SH_Height_f(void)
-{
-    const char* height = Cmd_ArgsFrom(3);
+void SH_Height_f(void) {
+    const char *height = Cmd_ArgsFrom(3);
     int value;
 
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
@@ -200,66 +179,53 @@ void SH_Height_f(void)
         return;
     }
 
-    if (sscanf(height, "%d", &value) == 1 && value > 0)
-    {
+    if (sscanf(height, "%d", &value) == 1 && value > 0) {
         Cvar_Set("sh_height", height);
         Com_Printf("Strafe helper height set to: %s\n", height);
-    }
-    else
-    {
+    } else {
         Com_Printf("Invalid height value. Usage: 'sh hud height <value>' \n");
     }
 }
 
-void SH_CenterMarker_f(void)
-{
+void SH_CenterMarker_f(void) {
     Cvar_Set("sh_centermarker", cl_strafeHelperCenterMarker->integer ? "0" : "1");
     Com_Printf("Center marker %s.\n", cl_strafeHelperCenterMarker->integer ? "disabled" : "enabled");
 }
 
-void SH_CenterWidth_f(void)
-{
+void SH_CenterWidth_f(void) {
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
     {
         Com_Printf("- Current Center Width: %f\n", cl_strafehelper_center_width->value);
         return;
     }
-    const char* width = Cmd_Argv(3); // Fetch the second argument
+    const char *width = Cmd_Argv(3); // Fetch the second argument
     float value;
-    if (sscanf(width, "%f", &value) == 1 && value >= 0.1f && value <= 5.0f)
-    {
+    if (sscanf(width, "%f", &value) == 1 && value >= 0.1f && value <= 5.0f) {
         Cvar_Set("sh_center_width", width);
         Com_Printf("Center line width set to: %s\n", width);
-    }
-    else
-    {
+    } else {
         Com_Printf("Invalid Center line width value. Usage: 'sh hud center_width <value>' (0.1-5.0)\n");
     }
 }
 
-void SH_OptimalWidth_f(void)
-{
+void SH_OptimalWidth_f(void) {
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
     {
         Com_Printf("- Current Center Width: %.2f\n", cl_strafehelper_optimal_width->value);
         return;
     }
-    const char* width = Cmd_ArgsFrom(3);
+    const char *width = Cmd_ArgsFrom(3);
     float value;
-    if (sscanf(width, "%f", &value) == 1 && value > 0.0f)
-    {
+    if (sscanf(width, "%f", &value) == 1 && value > 0.0f) {
         Cvar_Set("sh_optimal_width", width);
         Com_Printf("Optimal line width set to: %s\n", width);
-    }
-    else
-    {
+    } else {
         Com_Printf("Invalid optimal line width value. Usage: 'sh hud optimal_width <value>' (0.1-5.0)\n");
     }
 }
 
-void SH_Color_Accel_f(void)
-{
-    const char* color = Cmd_ArgsFrom(3);
+void SH_Color_Accel_f(void) {
+    const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
@@ -270,20 +236,16 @@ void SH_Color_Accel_f(void)
 
     if (sscanf(color, "%d %d %d %d", &r, &g, &b, &a) == 4 &&
         r >= 0 && r <= 255 && g >= 0 && g <= 255 &&
-        b >= 0 && b <= 255 && a >= 0 && a <= 255)
-    {
+        b >= 0 && b <= 255 && a >= 0 && a <= 255) {
         Cvar_Set("sh_color_accelerating", color);
         Com_Printf("Accelerating color set to: %s\n", color);
-    }
-    else
-    {
+    } else {
         Com_Printf("Wrong input. Use 'sh hud color_accelerating R G B A'\n");
     }
 }
 
-void SH_Color_Optimal_f(void)
-{
-    const char* color = Cmd_ArgsFrom(3);
+void SH_Color_Optimal_f(void) {
+    const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
@@ -294,20 +256,16 @@ void SH_Color_Optimal_f(void)
 
     if (sscanf(color, "%d %d %d %d", &r, &g, &b, &a) == 4 &&
         r >= 0 && r <= 255 && g >= 0 && g <= 255 &&
-        b >= 0 && b <= 255 && a >= 0 && a <= 255)
-    {
+        b >= 0 && b <= 255 && a >= 0 && a <= 255) {
         Cvar_Set("sh_color_optimal", color);
         Com_Printf("Optimal color changed to: %s\n", color);
-    }
-    else
-    {
+    } else {
         Com_Printf("Wrong input. Use 'sh hud color_optimal R G B A'\n");
     }
 }
 
-void SH_Color_CenterMarker_f(void)
-{
-    const char* color = Cmd_ArgsFrom(3);
+void SH_Color_CenterMarker_f(void) {
+    const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
     if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
@@ -318,19 +276,15 @@ void SH_Color_CenterMarker_f(void)
 
     if (sscanf(color, "%d %d %d %d", &r, &g, &b, &a) == 4 &&
         r >= 0 && r <= 255 && g >= 0 && g <= 255 &&
-        b >= 0 && b <= 255 && a >= 0 && a <= 255)
-    {
+        b >= 0 && b <= 255 && a >= 0 && a <= 255) {
         Cvar_Set("sh_color_centermarker", color);
         Com_Printf("Center marker color set to: %s\n", color);
-    }
-    else
-    {
+    } else {
         Com_Printf("Wrong input. Use 'sh hud color_centermarker R G B A'\n");
     }
 }
 
-void SH_Hud_Help_f(void)
-{
+void SH_Hud_Help_f(void) {
     Com_Printf("========================================================================================\n");
     Com_LPrintf(PRINT_WARNING, "Usage: sh <command> [options]\n");
     Com_LPrintf(PRINT_WARNING, "Commands:\n");
@@ -347,6 +301,6 @@ void SH_Hud_Help_f(void)
         "  optimal_width <value>                   Set the optimal line width (default: 2).\n");
     Com_Printf("  color_<type> <R> <G> <B> <A>            Set color (0-255).\n");
     Com_Printf("                                          Types: optimal, centermarker, accelerating\n");
-    Com_Printf("  palette <name>                           Apply a predefined color palette.\n");
+    Com_Printf("  preset <name> or <number>               Apply a predefined color preset.\n");
     Com_Printf("========================================================================================\n");
 }

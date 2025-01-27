@@ -22,11 +22,8 @@ struct StrafeHelperParams {
     float speed_y;
 };
 
-typedef struct
-{
+typedef struct {
     // [Velocity]
-    float speed;
-    float pred_velocity;
     float pred_velocity_x;
     float pred_velocity_y;
     float pred_velocity_z;
@@ -63,8 +60,7 @@ typedef struct
 
 extern NerdStats ns;
 
-typedef struct
-{
+typedef struct {
     // [Angles]
     float angle_optimal;
     float angle_minimum;
@@ -75,6 +71,7 @@ typedef struct
 } StrafeHelper;
 
 extern StrafeHelper sh;
+
 // StrafeHud
 void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float velocity[3],
@@ -82,9 +79,10 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float wishspeed,
                                         const float accel,
                                         const float frametime);
+
 // StrafeHud
-void StrafeHelper_Draw(const struct StrafeHelperParams* params,
-                           float hud_width, float hud_height, int indicator_pic, int font_pic);
+void StrafeHelper_Draw(const struct StrafeHelperParams *params,
+                       float hud_width, float hud_height, int indicator_pic, int font_pic);
 
 // NerdStats
 void NerdStatsUpdate(const float velocity[3],
@@ -93,20 +91,28 @@ void NerdStatsUpdate(const float velocity[3],
                      float accel,
                      float frametime,
                      float forward_velocity_angle);
+
 void OriginUpdate(void);
-char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic);
+
+char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic);
 
 
 // Indicator
-void SH_Indicator_Draw(const struct StrafeHelperParams* params,
+void SH_Indicator_Draw(const struct StrafeHelperParams *params,
                        float hud_width, float hud_height, int indicator_pic, int font_pic);
 
 
 // Debug
 void SH_DebugNow_f(void);
+
 void DebugNow(void);
+
 void StrafeHelper_DebugNow(void);
-void printKeyValueFloatPrecise(const char* label, float value);
-void printKeyValueFloat(const char* label, float value);
-void printSectionHeader(const char* title);
-void printKeyValueGeneric(const char* label, const char* value);
+
+void printKeyValueFloatPrecise(const char *label, float value);
+
+void printKeyValueFloat(const char *label, float value);
+
+void printSectionHeader(const char *title);
+
+void printKeyValueGeneric(const char *label, const char *value);

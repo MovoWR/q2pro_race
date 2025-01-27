@@ -2984,6 +2984,12 @@ static const cmdreg_t c_client[] = {
     {"banflags"},
     {"whois"},
 
+
+    // q2jump global
+    {"syncglobaldata"},
+    {"poppins"},
+    {"repstats"},
+
     // misc
     {"autoadmin"}, // Literally does nothing.
     {"players"},
@@ -3004,8 +3010,6 @@ static const cmdreg_t c_client[] = {
     {"coord"},
     {"drop"},
     {"skinlist"},
-    {"repstats"},
-
     { NULL }
 };
 
@@ -3056,7 +3060,7 @@ static void CL_InitLocal(void)
     cl_noskins->changed = cl_noskins_changed;
     cl_predict = Cvar_Get("cl_predict", "1", 0);
     cl_predict->changed = cl_predict_changed;
-    cl_kickangles = Cvar_Get("cl_kickangles", "1", CVAR_CHEAT);
+    cl_kickangles = Cvar_Get("cl_kickangles", "1", 0);
     cl_warn_on_fps_rounding = Cvar_Get("cl_warn_on_fps_rounding", "0", 0);
     cl_maxfps = Cvar_Get("cl_maxfps", "120", 0);
     cl_maxfps->changed = cl_sync_changed;
@@ -3167,7 +3171,7 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("r_fps", R_Fps_m);
     Cmd_AddMacro("cl_mfps", CL_Mfps_m); // measured frames per second
     Cmd_AddMacro("cl_mmps", CL_Mmps_m); // measured moves per second
-    Cmd_AddMacro("cl_mps", CL_Mps_m);   // moves per second
+    Cmd_AddMacro("cl_fps", CL_Mps_m);   // moves per second
     Cmd_AddMacroDynamic("cl_rups", CL_Rups_m, CL_Rups_dc); // real units per second (takes into account Z-axis)
     Cmd_AddMacroDynamic("cl_ups", CL_Ups_m, CL_Ups_dc);// q2pro_race - draw_dynamic from q2pro_jump
     Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m);
@@ -3186,9 +3190,6 @@ static void CL_InitLocal(void)
     // width
     cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
     cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
-    //indicator
-    cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "635 350", CVAR_ARCHIVE);
-    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "2 6", CVAR_ARCHIVE);
     // color settings
     cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 255 80", CVAR_ARCHIVE);
     cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);

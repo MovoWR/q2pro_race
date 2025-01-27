@@ -3,11 +3,10 @@
 #include "strafe_helper_customization.h"
 #include <math.h>
 
-void SH_Help_f(void)
-{
+void SH_Help_f(void) {
     Com_Printf("========================================================================================\n");
-    Com_LPrintf(PRINT_WARNING,"Usage: sh <subcommand> <command> [options]\n");
-    Com_LPrintf(PRINT_WARNING,"Subcommands:\n");
+    Com_LPrintf(PRINT_WARNING, "Usage: sh <subcommand> <command> [options]\n");
+    Com_LPrintf(PRINT_WARNING, "Subcommands:\n");
     Com_Printf("========================================================================================\n");
     Com_Printf("  hud                  Commands for the strafe helper.\n");
     Com_Printf("                       Use 'sh hud' for more details.\n");
@@ -15,7 +14,7 @@ void SH_Help_f(void)
     Com_Printf("                       Use 'sh indicator' for more details.\n");
     Com_Printf("  status               Show all set parameters.\n");
     Com_Printf("========================================================================================\n");
-    Com_LPrintf(PRINT_WARNING,"Other commands:\n");
+    Com_LPrintf(PRINT_WARNING, "Other commands:\n");
     Com_Printf("========================================================================================\n");
     Com_Printf("  sh_nerdstats         1 - display on left, 2 - display on right \n");
     Com_Printf("  race_width           Set the thickness of the race line. Values: 1 to 20 \n");
@@ -26,19 +25,14 @@ void SH_Help_f(void)
 }
 
 
-void SH_Cmd_g(genctx_t* ctx, int argnum)
-{
+void SH_Cmd_g(genctx_t *ctx, int argnum) {
     R_SetColor(U32_RED);
-    if (argnum == 1)
-    {
+    if (argnum == 1) {
         Prompt_AddMatch(ctx, "hud");
         Prompt_AddMatch(ctx, "indicator");
-    }
-    else if (argnum == 2)
-    {
-        const char* subcmd = Cmd_Argv(1);
-        if (!strcmp(subcmd, "hud"))
-        {
+    } else if (argnum == 2) {
+        const char *subcmd = Cmd_Argv(1);
+        if (!strcmp(subcmd, "hud")) {
             Prompt_AddMatch(ctx, "enable");
             Prompt_AddMatch(ctx, "disable");
             Prompt_AddMatch(ctx, "center_marker");
@@ -52,9 +46,7 @@ void SH_Cmd_g(genctx_t* ctx, int argnum)
             Prompt_AddMatch(ctx, "preset");
             Prompt_AddMatch(ctx, "status");
             Prompt_AddMatch(ctx, "help");
-        }
-        else if (!strcmp(subcmd, "indicator"))
-        {
+        } else if (!strcmp(subcmd, "indicator")) {
             Prompt_AddMatch(ctx, "enable");
             Prompt_AddMatch(ctx, "disable");
             Prompt_AddMatch(ctx, "tolerance");
@@ -63,30 +55,24 @@ void SH_Cmd_g(genctx_t* ctx, int argnum)
             Prompt_AddMatch(ctx, "color");
             Prompt_AddMatch(ctx, "pic");
             Prompt_AddMatch(ctx, "help");
-        }
-        else if (!strcmp(subcmd, "status"))
-        {
+        } else if (!strcmp(subcmd, "status")) {
             Prompt_AddMatch(ctx, "status");
         }
     }
 }
 
-void SH_Cmd_f(void)
-{
-    const char* subcmd = Cmd_Argv(1); // First argument after "sh"
+void SH_Cmd_f(void) {
+    const char *subcmd = Cmd_Argv(1); // First argument after "sh"
 
-    if (!subcmd || !subcmd[0])
-    {
+    if (!subcmd || !subcmd[0]) {
         SH_Help_f();
         return;
     }
 
-    if (!strcmp(subcmd, "hud"))
-    {
+    if (!strcmp(subcmd, "hud")) {
         // Forward to strafe_helper commands
-        const char* cmd = Cmd_Argv(2); // Command after "sh hud"
-        if (!cmd || !cmd[0])
-        {
+        const char *cmd = Cmd_Argv(2); // Command after "sh hud"
+        if (!cmd || !cmd[0]) {
             SH_Hud_Help_f();
             return;
         }
@@ -119,14 +105,11 @@ void SH_Cmd_f(void)
             SH_Hud_Help_f();
         else
             Com_Printf("Unknown hud command. Use 'sh hud' for a list of commands.\n");
-    }
-    else if
-    (!strcmp(subcmd, "indicator"))
-    {
+    } else if
+    (!strcmp(subcmd, "indicator")) {
         // Forward to indicator commands
-        const char* cmd = Cmd_Argv(2); // Command after "sh indicator"
-        if (!cmd || !cmd[0])
-        {
+        const char *cmd = Cmd_Argv(2); // Command after "sh indicator"
+        if (!cmd || !cmd[0]) {
             SH_Indicator_Help();
             return;
         }
@@ -148,21 +131,15 @@ void SH_Cmd_f(void)
             SH_Indicator_Help();
         else
             Com_Printf("Unknown indicator command. Use 'sh indicator' for a list of commands.\n");
-    }
-    else if
-    (!strcmp(subcmd, "status"))
-        {
+    } else if
+    (!strcmp(subcmd, "status")) {
         SH_Status_f();
-        }
-    else
-    {
+    } else {
         SH_Help_f();
     }
 }
 
-void SH_Status_f(void)
-{
-
+void SH_Status_f(void) {
     Com_Printf("------------------------------------------------------------------\n");
     Com_LPrintf(PRINT_WARNING, "                        Strafe Helper Status:\n");
     Com_Printf("------------------------------------------------------------------\n");
@@ -173,9 +150,11 @@ void SH_Status_f(void)
     Com_Printf("  %-20s : %-20d : def: %d\n", "Height", cl_strafeHelperHeight->integer, 25);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Center width", cl_strafehelper_center_width->value, 1.5f);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Optimal width", cl_strafehelper_optimal_width->value, 1.5f);
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Accelerating color", cl_strafehelper_color_accelerating->string, "115 170 255 120");
+    Com_Printf("  %-20s : %-20s : def: %s\n", "Accelerating color", cl_strafehelper_color_accelerating->string,
+               "115 170 255 120");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Optimal color", cl_strafehelper_color_optimal->string, "0 255 64 192");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Center marker color", cl_strafehelper_color_centermarker->string, "255 255 255 192");
+    Com_Printf("  %-20s : %-20s : def: %s\n", "Center marker color", cl_strafehelper_color_centermarker->string,
+               "255 255 255 192");
     Com_Printf("------------------------------------------------------------------\n");
     Com_LPrintf(PRINT_WARNING, "                        Indicator Status:\n");
     Com_Printf("------------------------------------------------------------------\n");
@@ -184,37 +163,10 @@ void SH_Status_f(void)
     Com_Printf("  %-20s : %-20s : def: %s\n", "Position", cl_strafehelper_indicator_pos->string, "0 0");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Size", cl_strafehelper_indicator_size->string, "10 5");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Color", cl_strafehelper_color_indicator->string, "255 255 255 255");
-    if (cl_strafehelperIndicator->integer == 1)
-    {
+    if (cl_strafehelperIndicator->integer == 1) {
         Com_Printf("  %-20s : %-20s : def: %s\n", "Indicator pic", "off", "1");
-    }
-    else if (cl_strafehelperIndicator->integer == 2)
-    {
+    } else if (cl_strafehelperIndicator->integer == 2) {
         Com_Printf("  %-20s : %-20d : def: %d\n", "Indicator pic", scr_indicator ? scr_indicator->integer : 0, 1);
     }
     Com_Printf("------------------------------------------------------------------\n");
 }
-
-/* Palletes
-{ //Citrus Fresh Palette
-sh hud color_optimal 255 255 0 255;
-sh hud color_accelerating 255 128 0 80;
-sh hud color_centermarker 128 255 0 255;
-}
-{
-sh hud color_optimal 255 128 0 255;
-sh hud color_accelerating 0 255 128 80;
-sh hud color_centermarker 255 255 255 255;
-}
-{//sunset
-sh hud color_optimal 255 128 64 255;
-sh hud color_accelerating 255 64 128 90;
-sh hud color_centermarker 255 255 192 255;
-}
-{ //Tech glow
-sh hud color_optimal 0 255 0 255;
-sh hud color_accelerating 0 128 255 80;
-sh hud color_centermarker 255 255 255 255;
-}
-*/
-

@@ -77,6 +77,7 @@ static cvar_t   *scr_debuggraph;
 static cvar_t   *scr_graphheight;
 static cvar_t   *scr_graphscale;
 static cvar_t   *scr_graphshift;
+static cvar_t   *scr_graphcolor;
 
 static cvar_t   *scr_draw2d;
 static cvar_t   *scr_lag_x;
@@ -346,7 +347,7 @@ void SCR_AddNetgraph(void)
         // see what the latency was on this packet
         i = cls.netchan.incoming_acknowledged & CMD_MASK;
         ping = (cls.realtime - cl.history[i].sent) / 30;
-        color = 0xd0;
+        color = scr_graphcolor->integer;
     }
 
     SCR_DebugGraph(min(ping, 30), color);
@@ -1517,6 +1518,7 @@ void SCR_Init(void)
     scr_graphheight = Cvar_Get("graphheight", "32", 0);
     scr_graphscale = Cvar_Get("graphscale", "1", 0);
     scr_graphshift = Cvar_Get("graphshift", "0", 0);
+    scr_graphcolor = Cvar_Get("graphcolor", "208", 0);
 
     scr_chathud = Cvar_Get("scr_chathud", "0", 0);
     scr_chathud_lines = Cvar_Get("scr_chathud_lines", "4", 0);

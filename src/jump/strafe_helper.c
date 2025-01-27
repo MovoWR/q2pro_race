@@ -81,10 +81,9 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
 
     sh.angle_diff = sh.angle_current - sh.angle_optimal;
 
-    if (cl_strafehelperNerdStats->integer)
-    {
-    NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);
-}
+    if (cl_strafehelperNerdStats->integer) {
+        NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);
+    }
 }
 
 void NerdStatsUpdate(const float velocity[3],
@@ -92,55 +91,47 @@ void NerdStatsUpdate(const float velocity[3],
                      const float wishspeed,
                      const float accel,
                      float frametime,
-                     float forward_velocity_angle)
-{
-    if (cl_strafehelperNerdStats->integer)
-    {
-    float currentspeed = DotProduct(velocity, wishdir);
-    float addspeed = wishspeed - currentspeed;
-    float accelspeed = accel * frametime * wishspeed;
+                     float forward_velocity_angle) {
+    if (cl_strafehelperNerdStats->integer) {
+        float currentspeed = DotProduct(velocity, wishdir);
+        float addspeed = wishspeed - currentspeed;
+        float accelspeed = accel * frametime * wishspeed;
 
-    ns.currentspeed_nerd = currentspeed;
-    ns.addspeed_nerd = addspeed;
-    ns.accelspeed_nerd = accelspeed;
-    ns.wishspeed_nerd = wishspeed;
+        ns.currentspeed_nerd = currentspeed;
+        ns.addspeed_nerd = addspeed;
+        ns.accelspeed_nerd = accelspeed;
+        ns.wishspeed_nerd = wishspeed;
 
-    ns.pred_velocity_x = cl.predicted_velocity[0];
-    ns.pred_velocity_y = cl.predicted_velocity[1];
-    ns.pred_velocity_z = cl.predicted_velocity[2];
+        ns.pred_velocity_x = cl.predicted_velocity[0];
+        ns.pred_velocity_y = cl.predicted_velocity[1];
+        ns.pred_velocity_z = cl.predicted_velocity[2];
 
-    ns.pred_pos_x = cl.predicted_origin[0];
-    ns.pred_pos_y = cl.predicted_origin[1];
-    ns.pred_pos_z = cl.predicted_origin[2];
+        ns.pred_pos_x = cl.predicted_origin[0];
+        ns.pred_pos_y = cl.predicted_origin[1];
+        ns.pred_pos_z = cl.predicted_origin[2];
 
 
-    ns.locmove_x = cl.localmove[0];
-    ns.locmove_y = cl.localmove[1];
-    ns.locmove_z = cl.localmove[2];
+        ns.locmove_x = cl.localmove[0];
+        ns.locmove_y = cl.localmove[1];
+        ns.locmove_z = cl.localmove[2];
 
-    ns.pitch = cl.refdef.viewangles[0];
-    ns.roll = cl.refdef.viewangles[2];
-    ns.viewangles = cl.refdef.viewangles[1]; // YAW
+        ns.pitch = cl.refdef.viewangles[0];
+        ns.roll = cl.refdef.viewangles[2];
+        ns.viewangles = cl.refdef.viewangles[1]; // YAW
 
-    ns.pmove = cl.frame.ps.pmove.pm_type;
-    ns.forward_velocity_angle_nerd = forward_velocity_angle;
-}
+        ns.pmove = cl.frame.ps.pmove.pm_type;
+        ns.forward_velocity_angle_nerd = forward_velocity_angle;
+    }
 }
 
-void OriginUpdate(void)
-{
+void OriginUpdate(void) {
     ns.pred_pos_x = cl.playerEntityOrigin[0];
     ns.pred_pos_y = cl.playerEntityOrigin[1];
     ns.pred_pos_z = cl.playerEntityOrigin[2];
     ns.viewangles = cl.playerEntityAngles[1]; // YAW
     ns.pitch = cl.playerEntityAngles[0];
     ns.roll = cl.playerEntityAngles[2];
-
-
 }
-
-
-
 
 
 static float angleDiffToPixelDiff(const float angle_difference, const float scale,
@@ -160,10 +151,6 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     const float upper_y = (hud_height - params->height) / 2.0f + params->y;
     const float center_width = CLAMP(cl_strafehelper_center_width->value, 0.1f, 5.0f);
     const float optimal_width = CLAMP(cl_strafehelper_optimal_width->value, 0.1f, 5.0f);
-
-    float custom_x, custom_y, custom_width, custom_height;
-    sscanf(cl_strafehelper_indicator_pos->string, "%f %f", &custom_x, &custom_y);
-    sscanf(cl_strafehelper_indicator_size->string, "%f %f", &custom_width, &custom_height);
 
     // Adjust angle offsets
     float offset = params->center ? -sh.angle_current : 0.0f;
@@ -203,12 +190,12 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     }
 }
 
-void SH_Indicator_Draw(const struct StrafeHelperParams* params,
-                       float hud_width, float hud_height, int indicator_pic, int font_pic)
-{
+void SH_Indicator_Draw(const struct StrafeHelperParams *params,
+                       float hud_width, float hud_height, int indicator_pic, int font_pic) {
     static float previous_velocity_norm = 0.0f;
     bool isOptimal = fabsf(sh.angle_current - sh.angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
-    bool insideAccelerationZone = fabsf(sh.angle_current - sh.angle_minimum) <= fabsf(sh.angle_maximum - sh.angle_minimum);
+    bool insideAccelerationZone = fabsf(sh.angle_current - sh.angle_minimum) <= fabsf(
+                                      sh.angle_maximum - sh.angle_minimum);
     bool speedIncreased = sh.velocity_norm > previous_velocity_norm;
 
     bool drawIndicator = (cl_strafehelperIndicator->integer == 1 || cl_strafehelperIndicator->integer == 2) &&

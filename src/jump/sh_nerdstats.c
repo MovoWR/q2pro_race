@@ -6,8 +6,7 @@
 #include <stddef.h>
 
 
-char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
-{
+char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
     char formatted[64];
     const int lineSpacing = CHAR_HEIGHT;
     char buffer[MAX_STRING_CHARS];
@@ -22,18 +21,14 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
     int left_y = CHAR_HEIGHT + margin;
 
 
-    if (cl_strafehelperNerdStats->integer == 1)
-    {
+    if (cl_strafehelperNerdStats->integer == 1) {
         x = CHAR_WIDTH;
-    }
-    else if (cl_strafehelperNerdStats->integer == 2)
-    {
+    } else if (cl_strafehelperNerdStats->integer == 2) {
         x = (hud_width - block_width) + 10.0f;
     }
 
 
-    if (cl_strafehelperNerdStats && cl_strafehelperNerdStats->integer)
-    {
+    if (cl_strafehelperNerdStats && cl_strafehelperNerdStats->integer) {
         shc_drawFilledRectangle(x - 10, 0, block_width, block_height, shc_ElementId_NerdStats);
 
 
@@ -168,8 +163,6 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
         left_y += lineSpacing;
 
 
-
-
         // -------------------------------------
         // [PM_Accelerate]
         // -------------------------------------
@@ -208,10 +201,10 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
         //
-        static const char* const types[] = {
+        static const char *const types[] = {
             "NORMAL", "SPECTATOR", "DEAD", "GIB", "FREEZE"
         };
-        static const char* const flags[] = {
+        static const char *const flags[] = {
             "DUCKED", "JUMP_HELD", "ON_GROUND",
             "TIME_WATERJUMP", "TIME_LAND", "TIME_TELEPORT",
             "NO_PREDICTION", "TELEPORT_BIT"
@@ -229,10 +222,8 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
         left_y += lineSpacing;
 
         unsigned pm_flags = cl.frame.ps.pmove.pm_flags;
-        for (unsigned i = 0; i < 8; i++)
-        {
-            if (pm_flags & (1 << i))
-            {
+        for (unsigned i = 0; i < 8; i++) {
+            if (pm_flags & (1 << i)) {
                 snprintf(buffer, sizeof(buffer), "%-12s %s", "", flags[i]);
                 R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
                 left_y += lineSpacing;
@@ -243,23 +234,24 @@ char* SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic)
 
     return 0;
 }
+
 // Helper function to print a section header
-void printSectionHeader(const char* title) {
+void printSectionHeader(const char *title) {
     Com_Printf("\n---------- %s ----------\n", title);
 }
 
 // Unified helper for key-value pairs (strings or floats)
-void printKeyValueGeneric(const char* label, const char* value) {
+void printKeyValueGeneric(const char *label, const char *value) {
     Com_Printf("%-15s | %-5s\n", label, value); // Wider label and value columns
 }
 
-void printKeyValueFloat(const char* label, float value) {
+void printKeyValueFloat(const char *label, float value) {
     char formattedValue[32];
     snprintf(formattedValue, sizeof(formattedValue), "%+10.2f", value); // Format float as a string
     printKeyValueGeneric(label, formattedValue); // Reuse generic helper
 }
 
-void printKeyValueFloatPrecise(const char* label, float value) {
+void printKeyValueFloatPrecise(const char *label, float value) {
     char formattedValue[32];
     snprintf(formattedValue, sizeof(formattedValue), "%+10.4f", value); // Format high-precision float
     printKeyValueGeneric(label, formattedValue); // Reuse generic helper
@@ -306,7 +298,6 @@ void DebugNow(void) {
 }
 
 
-void SH_DebugNow_f(void)
-{
+void SH_DebugNow_f(void) {
     DebugNow();
 }
