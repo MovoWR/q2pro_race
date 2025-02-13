@@ -5,7 +5,7 @@ on:
     branches: [main]
   push:
     branches:
-      - main
+      - q2pro_race
       - dev
 
 env:
