@@ -36,6 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
+          fetch-tags: true
           submodules: recursive
 
       - uses: actions/cache@v4
@@ -79,6 +81,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
 
       - name: Create artifacts directory
         run: mkdir -p artifacts
