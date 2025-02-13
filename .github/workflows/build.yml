@@ -72,7 +72,6 @@ jobs:
           path: q2pro_race-windows-x86_64.zip
 
   release:
-    if: github.ref == 'refs/heads/omg'
     needs: [windows]
     runs-on: ubuntu-latest
     permissions:
