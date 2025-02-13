@@ -125,7 +125,7 @@ void SH_Indicator_Help(void) {
     Com_Printf("========================================================================================\n");
     Com_Printf("  enable           Enable the indicator.\n");
     Com_Printf("  disable          Disable the indicator.\n");
-    Com_Printf("  tolerance        Set tolerance (degrees) from optimal angle .\n");
+    Com_Printf("  tolerance        Set tolerance (degrees) from optimal angle.\n");
     Com_Printf("  pos X Y          Set position. Example: pos 100 200\n");
     Com_Printf("  size W H         Set size. Example: size 50 50\n");
     Com_Printf("  color R G B A    Set color (0-255). Example: color 255 255 255 128\n");

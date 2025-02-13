@@ -43,12 +43,6 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
 
-        // Call and display the values
-        CL_Mfps_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s", "Client FPS:", formatted);
-        R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
-        left_y += lineSpacing;
-
         R_Fps_m(formatted, sizeof(formatted));
         snprintf(buffer, sizeof(buffer), "%-12s %s", "Render FPS:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);

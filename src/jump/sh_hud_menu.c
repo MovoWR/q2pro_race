@@ -58,7 +58,6 @@ static const ColorPreset presets[] = {
     {"Shadow", "64 64 64 255", "32 32 32 80", "192 192 192 255", "Neutral gray with shadowy tones"},
     {"Lavender", "230 230 250 255", "216 191 216 90", "0 255 0 255", "Soft lavender tones with bright green"},
     {"Emerald", "80 200 120 255", "40 100 60 80", "200 255 200 255", "Lush emerald green with light highlights"},
-    {"FeverDream", "255 0 255 255", "0 255 255 80", "255 255 0 255", "Magenta, cyan, and yellow overload"}
 };
 
 void SH_SetPreset_f(void) {
@@ -295,10 +294,8 @@ void SH_Hud_Help_f(void) {
     Com_Printf("  ypos <value>                            Set the Y position (default: 100).\n");
     Com_Printf("  height <value>                          Set the height (default: 20).\n");
     Com_Printf("  centermarker                            Toggle the center marker on/off.\n");
-    Com_Printf(
-        "  center_width <value>                    Set the center line width (default: 2.\n");
-    Com_Printf(
-        "  optimal_width <value>                   Set the optimal line width (default: 2).\n");
+    Com_Printf("  center_width <value>                    Set the center line width (default: 2).\n");
+    Com_Printf("  optimal_width <value>                   Set the optimal line width (default: 2).\n");
     Com_Printf("  color_<type> <R> <G> <B> <A>            Set color (0-255).\n");
     Com_Printf("                                          Types: optimal, centermarker, accelerating\n");
     Com_Printf("  preset <name> or <number>               Apply a predefined color preset.\n");

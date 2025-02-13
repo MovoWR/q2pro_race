@@ -20,7 +20,7 @@ void SH_Help_f(void) {
     Com_Printf("  race_width           Set the thickness of the race line. Values: 1 to 20 \n");
     Com_Printf("  race_color           <R> <G> <B> (0-255 each)\n");
     Com_Printf("  race_alpha           Set transparency level. Values: 0 to 1.\n");
-    Com_Printf("  race_life            Define how long the race line remains visible.Values: 100 to 5000.\n");
+    Com_Printf("  race_life            Define how long the race line remains visible. Values: 100 to 5000.\n");
     Com_Printf("  gl_beamstyle         0/1 - 1 new beam style.\n");
 }
 

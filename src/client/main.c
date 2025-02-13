@@ -3183,7 +3183,6 @@ static void CL_InitLocal(void)
     cl_drawStrafeHelper = Cvar_Get("sh_draw", "0", CVAR_ARCHIVE);
     cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
     cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
-    cl_strafehelper_tolerance = Cvar_Get("sh_tolerance", "0.20", CVAR_ARCHIVE);
     cl_strafeHelperHeight = Cvar_Get("sh_height", "20", CVAR_ARCHIVE);
     cl_strafeHelperScale = Cvar_Get("sh_scale", "1.5", CVAR_ARCHIVE);
     cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
