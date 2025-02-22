@@ -5,7 +5,7 @@ on:
     branches: [main]
   push:
     branches:
-      - main
+      - q2pro_race
       - dev
 
 env:
@@ -32,7 +32,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: ["x64"]
+        arch: ["x64", "x86"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,25 +56,24 @@ jobs:
 
       - name: Build
         run: |
-          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir --buildtype=release
-          meson compile -C builddir
+          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release
+          meson compile -C builddir-${{ matrix.arch }}
 
       - name: Compress artifacts to .zip
         run: |
           mkdir artifacts
-          cp builddir/q2pro_race.exe artifacts/
+          cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
           cd artifacts
-          7z a -tzip ../q2pro_race-windows-x86_64.zip *
-      
+          7z a -tzip ../q2pro_race-windows-${{ matrix.arch }}.zip *
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           retention-days: 2
-          name: q2pro_race-windows-x86_64
-          path: q2pro_race-windows-x86_64.zip
+          name: q2pro_race-windows-${{ matrix.arch }}
+          path: q2pro_race-windows-${{ matrix.arch }}.zip
 
   release:
-    if: github.ref == 'refs/heads/omg'
     needs: [windows]
     runs-on: ubuntu-latest
     permissions:
@@ -83,9 +82,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-            fetch-depth: 0
-            fetch-tags: true
-            submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
 
       - name: Create artifacts directory
         run: mkdir -p artifacts
@@ -104,7 +103,7 @@ jobs:
           if gh release view latest --json name --jq .name >/dev/null 2>&1; then
             echo "Updating 'latest' release"
             gh release edit latest -t "Latest" -n "Automatically updated latest build" --latest
-          gh release upload latest ./artifacts/* --clobber
+            gh release upload latest ./artifacts/* --clobber
           else
             echo "Creating 'latest' release"
             gh release create latest ./artifacts/* --title "Latest" --notes "Automatically updated latest build"
