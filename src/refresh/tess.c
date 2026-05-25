@@ -256,6 +256,54 @@ static void GL_DrawSimpleBeam(const vec3_t start, const vec3_t end, color_t colo
     tess.numindices += 6;
 }
 
+static void GL_DrawTaperedBeam(const vec3_t start, const vec3_t end, color_t color, float start_width, float end_width)
+{
+    vec3_t d1, d2, d3_start, d3_end;
+    vec_t *dst_vert;
+    glIndex_t *dst_indices;
+
+    VectorSubtract(end, start, d1);
+    VectorSubtract(glr.fd.vieworg, start, d2);
+    CrossProduct(d1, d2, d3_start);
+    if (VectorNormalize(d3_start) < 0.1f)
+        return;
+
+    VectorCopy(d3_start, d3_end);
+    VectorScale(d3_start, start_width, d3_start);
+    VectorScale(d3_end, end_width, d3_end);
+
+    if (q_unlikely(tess.numverts + 4 > TESS_MAX_VERTICES ||
+                   tess.numindices + 6 > TESS_MAX_INDICES))
+        GL_FlushBeamSegments();
+
+    dst_vert = tess.vertices + tess.numverts * 6;
+    VectorAdd(start, d3_start, dst_vert);
+    VectorSubtract(start, d3_start, dst_vert + 6);
+    VectorSubtract(end, d3_end, dst_vert + 12);
+    VectorAdd(end, d3_end, dst_vert + 18);
+
+    dst_vert[ 3] = 0; dst_vert[ 4] = 0;
+    dst_vert[ 9] = 1; dst_vert[10] = 0;
+    dst_vert[15] = 1; dst_vert[16] = 1;
+    dst_vert[21] = 0; dst_vert[22] = 1;
+
+    WN32(dst_vert +  5, color.u32);
+    WN32(dst_vert + 11, color.u32);
+    WN32(dst_vert + 17, color.u32);
+    WN32(dst_vert + 23, color.u32);
+
+    dst_indices = tess.indices + tess.numindices;
+    dst_indices[0] = tess.numverts + 0;
+    dst_indices[1] = tess.numverts + 2;
+    dst_indices[2] = tess.numverts + 3;
+    dst_indices[3] = tess.numverts + 0;
+    dst_indices[4] = tess.numverts + 1;
+    dst_indices[5] = tess.numverts + 2;
+
+    tess.numverts += 4;
+    tess.numindices += 6;
+}
+
 #define MIN_LIGHTNING_SEGMENTS      3
 #define MAX_LIGHTNING_SEGMENTS      7
 #define MIN_SEGMENT_LENGTH          16
@@ -297,7 +345,7 @@ static void GL_DrawLightningBeam(const vec3_t start, const vec3_t end, color_t c
     VectorCopy(start, segments[0]);
     VectorCopy(end, segments[i]);
 
-    if (gl_beamstyle->integer) {
+    if (gl_beamstyle->integer == 1) {
         GL_DrawPolyBeam(segments, num_segments, color, width);
     } else {
         for (i = 0; i < num_segments; i++)
@@ -318,7 +366,7 @@ void GL_DrawBeams(void)
 
     GL_LoadMatrix(glr.viewmatrix);
 
-    if (gl_beamstyle->integer) {
+    if (gl_beamstyle->integer == 1) {
         GL_BindArrays(VA_NULLMODEL);
         scale = 0.5f;
     } else {
@@ -340,13 +388,26 @@ void GL_DrawBeams(void)
 
         color.u8[3] *= ent->alpha;
 
+        // Proximity Heatmap (Style 2 and 4)
+        if (gl_beamstyle->integer == 2 || gl_beamstyle->integer == 4) {
+            float dist = Distance(glr.fd.vieworg, segs[0]);
+            float factor = (dist - 128.0f) / (1024.0f - 128.0f);
+            factor = Q_clipf(factor, 0.0f, 1.0f);
+            color.u8[0] = 255 * factor;
+            color.u8[1] = 255 * (1.0f - factor);
+            color.u8[2] = 0;
+        }
+
 
         width = abs((int16_t)ent->frame) * scale;
 
         if (ent->flags & RF_GLOW) {
             GL_DrawLightningBeam(segs[0], segs[1], color, width);
-        } else if (gl_beamstyle->integer) {
+        } else if (gl_beamstyle->integer == 1) {
             GL_DrawPolyBeam(segs, 1, color, width);
+        } else if (gl_beamstyle->integer == 3 || gl_beamstyle->integer == 4) {
+            // Lead-Arrow Head (Tapered)
+            GL_DrawTaperedBeam(segs[0], segs[1], color, 0, width * 2.0f);
         } else {
             GL_DrawSimpleBeam(segs[0], segs[1], color, width);
         }
