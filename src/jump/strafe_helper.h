@@ -84,6 +84,8 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
                        float hud_width, float hud_height, int indicator_pic, int font_pic);
 
+bool StrafeHelper_HasData(void);
+
 // NerdStats
 void NerdStatsUpdate(const float velocity[3],
                      const float wishdir[3],
