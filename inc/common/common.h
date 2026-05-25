@@ -94,6 +94,7 @@ q_noreturn
 void        Com_Quit(const char *reason, error_type_t type);
 
 void        Com_SetColor(color_index_t color);
+uint32_t    Com_ParseColorHex(const char *s);
 
 void        Com_Address_g(genctx_t *ctx);
 void        Com_Generic_c(genctx_t *ctx, int argnum);

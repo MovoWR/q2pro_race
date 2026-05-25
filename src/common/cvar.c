@@ -1133,7 +1133,7 @@ static const cmdreg_t c_cvar[] = {
     { "toggle", Cvar_Toggle_f, Cvar_Toggle_c },
     { "inc", Cvar_Inc_f, Cvar_Inc_c },
     { "dec", Cvar_Inc_f, Cvar_Inc_c },
-    { "reset", Cvar_Reset_f, Cvar_Reset_c },
+    { "creset", Cvar_Reset_f, Cvar_Reset_c },
     { "resetall", Cvar_ResetAll_f },
 
     { NULL }

@@ -72,6 +72,7 @@ static cvar_t   *scr_showpmove;
 static cvar_t   *scr_showturtle;
 
 static cvar_t   *scr_netgraph;
+static cvar_t   *scr_netgraph_alpha;
 static cvar_t   *scr_timegraph;
 static cvar_t   *scr_debuggraph;
 static cvar_t   *scr_graphheight;
@@ -307,6 +308,13 @@ BAR GRAPHS
 ===============================================================================
 */
 
+#define LAG_WARN_BIT    BIT(30)
+#define LAG_CRIT_BIT    BIT(31)
+
+#define LAG_BASE    0xD5
+#define LAG_WARN    0xDC
+#define LAG_CRIT    0xF2
+
 /*
 ==============
 SCR_AddNetgraph
@@ -316,19 +324,13 @@ A new packet was just parsed
 */
 void SCR_AddNetgraph(void)
 {
-    int         i, color;
+    int         i, color, ping_height;
     unsigned    ping;
 
     // if using the debuggraph for something else, don't
     // add the net lines
-    if (scr_debuggraph->integer || scr_timegraph->integer)
+    if (scr_debuggraph->integer || scr_timegraph->integer || !scr_netgraph->integer)
         return;
-
-    for (i = 0; i < cls.netchan.dropped; i++)
-        SCR_DebugGraph(30, 0x40);
-
-    for (i = 0; i < cl.suppress_count; i++)
-        SCR_DebugGraph(30, 0xdf);
 
     if (scr_netgraph->integer > 1) {
         ping = msg_read.cursize;
@@ -343,14 +345,30 @@ void SCR_AddNetgraph(void)
         else
             color = 242;
         ping /= 40;
+        ping_height = 30;
     } else {
         // see what the latency was on this packet
         i = cls.netchan.incoming_acknowledged & CMD_MASK;
-        ping = (cls.realtime - cl.history[i].sent) / 30;
-        color = scr_graphcolor->integer;
+        if (cl.history[i].cmdNumber && cls.realtime >= cl.history[i].sent)
+            ping = cls.realtime - cl.history[i].sent;
+        else
+            ping = 0;
+
+        if (cl.frameflags & FF_SUPPRESSED)
+            color = LAG_WARN;
+        else
+            color = LAG_BASE;
+
+        ping_height = ping;
     }
 
-    SCR_DebugGraph(min(ping, 30), color);
+    for (i = 0; i < cls.netchan.dropped; i++)
+        SCR_DebugGraph(ping_height, LAG_CRIT);
+
+    for (i = 0; i < cl.suppress_count; i++)
+        SCR_DebugGraph(ping_height, LAG_WARN);
+
+    SCR_DebugGraph(scr_netgraph->integer > 1 ? min(ping, 30) : ping, color);
 }
 
 #define GRAPH_SAMPLES   4096
@@ -392,6 +410,15 @@ static void SCR_DrawDebugGraph(void)
 
     w = scr.hud_width;
     y = scr.hud_height;
+
+    if (scr_netgraph->integer && !scr_debuggraph->integer && !scr_timegraph->integer) {
+        float alpha = Cvar_ClampValue(scr_netgraph_alpha, 0, 1);
+        if (alpha > 0) {
+            R_SetAlpha(alpha);
+            R_DrawFill8(0, y - height, w, height, 0);
+            R_SetAlpha(Cvar_ClampValue(scr_alpha, 0, 1));
+        }
+    }
 
     for (a = 0; a < w; a++) {
         i = (graph.current - 1 - a) & GRAPH_MASK;
@@ -633,13 +660,6 @@ LAGOMETER
 
 #define LAG_WIDTH   48
 #define LAG_HEIGHT  48
-
-#define LAG_WARN_BIT    BIT(30)
-#define LAG_CRIT_BIT    BIT(31)
-
-#define LAG_BASE    0xD5
-#define LAG_WARN    0xDC
-#define LAG_CRIT    0xF2
 
 static struct {
     unsigned samples[LAG_WIDTH];
@@ -1513,6 +1533,7 @@ void SCR_Init(void)
     scr_indicator->changed = scr_indicator_changed;
 
     scr_netgraph = Cvar_Get("netgraph", "0", 0);
+    scr_netgraph_alpha = Cvar_Get("netgraph_alpha", "0", 0);
     scr_timegraph = Cvar_Get("timegraph", "0", 0);
     scr_debuggraph = Cvar_Get("debuggraph", "0", 0);
     scr_graphheight = Cvar_Get("graphheight", "32", 0);
@@ -2342,6 +2363,7 @@ draw:
 // q2pro_race strafe_helper
 //
 void SCR_DrawStrafeHelper(void) {
+    const bool preview = UI_IsMenuActive("strafehelper");
     const struct StrafeHelperParams params = {
         .center = cl_strafeHelperCenter->integer,
         .center_marker = cl_strafeHelperCenterMarker->integer,
@@ -2349,7 +2371,11 @@ void SCR_DrawStrafeHelper(void) {
         .height = cl_strafeHelperHeight->value,
         .y = cl_strafeHelperY->value,
     };
+        if (preview && !StrafeHelper_HasData()) {
+            StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
+        } else {
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
+        }
         SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
         SH_Indicator_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
         scr_indicator_changed(scr_indicator);
@@ -2367,7 +2393,7 @@ static void SCR_Draw2D(void)
     if (scr_draw2d->integer <= 0)
         return;     // turn off for screenshots
 
-    if (cls.key_dest & KEY_MENU)
+    if ((cls.key_dest & KEY_MENU) && !UI_IsTransparent())
         return;
 
     R_SetScale(scr.hud_scale);
@@ -2379,8 +2405,11 @@ static void SCR_Draw2D(void)
     SCR_DrawCrosshair();
 
     // q2pro_race strafe_helper
-    if (cl_drawStrafeHelper->integer) {
+    if (cl_drawStrafeHelper->integer || UI_IsMenuActive("strafehelper")) {
       SCR_DrawStrafeHelper();
+    }
+    if (cl_strafehelperUps->integer) {
+      SH_Ups_Draw(scr.hud_width, scr.hud_height, scr.hud_scale, scr.font_pic);
     }
 
     // the rest of 2D elements share common alpha

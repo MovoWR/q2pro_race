@@ -227,6 +227,48 @@ color_index_t Com_ParseColor(const char *s)
     return COLOR_NONE;
 }
 
+/*
+================
+Com_ParseColorHex
+
+Parses color from hex string (RRGGBBAA) or decimal "R G B A" string.
+Returns 0xFFFFFFFF if parsing fails.
+================
+*/
+uint32_t Com_ParseColorHex(const char *s)
+{
+    unsigned long r, g, b, a = 255;
+    char *p;
+
+    if (!s || !*s)
+        return 0xFFFFFFFF;
+
+    // try hex first
+    if (strlen(s) >= 6 && !strchr(s, ' ')) {
+        return (uint32_t)strtoul(s, NULL, 16);
+    }
+
+    // try decimal "R G B A"
+    r = strtoul(s, &p, 10);
+    if (p == s || *p != ' ') return 0xFFFFFFFF;
+    s = p + 1;
+    g = strtoul(s, &p, 10);
+    if (p == s || (*p != ' ' && *p != 0)) return 0xFFFFFFFF;
+    if (*p == ' ') {
+        s = p + 1;
+        b = strtoul(s, &p, 10);
+        if (p == s || (*p != ' ' && *p != 0)) return 0xFFFFFFFF;
+        if (*p == ' ') {
+            s = p + 1;
+            a = strtoul(s, &p, 10);
+        }
+    } else {
+        return 0xFFFFFFFF; // needs at least R G B
+    }
+
+    return (uint32_t)((Q_clip(r, 0, 255) << 24) | (Q_clip(g, 0, 255) << 16) | (Q_clip(b, 0, 255) << 8) | Q_clip(a, 0, 255));
+}
+
 #if USE_REF
 /*
 ================
