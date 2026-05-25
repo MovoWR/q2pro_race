@@ -35,6 +35,7 @@ begin <menuname>
    banner <image>
    background <color|image>
    plaque <plaque> [logo]
+   style [--compact|--no-compact] [--left|--center|--right] [--transparent|--no-transparent] [--live|--no-live]
 
    range <name> <cvar> <min> <max> [step]
 
@@ -50,325 +51,476 @@ begin <menuname>
    loadgame <slot>
    blank
 
-   field [options] <name> <cvar>
+   field [--center] [--color|--picker] [--integer|--numeric] [--status <text>] [--width <chars>] <name> <cvar>
 end
 */
 
-background black
+background #3f6da080
 font conchars
 cursor ch1
 weapon w_railgun.md2
 
-color normal #0f90eb64
-color active #0f90ff64
-color selection #0f90eb64
-color disabled #7f7f7f
+color normal    #c8d0daff
+color selectable #c8d0daff
+color alternate #ffffffff
+color title     #ffffffff
+color active    #aa4651ff
+color selection #26384d66
+color disabled  #5f646cff
+
 
 begin video
-    //title "Video Setup"
-    banner m_banner_video
-    values "video mode" vid_fullscreen windowed $$vid_modelist
-    values "fov scaling" cl_adjustfov vert- hor+
-    toggle "vertical sync" gl_swapinterval
-    pairs "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8
-    range "texture gamma" vid_gamma 1.3 0.3
-    toggle "hardware gamma" vid_hwgamma
-    range "texture quality" gl_picmip 3 0 -1
-    pairs "texture filter" gl_texturemode \
+    title "Video Setup"
+    background #3f6da080
+    style --compact --center --transparent --live
+    values --status "Switch between fullscreen and windowed modes." "video mode" vid_fullscreen windowed $$vid_modelist
+    values --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
+    toggle --status "Synchronize frame rate with monitor refresh to prevent tearing." "vertical sync" gl_swapinterval
+    pairs --status "Smooth jagged edges of geometry (requires video restart)." "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8
+    range --status "Adjust the brightness balance of game textures." "texture gamma" vid_gamma 1.3 0.3
+    toggle --status "Toggle use of monitor hardware for gamma correction." "hardware gamma" vid_hwgamma
+    range --status "Lower values increase texture detail (requires video restart)." "texture quality" gl_picmip 3 0 -1
+    pairs --status "Choose between classic pixelated or modern smooth textures." "texture filter" gl_texturemode \
         nearest GL_NEAREST \
         linear GL_LINEAR \
         bilinear GL_LINEAR_MIPMAP_NEAREST \
         trilinear GL_LINEAR_MIPMAP_LINEAR
-    pairs "anisotropic filter" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16
-    range "texture saturation" gl_saturation 0 1
-    pairs "texture intensity" intensity 1x 1 2x 2 3x 3
-    range "lightmap saturation" gl_coloredlightmaps 0 1
-    range "lightmap brightness" gl_brightness 0 0.3
-    values "rendering backend" gl_shaders legacy shaders
+    pairs --status "Improve texture clarity on surfaces viewed at an angle." "anisotropic filter" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16
+    range --status "Adjust the color intensity of game world textures." "texture saturation" gl_saturation 0 1
+    pairs --status "Boost the overall brightness of textures." "texture intensity" intensity 1x 1 2x 2 3x 3
+    range --status "Adjust the color intensity of static lightmaps." "lightmap saturation" gl_coloredlightmaps 0 1
+    range --status "Fine-tune the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
+    values --status "Legacy GL1.x vs Modern GL3.x shaders (requires video restart)." "rendering backend" gl_shaders legacy shaders
 end
 
 begin options
-    //title "Options"
-    banner m_banner_options
-    action "player setup" pushmenu players
-    action "input setup" pushmenu input
-    action "key bindings" pushmenu keys
-    action "weapon bindings" pushmenu weapons
-    action "video setup" pushmenu video
-    action "sound setup" pushmenu sound
-    action "effects setup" pushmenu effects
-    action "screen setup" pushmenu screen
-    action "download options" pushmenu downloads
-    action "address book" pushmenu addressbook
+    title "Options"
+    background #3f6da080
+    style --compact --center --transparent
+    action --status "Customize your player name and appearance." "player setup" pushmenu players
+    action --status "Configure jump-specific HUD and assist tools." "jump setup" pushmenu jump
+    action --status "Adjust mouse sensitivity and input settings." "input setup" pushmenu input
+    action --status "Bind movement and game actions to keys." "key bindings" pushmenu keys
+    action --status "Specific weapon selection bindings." "weapon bindings" pushmenu weapons
+    action --status "Graphics, resolution, and quality settings." "video setup" pushmenu video
+    action --status "Audio levels and engine settings." "sound setup" pushmenu sound
+    action --status "Explosions, shadows, and rail trails." "effects setup" pushmenu effects
+    action --status "HUD size, opacity, and scaling." "screen setup" pushmenu screen
+    action --status "Asset downloading preferences." "download options" pushmenu downloads
+    action --status "Quick-connect address book." "address book" pushmenu addressbook
 end
 
 begin sound
     title "Sound Setup"
-    values "sound engine" s_enable "no sound" "software" "OpenAL"
-    range "sound latency" s_mixahead 0.05 0.2
-    range "effects volume" s_volume 0 1
-    range "music volume" ogg_volume 0 1
-    toggle "enable music" ogg_enable
-    toggle "shuffle tracks" ogg_shuffle
-    toggle "underwater effect" s_underwater
-    values "ambient sounds" s_ambient "no" "yes" "only player's own"
-    values "chat beep" cl_chat_sound "disabled" "default" "alternative"
+    background #3f6da080
+    style --compact --center --transparent
+    values --status "Select the audio output engine (OpenAL recommended)." "sound engine" s_enable "no sound" "software" "OpenAL"
+    range --status "Lower values reduce delay but may cause stuttering." "sound latency" s_mixahead 0.05 0.2
+    range --status "Overall volume of sound effects and voices." "effects volume" s_volume 0 1
+    range --status "Volume level for background OGG music." "music volume" ogg_volume 0 1
+    toggle --status "Enable or disable background music playback." "enable music" ogg_enable
+    toggle --status "Play music tracks in random order." "shuffle tracks" ogg_shuffle
+    toggle --status "Apply a muffled audio filter when submerged." "underwater effect" s_underwater
+    values --status "Ambient map sounds like wind or humming machinery." "ambient sounds" s_ambient "no" "yes" "only player's own"
+    values --status "Sound notification when receiving a chat message." "chat beep" cl_chat_sound "disabled" "default" "alternative"
 end
 
 begin railtrail
     title "Railgun Trail Setup"
-    values "rail trail type" cl_railtrail_type \
+    background #3f6da080
+    style --compact --center --transparent
+    values --status "Visual style of the railgun beam." "rail trail type" cl_railtrail_type \
         "default" "core only" "core and spiral"
-    range "rail trail duration" cl_railtrail_time 0.1 3.0 0.1
-    range "core width" cl_railcore_width 1 6 1
-    range "spiral radius" cl_railspiral_radius 1 6 1
-    strings "core color" cl_railcore_color \
+    range --status "How long the trail remains visible in seconds." "rail trail duration" cl_railtrail_time 0.1 3.0 0.1
+    range --status "Thickness of the inner beam." "core width" cl_railcore_width 1 6 1
+    range --status "Radius of the outer spiral effect." "spiral radius" cl_railspiral_radius 1 6 1
+    strings --status "Color of the inner beam." "core color" cl_railcore_color \
         black red green yellow blue cyan magenta white
-    strings "spiral color" cl_railspiral_color \
+    strings --status "Color of the outer spiral." "spiral color" cl_railspiral_color \
         black red green yellow blue cyan magenta white
 end
 
 begin effects
     title "Effects Setup"
-    values "dynamic lighting" gl_dynamic "no" "yes" "only switchable"
-    values "entity cel-shading" gl_celshading no 1x 2x 3x
-    toggle "entity glowing" cl_noglow ~
-    toggle "ground shadows" gl_shadows
-    toggle "screen blending" gl_polyblend
-    toggle "screen warping" gl_waterwarp
-    toggle "grenade explosions" cl_disable_explosions ~0
-    toggle "rocket explosions" cl_disable_explosions ~1
+    background #3f6da080
+    style --compact --center --transparent
+    values --status "World lighting from projectiles and explosions." "dynamic lighting" gl_dynamic "no" "yes" "only switchable"
+    values --status "Cartoon-style thick outlines on players and items." "entity cel-shading" gl_celshading no 1x 2x 3x
+    toggle --status "Enable glowing shell around certain entities." "entity glowing" cl_noglow ~
+    values --status "Drop-shadows under players and objects." "ground shadows" gl_shadows no yes fade
+    toggle --status "Screen tinting from items and environment (lava/water)." "screen blending" gl_polyblend
+    toggle --status "Visual distortion effect when underwater." "screen warping" gl_waterwarp
+    toggle --status "Show or hide grenade explosion effects." "grenade explosions" cl_disable_explosions ~0
+    toggle --status "Show or hide rocket explosion effects." "rocket explosions" cl_disable_explosions ~1
     blank
-    action --align "railgun trail setup..." pushmenu railtrail
+    action --status "Customize railgun beam colors and style." --align "railgun trail setup..." pushmenu railtrail
 end
 
 begin crosshair
     title "Crosshair Setup"
-    values "crosshair type" crosshair none cross dot angle
-    pairs "crosshair scale" ch_scale 0.5x 0.5 1x 1 2x 2
-    toggle "color by health" ch_health
-    range "red channel" ch_red 0 1
-    range "green channel" ch_green 0 1
-    range "blue channel" ch_blue 0 1
-    range "alpha channel" ch_alpha 0 1
+    background #3f6da080
+    style --compact --center --transparent
+    values --status "Style of the center-screen aiming cursor." "crosshair type" crosshair none cross dot angle
+    pairs --status "Change the physical size of the crosshair." "crosshair scale" ch_scale 0.5x 0.5 1x 1 2x 2
+    toggle --status "Change crosshair color based on player health." "color by health" ch_health
+    range --status "Red intensity of the crosshair color." "red channel" ch_red 0 1
+    range --status "Green intensity of the crosshair color." "green channel" ch_green 0 1
+    range --status "Blue intensity of the crosshair color." "blue channel" ch_blue 0 1
+    range --status "Opacity level of the crosshair." "alpha channel" ch_alpha 0 1
 end
 
 begin screen
     title "Screen Setup"
-    range "screen size" viewsize 40 100 10
-    toggle "ping graph" scr_lag_draw
-    values "demo bar" scr_demobar no yes verbose
-    range "HUD opacity" scr_alpha 0 1
-    range "console opacity" con_alpha 0 1
-    pairs "HUD scale" scr_scale auto 0 1x 1 2x 2 4x 4
-    pairs "console scale" con_scale auto 0 1x 1 2x 2 4x 4
-    pairs "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
+    background #3f6da080
+    style --compact --center --transparent
+    range --status "Vertical field of view adjustment (legacy)." "screen size" viewsize 40 100 10
+    toggle --status "Show a real-time graph of server latency." "ping graph" scr_lag_draw
+    values --status "Detailed recording status bar for demos." "demo bar" scr_demobar no yes verbose
+    range --status "Overall transparency of the in-game HUD." "HUD opacity" scr_alpha 0 1
+    range --status "Transparency of the background console." "console opacity" con_alpha 0 1
+    pairs --status "Scale factor for all HUD elements." "HUD scale" scr_scale auto 0 1x 1 2x 2 4x 4
+    pairs --status "Scale factor for the console text." "console scale" con_scale auto 0 1x 1 2x 2 4x 4
+    pairs --status "Scale factor for this menu system." "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
+    pairs --status "Choose the menu source used after the next UI restart. Built-in ignores q2pro.menu; external file loads q2pro.menu overrides from disk." "menu source" ui_external_menu built-in 0 "external file" 1
     blank
-    action --align "crosshair setup..." pushmenu crosshair
+    action --status "Adjust aiming cursor appearance." --align "crosshair setup..." pushmenu crosshair
+    action --status "Configure jump-specific assist tools." --align "jump HUD setup..." pushmenu jump
 end
 
 begin downloads
     title "Download Options"
-    toggle "allow downloading" allow_download
-    toggle "maps" allow_download_maps
-    toggle "player models/skins" allow_download_players
-    toggle "models" allow_download_models
-    toggle "sounds" allow_download_sounds
-    toggle "textures" allow_download_textures
-    toggle "pics" allow_download_pics
+    background #3f6da080
+    style --compact --center --transparent
+    toggle --status "Global switch for automated server downloads." "allow downloading" allow_download
+    toggle --status "Automatically fetch missing .bsp files." "maps" allow_download_maps
+    toggle --status "Fetch custom player models and skins." "player models/skins" allow_download_players
+    toggle --status "Fetch custom 3D map objects and entities." "models" allow_download_models
+    toggle --status "Fetch custom weapon and ambient sounds." "sounds" allow_download_sounds
+    toggle --status "Fetch high-res or custom world textures." "textures" allow_download_textures
+    toggle --status "Fetch custom images, banners, and logos." "pics" allow_download_pics
     blank
-    toggle "HTTP downloads" cl_http_downloads
+    toggle --status "Use high-speed web downloads where available." "HTTP downloads" cl_http_downloads
+end
+
+begin jump
+    title "Jump Setup"
+    background #3f6da080
+    style --compact --center --transparent --live
+    blank
+    action --status "Configure the visual strafe-assist bar." "strafe helper" pushmenu strafehelper
+    action --status "Show your current speed (Units Per Second)." "UPS display" pushmenu jumpups
+    action --status "Visual keys-pressed and sync indicator." "strafe indicator" pushmenu jumpindicator
+    action --status "Draw a trailing line behind your movement." "race line" pushmenu raceline
+    action --status "Bind keys for mod-specific actions." "mod bindings" pushmenu jumpmodbinds
+    blank
+    action --status "Technical settings and debug commands." "advanced/debug" pushmenu jumpdebug
+end
+
+
+
+begin jumpmodbinds
+    title "Mod Bindings"
+    background #3f6da080
+    style --compact --center --transparent
+
+    static "[Movement / Storage]"
+    bind --status "Saves current position and velocity." "store" store
+    bind --status "Returns to your stored position." "recall" recall
+    bind --status "Resets your current race run." "reset" reset
+    bind --status "Fires the grappling hook." "hook" hook
+    bind --status "Releases the grappling hook." "unhook" unhook
+    blank
+
+    static "[HUD / Information]"
+    bind --status "Toggles the replay statistics display." "replay stats" repstats
+    bind --status "Toggles jump distance announcement." "show jumps" showjumps
+    bind --status "Toggles split times display." "show times" showtimes
+    bind --status "Toggles checkpoint arrival sound." "checkpoint sound" cpsound
+    bind --status "Shows current frames per second." "show FPS" !fps
+    blank
+
+    static "[Social / Team]"
+    bind --status "Votes YES in current election." "vote yes" yes
+    bind --status "Votes NO in current election." "vote no" no
+    bind --status "Teleports you to a specific player." "goto player" goto
+    bind --status "Toggles your idle/AFK state." "idle mode" idle
+    bind --status "Joins the Easy difficulty team." "join easy" "team easy"
+    bind --status "Joins the Hard difficulty team." "join hard" "team hard"
+    bind --status "Moves you to the observer team." "spectate" observer
+end
+
+begin jumpkeys
+    title "Jump Key Bindings"
+    background #3f6da080
+    style --compact --center --transparent
+    bind --status "The primary jump action (+moveup)." "jump" +moveup
+    bind --status "Double-jump script (+dj)." "double jump" +dj
+    bind --status "Move downward or crouch (+movedown)." "crouch" +movedown
+    bind --status "Move player forward (+forward)." "walk forward" +forward
+    bind --status "Move player backward (+back)." "backpedal" +back
+    bind --status "Side-step to the left (+moveleft)." "strafe left" +moveleft
+    bind --status "Side-step to the right (+moveright)." "strafe right" +moveright
+    bind --status "Return to the Jump Setup menu." "jump setup menu" "pushmenu jump"
+    blank
+    bind --status "Toggle the scoreboard (score)." "scoreboard" score
+    bind --status "Toggle the race timer (time)." "timer" time
+    bind --status "Show current map coordinates (coord)." "coordinates" coord
+    bind --status "Compare your time with best (compare)." "compare" compare
+    bind --status "Clear the HUD of temporary messages (cleanhud)." "clear HUD" cleanhud
+    bind --status "Toggle visibility of other players (ghost)." "toggle ghost" ghost
+end
+
+begin strafehelper
+    title "Strafe Helper"
+    background #3f6da080
+    style --compact --center --transparent --live
+    toggle --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
+    toggle --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker
+    range --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1
+    range --status "Vertical position from the top of the screen." "Y position" sh_y 0 320 5
+    range --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1
+    range --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
+    toggle --status "Automatically hide the bar when not moving." "fade inactive" sh_fade_inactive
+    strings --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
+    range --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
+    range --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
+    field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating
+    field --picker --status "Color when moving at perfect angle." "optimal color" sh_color_optimal
+    field --picker --status "Color of the center neutral marker." "center marker color" sh_color_centermarker
+    blank
+    action --status "Choose from a set of pre-defined color schemes." --align "apply color preset..." pushmenu shpresets
+end
+
+begin shpresets
+    title "Strafe Helper Presets"
+    background #3f6da080
+    style --compact --center --transparent
+    action --status "Apply a randomized color scheme." "random" "sh hud preset random"
+    action --status "Original grey and blue theme." "vanilla" "sh hud preset vanilla"
+    action --status "Calm blue and teal tones." "ocean" "sh hud preset ocean"
+    action --status "Classic CRT orange and green." "retro" "sh hud preset retro"
+    action --status "Neon pink and cyan aesthetic." "cyberpunk" "sh hud preset cyberpunk"
+    action --status "Fresh green and white theme." "mint" "sh hud preset mint"
+    action --status "Hot orange and red theme." "lava" "sh hud preset lava"
+    action --status "Subtle dark and grey tones." "shadow" "sh hud preset shadow"
+    action --status "List all available presets in the console." "show all presets" "sh hud preset"
+end
+
+begin jumpups
+    title "UPS Display"
+    background #3f6da080
+    style --compact --center --transparent --live
+    toggle --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
+    range --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 4 0.25
+    toggle --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow
+    toggle --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero
+    strings --status "How speed changes affect text color." "color mode" sh_ups_color_mode dynamic static threshold rainbow
+    strings --status "Display speed as raw number or with label." "format" sh_ups_format plain suffix prefix
+    field --picker --status "Color used when gaining speed." "gain color" sh_ups_color_gain
+    field --picker --status "Color used when losing speed." "loss color" sh_ups_color_loss
+    field --picker --status "Color used when at constant speed." "neutral color" sh_ups_color_neutral
+end
+
+begin jumpindicator
+    title "Strafe Indicator"
+    background #3f6da080
+    style --compact --center --transparent --live
+    pairs --status "Visual style of the input/sync indicator." "mode" sh_indicator off 0 rectangle 1 picture 2
+    range --status "Precision threshold for movement sync." "tolerance" sh_indicator_tolerance 0 10 0.05
+    field --width 11 --status "Screen coordinates (X Y)." "position" sh_indicator_pos
+    field --width 11 --status "Physical size (W H)." "size" sh_indicator_size
+    field --picker --status "Color of the indicator elements." "color" sh_color_indicator
+    pairs --status "Select an icon for picture mode." "picture" scr_indicator 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9
+end
+
+
+begin raceline
+    title "Race Line"
+    background #3f6da080
+    style --compact --center --transparent --live
+    range --status "Thickness of the movement trail line." "width" race_width 0 20 1
+    range --status "Opacity level of the movement trail." "opacity" race_alpha 0 1 0.05
+    range --status "Duration before the line fades away (ms)." "lifetime (ms)" race_life 0 5000 100
+    field --picker --status "Color of the movement trail line." "line color" race_color
+end
+
+begin replayrecording
+    title "Replay Recording"
+    background #3f6da080
+    style --compact --center --transparent --live
+    action --status "Start recording a new movement replay." "start recording" "sh record"
+    action --status "Stop the current recording session." "stop recording" "sh stop"
+    action --status "Play back a saved movement replay." "play replay" "sh play"
+end
+
+begin jumpdebug
+    title "Jump Debug"
+    background #3f6da080
+    style --compact --center --transparent --live
+    pairs --status "Diagnostic overlay for movement physics." "NerdStats" sh_nerdstats off 0 left 1 right 2
+    action --status "Output physics state to the console." --align "dump physics now" debugnow
+    action --status "Report current strafe helper internal state." --align "show strafe helper status" "sh status"
+    action --status "List all active jump-mod commands." --align "show commands" commands
+    action --status "Display list of players on the server." --align "show jumpers" jumpers
+    action --status "Show jump details and statistics." --align "show jumps" showjumps
 end
 
 begin gameflags
     title "Deathmatch Flags"
-    toggle "falling damage" dmflags ~3
-    toggle "weapons stay" dmflags 2
-    toggle "instant powerups" dmflags 4
-    toggle "allow powerups" dmflags ~1
-    toggle "allow health" dmflags ~0
-    toggle "allow armor" dmflags ~11
-    toggle "spawn farthest" dmflags 9
-    toggle "same map" dmflags 5
-    toggle "force respawn" dmflags 10
-    toggle "infinite ammo" dmflags 13
-    toggle "fixed FOV" dmflags 15
-    toggle "quad drop" dmflags 14
+    background #3f6da080
+    style --compact --center --transparent
+    toggle --status "Enable damage when falling from heights." "falling damage" dmflags ~3
+    toggle --status "Weapons remain on the map after pickup." "weapons stay" dmflags 2
+    toggle --status "Powerups take effect immediately on pickup." "instant powerups" dmflags 4
+    toggle --status "Allow standard powerups to spawn." "allow powerups" dmflags ~1
+    toggle --status "Allow health items to spawn." "allow health" dmflags ~0
+    toggle --status "Allow armor items to spawn." "allow armor" dmflags ~11
+    toggle --status "Players spawn at most distant points." "spawn farthest" dmflags 9
+    toggle --status "Restart same map when match ends." "same map" dmflags 5
+    toggle --status "Force players to respawn immediately." "force respawn" dmflags 10
+    toggle --status "Players have unlimited ammunition." "infinite ammo" dmflags 13
+    toggle --status "Lock field of view for all players." "fixed FOV" dmflags 15
+    toggle --status "Quad Damage is dropped on death." "quad drop" dmflags 14
 end
 
 begin startserver
     //title "Start Server"
     banner m_banner_start_server
-    strings "initial map" _ui_nextserver $$com_maplist
-    values "rules" coop deathmatch cooperative
-    field --integer --status "0 - no time limit" --width 3 "time limit" timelimit
-    field --integer --status "0 - no frag limit" --width 3 "frag limit" fraglimit
-    field --integer --width 3 "max players" maxclients
-    field --width 16 "host name" hostname
+    strings --status "Select the map to load on startup." "initial map" _ui_nextserver $$com_maplist
+    values --status "Select the basic game ruleset." "rules" coop deathmatch cooperative
+    field --integer --status "Duration of a single match in minutes (0 = none)." --width 3 "time limit" timelimit
+    field --integer --status "Frag count required to end match (0 = none)." --width 3 "frag limit" fraglimit
+    field --integer --status "Maximum number of simultaneous players." --width 3 "max players" maxclients
+    field --width 16 --status "Display name of your server." "host name" hostname
     blank
-    action --align "deathmatch flags..." pushmenu gameflags
-    action --align "begin game!" "forcemenuoff; if $coop == 1 then deathmatch 0 else deathmatch 1; map $_ui_nextserver force"
+    action --status "Fine-tune competitive match rules." --align "deathmatch flags..." pushmenu gameflags
+    action --status "Initialize and launch the server." --align "begin game!" "forcemenuoff; if $coop == 1 then deathmatch 0 else deathmatch 1; map $_ui_nextserver force"
 end
 
 begin multiplayer
-    banner m_banner_multiplayer
-    action "browse q2servers.com" pushmenu servers "+http://q2servers.com/?raw=2"
-    action "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
-    action "browse demos" pushmenu demos
-    action "start server" pushmenu startserver
-end
-
-begin singleplayer
-    banner m_banner_game
-    action easy "skill 0; deathmatch 0; coop 0; maxclients 1; newgame"
-    action medium "skill 1; deathmatch 0; coop 0; maxclients 1; newgame"
-    action hard "skill 2; deathmatch 0; coop 0; maxclients 1; newgame"
-    action nightmare "skill 3; deathmatch 0; coop 0; maxclients 1; newgame"
-    blank
-    action "load game..." pushmenu loadgame
-    action "save game..." pushmenu savegame
-end
-
-begin loadgame
-    banner m_banner_load_game
-    loadgame save0
-    blank
-    loadgame save1
-    loadgame save2
-    loadgame save3
-    loadgame save4
-    loadgame save5
-    loadgame save6
-    loadgame save7
-    loadgame save8
-    loadgame save9
-    loadgame save10
-    loadgame save11
-    loadgame save12
-    loadgame save13
-    loadgame save14
-    loadgame save15
-end
-
-begin savegame
-    banner m_banner_save_game
-    savegame save1
-    savegame save2
-    savegame save3
-    savegame save4
-    savegame save5
-    savegame save6
-    savegame save7
-    savegame save8
-    savegame save9
-    savegame save10
-    savegame save11
-    savegame save12
-    savegame save13
-    savegame save14
-    savegame save15
+    title "Multiplayer"
+    background #3f6da080
+    style --compact --center --transparent
+    action --status "Browse all active Quake 2 servers." "browse q2servers.com" pushmenu servers "+http://q2servers.com/?raw=2"
+    action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
+    action --status "Quick access to your saved servers." "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
+    action --status "Watch recorded match and jump replays." "browse demos" pushmenu demos
+    action --status "Host a local or dedicated server." "start server" pushmenu startserver
 end
 
 begin main
-    //title "Main Menu"
-    plaque m_main_plaque m_main_logo
-    bitmap m_main_game pushmenu singleplayer
-    bitmap m_main_multiplayer pushmenu multiplayer
-    bitmap m_main_options pushmenu options
-    bitmap m_main_video pushmenu video
-    bitmap m_main_quit quit
+    title "Main Menu"
+    background #3f6da080
+    style --compact --center --transparent
+    action --status "Find and join online games." "multiplayer" pushmenu multiplayer
+    action --status "Engine and gameplay configuration." "options" pushmenu options
+    action --status "Display and resolution settings." "video setup" pushmenu video
+    blank
+    action --status "Exit the game." "quit" quit
 end
 
 begin game
-    background #0000ff20
-    style --compact
-    action "browse q2servers.com" pushmenu servers "+http://q2servers.com/?raw=2"
-    action "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
-    action "browse demos" pushmenu demos
-    action "single player" pushmenu singleplayer
-    action "options" pushmenu options
-    action "disconnect" disconnect
-    action "quit" quit
+    title "In-Game Menu"
+    background #3f6da080
+    style --compact --center --transparent
+    action --status "Configure HUD and jump tools." "jump setup" pushmenu jump
+    blank
+    action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
+    action --status "Quick access to your saved servers." "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
+    action --status "Watch recorded match and jump replays." "browse demos" pushmenu demos
+    action --status "Engine and gameplay configuration." "options" pushmenu options
+    blank
+    action --status "Leave the current server." "disconnect" disconnect
+    action --status "Exit the game." "quit" quit
 end
 
 begin addressbook
     //title "Address Book"
     banner m_banner_addressbook
-    field --width 32 --center adr0
-    field --width 32 --center adr1
-    field --width 32 --center adr2
-    field --width 32 --center adr3
-    field --width 32 --center adr4
-    field --width 32 --center adr5
-    field --width 32 --center adr6
-    field --width 32 --center adr7
-    field --width 32 --center adr8
-    field --width 32 --center adr9
-    field --width 32 --center adr10
-    field --width 32 --center adr11
-    field --width 32 --center adr12
-    field --width 32 --center adr13
-    field --width 32 --center adr14
-    field --width 32 --center adr15
+    field --width 32 --center --status "Favorite server address slot 0." adr0
+    field --width 32 --center --status "Favorite server address slot 1." adr1
+    field --width 32 --center --status "Favorite server address slot 2." adr2
+    field --width 32 --center --status "Favorite server address slot 3." adr3
+    field --width 32 --center --status "Favorite server address slot 4." adr4
+    field --width 32 --center --status "Favorite server address slot 5." adr5
+    field --width 32 --center --status "Favorite server address slot 6." adr6
+    field --width 32 --center --status "Favorite server address slot 7." adr7
+    field --width 32 --center --status "Favorite server address slot 8." adr8
+    field --width 32 --center --status "Favorite server address slot 9." adr9
+    field --width 32 --center --status "Favorite server address slot 10." adr10
+    field --width 32 --center --status "Favorite server address slot 11." adr11
+    field --width 32 --center --status "Favorite server address slot 12." adr12
+    field --width 32 --center --status "Favorite server address slot 13." adr13
+    field --width 32 --center --status "Favorite server address slot 14." adr14
+    field --width 32 --center --status "Favorite server address slot 15." adr15
 end
 
 begin input
     title "Input Setup"
-    field --numeric --width 8 "mouse sens" sensitivity
-    toggle "auto sens" m_autosens
-    toggle "mouse filter" m_filter
-    toggle "free look" freelook
-    toggle "always run" cl_run
+    background #3f6da080
+    style --compact --center --transparent
+    field --numeric --width 8 --status "Multiplier for mouse movement speed." "mouse sens" sensitivity
+    toggle --status "Automatically scale sensitivity based on resolution." "auto sens" m_autosens
+    toggle --status "Smooth out erratic mouse movement." "mouse filter" m_filter
+    toggle --status "Use the mouse to aim around (recommended)." "free look" freelook
+    toggle --status "Player always moves at running speed." "always run" cl_run
 end
 
 begin keys
     title "Key Bindings"
-    bind "attack" +attack
-    bind "next weapon" weapnext
-    bind "previous weapon" weapprev
-    bind "walk forward" +forward
-    bind "backpedal" +back
-    bind "run" +speed
-    bind "step left" +moveleft
-    bind "step right" +moveright
-    bind "up / jump" +moveup
-    bind "down / crouch" +movedown
-    bind "inventory" inven
-    bind "use item" invuse
-    bind "drop item" invdrop
-    bind "prev item" invprev
-    bind "next item" invnext
-    bind "help computer" help
-    bind "pause game" pause
-    bind "scoreboard" score
-    bind "chat" messagemode
+    background #3f6da080
+    style --compact --center --transparent
+    bind --status "Fire current weapon." "attack" +attack
+    bind --status "Cycle to the next available weapon." "next weapon" weapnext
+    bind --status "Cycle to the previous available weapon." "previous weapon" weapprev
+    bind --status "Move the player forward." "walk forward" +forward
+    bind --status "Move the player backward." "backpedal" +back
+    bind --status "Hold to walk or run (depending on settings)." "run" +speed
+    bind --status "Side-step to the left." "step left" +moveleft
+    bind --status "Side-step to the right." "step right" +moveright
+    bind --status "Jump upward." "up / jump" +moveup
+    bind --status "Double-jump script (+dj)." "double jump" +dj
+    bind --status "Crouch or move downward." "down / crouch" +movedown
+    bind --status "Open the items and equipment list." "inventory" inven
+    bind --status "Activate the currently selected item." "use item" invuse
+    bind --status "Discard the currently selected item." "drop item" invdrop
+    bind --status "Highlight previous inventory item." "prev item" invprev
+    bind --status "Highlight next inventory item." "next item" invnext
+    bind --status "Display current objective or help." "help computer" help
+    bind --status "Freeze the game (offline only)." "pause game" pause
+    bind --status "Toggle the match statistics display." "scoreboard" score
+    bind --status "Open the global chat console." "chat" messagemode
     blank
-    action --align "legacy keys..." pushmenu legacykeys
+    action --status "Bindings for keyboard-only aiming and turning." --align "legacy keys..." pushmenu legacykeys
 end
 
 begin legacykeys
     title "Legacy Key Bindings"
-    bind "turn left" +left
-    bind "turn right" +right
-    bind "sidestep" +strafe
-    bind "look up" +lookup
-    bind "look down" +lookdown
-    bind "center view" centerview
-    bind "mouse look" +mlook
-    bind "keyboard look" +klook
+    background #3f6da080
+    style --compact --center --transparent
+    bind --status "Rotate view to the left (keyboard)." "turn left" +left
+    bind --status "Rotate view to the right (keyboard)." "turn right" +right
+    bind --status "Modifier for keyboard-driven strafing." "sidestep" +strafe
+    bind --status "Tilt view upward (keyboard)." "look up" +lookup
+    bind --status "Tilt view downward (keyboard)." "look down" +lookdown
+    bind --status "Snap view back to horizon level." "center view" centerview
+    bind --status "Enable mouse-driven aiming (legacy)." "mouse look" +mlook
+    bind --status "Enable keyboard-driven aiming (legacy)." "keyboard look" +klook
 end
 
 begin weapons
     title "Weapon Bindings"
-    bind "blaster" "use Blaster"
-    bind "shotgun" "use Shotgun"
-    bind "super shotgun" "use Super Shotgun"
-    bind "machinegun" "use Machinegun"
-    bind "chaingun" "use Chaingun"
-    bind "grenade launcher" "use Grenade Launcher"
-    bind "rocket launcher" "use Rocket Launcher"
-    bind "hyperblaster" "use HyperBlaster"
-    bind "railgun" "use Railgun"
-    bind "bfg10k" "use BFG10K"
-    bind "grenades" "use Grenades"
+    background #3f6da080
+    style --compact --center --transparent
+    bind --status "Switch to the standard issue Blaster." "blaster" "use Blaster"
+    bind --status "Switch to the single-barrel Shotgun." "shotgun" "use Shotgun"
+    bind --status "Switch to the Super Shotgun." "super shotgun" "use Super Shotgun"
+    bind --status "Switch to the Machinegun." "machinegun" "use Machinegun"
+    bind --status "Switch to the Chaingun." "chaingun" "use Chaingun"
+    bind --status "Switch to the Grenade Launcher." "grenade launcher" "use Grenade Launcher"
+    bind --status "Switch to the Rocket Launcher." "rocket launcher" "use Rocket Launcher"
+    bind --status "Switch to the HyperBlaster." "hyperblaster" "use HyperBlaster"
+    bind --status "Switch to the Railgun." "railgun" "use Railgun"
+    bind --status "Switch to the BFG10K." "bfg10k" "use BFG10K"
+    bind --status "Select hand grenades." "grenades" "use Grenades"
 end

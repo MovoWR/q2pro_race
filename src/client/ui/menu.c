@@ -19,6 +19,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "ui.h"
 #include "server/server.h"
 
+static void Menu_SetColor(uint32_t color)
+{
+    R_SetColor(color);
+    R_SetAltColor(uis.color.alternate.u32);
+}
+
+static void Menu_SetNormalColor(void)
+{
+    Menu_SetColor(uis.color.normal.u32);
+}
+
 /*
 ===================================================================
 
@@ -65,6 +76,7 @@ static void Action_Draw(menuAction_t *a)
 
     flags = a->generic.uiFlags;
     if (a->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
         if ((a->generic.uiFlags & UI_CENTER) != UI_CENTER) {
             if ((uis.realtime >> 8) & 1) {
                 UI_DrawChar(a->generic.x - RCOLUMN_OFFSET / 2, a->generic.y, a->generic.uiFlags | UI_RIGHT, 13);
@@ -78,12 +90,12 @@ static void Action_Draw(menuAction_t *a)
     }
 
     if (a->generic.flags & QMF_GRAYED) {
-        R_SetColor(uis.color.disabled.u32);
+        Menu_SetColor(uis.color.disabled.u32);
+    } else if (!(a->generic.flags & QMF_HASFOCUS)) {
+        Menu_SetColor(uis.color.selectable.u32);
     }
     UI_DrawString(a->generic.x, a->generic.y, flags, a->generic.name);
-    if (a->generic.flags & QMF_GRAYED) {
-        R_ClearColor();
-    }
+    Menu_SetNormalColor();
 }
 
 /*
@@ -122,11 +134,11 @@ Static_Draw
 static void Static_Draw(menuStatic_t *s)
 {
     if (s->generic.flags & QMF_CUSTOM_COLOR) {
-        R_SetColor(s->generic.color.u32);
+        Menu_SetColor(s->generic.color.u32);
     }
     UI_DrawString(s->generic.x, s->generic.y, s->generic.uiFlags, s->generic.name);
     if (s->generic.flags & QMF_CUSTOM_COLOR) {
-        R_ClearColor();
+        Menu_SetNormalColor();
     }
 }
 
@@ -223,6 +235,7 @@ static void Keybind_Draw(menuKeybind_t *k)
 
     flags = UI_ALTCOLOR;
     if (k->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
         /*if(k->generic.parent->keywait) {
             UI_DrawChar(k->generic.x + RCOLUMN_OFFSET / 2, k->generic.y, k->generic.uiFlags | UI_RIGHT, '=');
         } else*/ if ((uis.realtime >> 8) & 1) {
@@ -230,8 +243,7 @@ static void Keybind_Draw(menuKeybind_t *k)
         }
     } else {
         if (k->generic.parent->keywait) {
-            R_SetColor(uis.color.disabled.u32);
-            flags = 0;
+            Menu_SetColor(uis.color.disabled.u32);
         }
     }
 
@@ -249,7 +261,9 @@ static void Keybind_Draw(menuKeybind_t *k)
     UI_DrawString(k->generic.x + RCOLUMN_OFFSET, k->generic.y,
                   k->generic.uiFlags | UI_LEFT, string);
 
-    R_ClearColor();
+    if ((k->generic.flags & QMF_HASFOCUS) || k->generic.parent->keywait) {
+        Menu_SetNormalColor();
+    }
 }
 
 static void Keybind_Push(menuKeybind_t *k)
@@ -371,8 +385,16 @@ static void Field_Push(menuField_t *f)
     IF_Replace(&f->field, f->cvar->string);
 }
 
+static void Slider_Pop(menuSlider_t *s);
+static void Menu_LiveCommit(menuCommon_t *item);
+
 static void Field_Pop(menuField_t *f)
 {
+    if (f->colorPickerOnly) {
+        IF_Replace(&f->field, f->cvar->string);
+        return;
+    }
+
     Cvar_SetByVar(f->cvar, f->field.text, FROM_MENU);
 }
 
@@ -383,6 +405,420 @@ static void Field_Free(menuField_t *f)
     Z_Free(f);
 }
 
+#define FIELD_COLOR_SWATCH_WIDTH    (CHAR_WIDTH * 3)
+#define FIELD_COLOR_PICKER_SWATCH_WIDTH (CHAR_WIDTH * 6)
+#define FIELD_COLOR_SWATCH_GAP      CHAR_WIDTH
+#define FIELD_COLOR_SWATCH_HEIGHT   (CHAR_HEIGHT + 2)
+
+static int Field_TextInputWidth(const menuField_t *f)
+{
+    return f->colorPickerOnly ? 0 : f->width * CHAR_WIDTH;
+}
+
+static int Field_ColorSwatchWidth(const menuField_t *f)
+{
+    return f->colorPickerOnly ?
+        FIELD_COLOR_PICKER_SWATCH_WIDTH : FIELD_COLOR_SWATCH_WIDTH;
+}
+
+static int Field_ColorPreviewWidth(const menuField_t *f)
+{
+    if (!f->colorPreview || !f->generic.name) {
+        return 0;
+    }
+
+    return Field_ColorSwatchWidth(f) +
+        (Field_TextInputWidth(f) ? FIELD_COLOR_SWATCH_GAP : 0);
+}
+
+static int Field_ClampColorComponent(int value)
+{
+    if (value < 0) {
+        return 0;
+    }
+    if (value > 255) {
+        return 255;
+    }
+    return value;
+}
+
+static bool Field_ParseColor(const char *s, color_t *color)
+{
+    int r, g, b, a = 255;
+    int components;
+
+    if (!s || !*s) {
+        return false;
+    }
+
+    if (*s == '#' || !strchr(s, ' ')) {
+        return SCR_ParseColor(s, color);
+    }
+
+    components = sscanf(s, "%d %d %d %d", &r, &g, &b, &a);
+    if (components < 3) {
+        return false;
+    }
+
+    color->u8[0] = Field_ClampColorComponent(r);
+    color->u8[1] = Field_ClampColorComponent(g);
+    color->u8[2] = Field_ClampColorComponent(b);
+    color->u8[3] = Field_ClampColorComponent(a);
+    return true;
+}
+
+static void Field_DrawColorSwatch(int x, int y, int w, int h,
+                                  uint32_t border, const color_t *color,
+                                  bool valid)
+{
+    const uint32_t light = MakeColor(150, 150, 150, 255);
+    const uint32_t dark = MakeColor(50, 50, 50, 255);
+
+    if (w < 4 || h < 4) {
+        return;
+    }
+
+    R_DrawFill32(x, y, w, h, border);
+    R_DrawFill32(x + 1, y + 1, w - 2, h - 2, dark);
+    R_DrawFill32(x + 1, y + 1, (w - 2) / 2, (h - 2) / 2, light);
+    R_DrawFill32(x + 1 + (w - 2) / 2, y + 1 + (h - 2) / 2,
+                 (w - 2) - (w - 2) / 2, (h - 2) - (h - 2) / 2, light);
+
+    if (valid && color) {
+        R_DrawFill32(x + 2, y + 2, w - 4, h - 4, color->u32);
+    } else {
+        R_DrawFill32(x + 2, y + 2, w - 4, h - 4, MakeColor(96, 0, 0, 220));
+    }
+}
+
+static void Field_DrawColorPreview(menuField_t *f, int x, int y)
+{
+    color_t color;
+    const uint32_t border = (f->generic.flags & QMF_HASFOCUS) ?
+        uis.color.active.u32 : uis.color.normal.u32;
+    const char *value = f->colorPickerOnly ? f->cvar->string : f->field.text;
+    const bool valid = Field_ParseColor(value, &color);
+
+    Field_DrawColorSwatch(x, y, Field_ColorSwatchWidth(f),
+                          FIELD_COLOR_SWATCH_HEIGHT, border, &color, valid);
+}
+
+/*
+===================================================================
+
+COLOR PICKER MENU
+
+===================================================================
+*/
+
+#define COLOR_PICKER_SWATCH_HEIGHT  (CHAR_HEIGHT * 4)
+#define COLOR_PICKER_ORIGINAL_HEIGHT CHAR_HEIGHT
+#define COLOR_PICKER_PALETTE_COUNT  9
+#define COLOR_PICKER_PALETTE_SIZE   (CHAR_HEIGHT * 2)
+#define COLOR_PICKER_PALETTE_GAP    4
+
+typedef struct {
+    bool initialized;
+    menuFrameWork_t menu;
+    menuSlider_t red;
+    menuSlider_t green;
+    menuSlider_t blue;
+    menuSlider_t alpha;
+    cvar_t *redCvar;
+    cvar_t *greenCvar;
+    cvar_t *blueCvar;
+    cvar_t *alphaCvar;
+    cvar_t *target;
+    menuField_t *source;
+    color_t original;
+    bool originalValid;
+    char title[64];
+    char redName[16];
+    char greenName[16];
+    char blueName[16];
+    char alphaName[16];
+} colorPicker_t;
+
+static colorPicker_t colorPicker;
+
+static const uint32_t colorPickerPalette[COLOR_PICKER_PALETTE_COUNT] = {
+    MakeColor(255, 0, 0, 255),
+    MakeColor(255, 160, 0, 255),
+    MakeColor(255, 255, 0, 255),
+    MakeColor(0, 255, 0, 255),
+    MakeColor(0, 200, 255, 255),
+    MakeColor(0, 80, 255, 255),
+    MakeColor(255, 0, 255, 255),
+    MakeColor(255, 255, 255, 255),
+    MakeColor(0, 0, 0, 255)
+};
+
+static int ColorPicker_Component(menuSlider_t *slider)
+{
+    return Field_ClampColorComponent(Q_rint(slider->curvalue));
+}
+
+static void ColorPicker_CurrentColor(color_t *color)
+{
+    color->u8[0] = ColorPicker_Component(&colorPicker.red);
+    color->u8[1] = ColorPicker_Component(&colorPicker.green);
+    color->u8[2] = ColorPicker_Component(&colorPicker.blue);
+    color->u8[3] = ColorPicker_Component(&colorPicker.alpha);
+}
+
+static void ColorPicker_UpdateNames(void)
+{
+    Q_snprintf(colorPicker.redName, sizeof(colorPicker.redName),
+               "red %3d", ColorPicker_Component(&colorPicker.red));
+    Q_snprintf(colorPicker.greenName, sizeof(colorPicker.greenName),
+               "green %3d", ColorPicker_Component(&colorPicker.green));
+    Q_snprintf(colorPicker.blueName, sizeof(colorPicker.blueName),
+               "blue %3d", ColorPicker_Component(&colorPicker.blue));
+    Q_snprintf(colorPicker.alphaName, sizeof(colorPicker.alphaName),
+               "alpha %3d", ColorPicker_Component(&colorPicker.alpha));
+}
+
+static void ColorPicker_CommitTarget(void)
+{
+    char value[32];
+
+    if (!colorPicker.target) {
+        return;
+    }
+
+    Q_snprintf(value, sizeof(value), "%d %d %d %d",
+               ColorPicker_Component(&colorPicker.red),
+               ColorPicker_Component(&colorPicker.green),
+               ColorPicker_Component(&colorPicker.blue),
+               ColorPicker_Component(&colorPicker.alpha));
+    if (strcmp(colorPicker.target->string, value)) {
+        Cvar_SetByVar(colorPicker.target, value, FROM_MENU);
+    }
+}
+
+static void ColorPicker_SetSlider(menuSlider_t *slider, cvar_t *cvar, int value)
+{
+    value = Field_ClampColorComponent(value);
+    slider->curvalue = value;
+    slider->modified = false;
+    Cvar_SetInteger(cvar, value, FROM_MENU);
+}
+
+static void ColorPicker_SetFromColor(const color_t *color, bool keepAlpha)
+{
+    ColorPicker_SetSlider(&colorPicker.red, colorPicker.redCvar, color->u8[0]);
+    ColorPicker_SetSlider(&colorPicker.green, colorPicker.greenCvar, color->u8[1]);
+    ColorPicker_SetSlider(&colorPicker.blue, colorPicker.blueCvar, color->u8[2]);
+    if (!keepAlpha) {
+        ColorPicker_SetSlider(&colorPicker.alpha, colorPicker.alphaCvar, color->u8[3]);
+    }
+}
+
+static void ColorPicker_GetRects(vrect_t *current, vrect_t *original,
+                                 vrect_t palette[COLOR_PICKER_PALETTE_COUNT])
+{
+    int i;
+    int y;
+    const int paletteWidth = COLOR_PICKER_PALETTE_COUNT * COLOR_PICKER_PALETTE_SIZE +
+        (COLOR_PICKER_PALETTE_COUNT - 1) * COLOR_PICKER_PALETTE_GAP;
+    int x = colorPicker.menu.mins[0];
+    int width = colorPicker.menu.maxs[0] - colorPicker.menu.mins[0];
+
+    if (width < paletteWidth) {
+        x = (colorPicker.menu.mins[0] + colorPicker.menu.maxs[0] - paletteWidth) / 2;
+        width = paletteWidth;
+    }
+    if (x < MENU_SPACING) {
+        x = MENU_SPACING;
+    }
+    if (x + width > uis.width - MENU_SPACING) {
+        x = uis.width - MENU_SPACING - width;
+    }
+
+    y = colorPicker.menu.maxs[1] + MENU_SPACING;
+    if (y + COLOR_PICKER_SWATCH_HEIGHT + COLOR_PICKER_ORIGINAL_HEIGHT +
+        COLOR_PICKER_PALETTE_SIZE + MENU_SPACING * 2 > uis.height) {
+        y = colorPicker.menu.mins[1] - COLOR_PICKER_SWATCH_HEIGHT -
+            COLOR_PICKER_ORIGINAL_HEIGHT - COLOR_PICKER_PALETTE_SIZE -
+            MENU_SPACING * 2;
+    }
+    if (y < MENU_SPACING) {
+        y = colorPicker.menu.maxs[1] + MENU_SPACING;
+    }
+
+    current->x = x;
+    current->y = y;
+    current->width = width;
+    current->height = COLOR_PICKER_SWATCH_HEIGHT;
+
+    original->x = x;
+    original->y = current->y + current->height + COLOR_PICKER_PALETTE_GAP;
+    original->width = width;
+    original->height = COLOR_PICKER_ORIGINAL_HEIGHT;
+
+    x += (width - paletteWidth) / 2;
+    y = original->y + original->height + MENU_SPACING;
+    for (i = 0; i < COLOR_PICKER_PALETTE_COUNT; i++) {
+        palette[i].x = x + i * (COLOR_PICKER_PALETTE_SIZE + COLOR_PICKER_PALETTE_GAP);
+        palette[i].y = y;
+        palette[i].width = COLOR_PICKER_PALETTE_SIZE;
+        palette[i].height = COLOR_PICKER_PALETTE_SIZE;
+    }
+}
+
+static void ColorPicker_Draw(menuFrameWork_t *menu)
+{
+    int i;
+    color_t current;
+    vrect_t currentRect, originalRect;
+    vrect_t palette[COLOR_PICKER_PALETTE_COUNT];
+
+    ColorPicker_CommitTarget();
+    ColorPicker_UpdateNames();
+    Menu_Draw(menu);
+
+    ColorPicker_CurrentColor(&current);
+    ColorPicker_GetRects(&currentRect, &originalRect, palette);
+
+    Field_DrawColorSwatch(currentRect.x, currentRect.y,
+                          currentRect.width, currentRect.height,
+                          uis.color.active.u32, &current, true);
+    Field_DrawColorSwatch(originalRect.x, originalRect.y,
+                          originalRect.width, originalRect.height,
+                          uis.color.normal.u32, &colorPicker.original,
+                          colorPicker.originalValid);
+
+    for (i = 0; i < COLOR_PICKER_PALETTE_COUNT; i++) {
+        color_t color;
+        color.u32 = colorPickerPalette[i];
+        Field_DrawColorSwatch(palette[i].x, palette[i].y,
+                              palette[i].width, palette[i].height,
+                              uis.color.normal.u32, &color, true);
+    }
+}
+
+static menuSound_t ColorPicker_Keydown(menuFrameWork_t *menu, int key)
+{
+    int i;
+    vrect_t currentRect, originalRect;
+    vrect_t palette[COLOR_PICKER_PALETTE_COUNT];
+
+    if (key != K_MOUSE1) {
+        return QMS_NOTHANDLED;
+    }
+
+    ColorPicker_GetRects(&currentRect, &originalRect, palette);
+    if (colorPicker.originalValid && UI_CursorInRect(&originalRect)) {
+        ColorPicker_SetFromColor(&colorPicker.original, false);
+        ColorPicker_CommitTarget();
+        return QMS_MOVE;
+    }
+
+    for (i = 0; i < COLOR_PICKER_PALETTE_COUNT; i++) {
+        if (UI_CursorInRect(&palette[i])) {
+            color_t color;
+            color.u32 = colorPickerPalette[i];
+            ColorPicker_SetFromColor(&color, true);
+            ColorPicker_CommitTarget();
+            return QMS_MOVE;
+        }
+    }
+
+    return QMS_NOTHANDLED;
+}
+
+static void ColorPicker_Pop(menuFrameWork_t *menu)
+{
+    ColorPicker_CommitTarget();
+    if (colorPicker.source && colorPicker.target) {
+        IF_Replace(&colorPicker.source->field, colorPicker.target->string);
+    }
+    colorPicker.target = NULL;
+    colorPicker.source = NULL;
+}
+
+static void ColorPicker_InitSlider(menuSlider_t *slider, const char *name,
+                                   cvar_t *cvar)
+{
+    memset(slider, 0, sizeof(*slider));
+    slider->generic.type = MTYPE_SLIDER;
+    slider->generic.name = (char *)name;
+    slider->cvar = cvar;
+    slider->minvalue = 0.0f;
+    slider->maxvalue = 255.0f;
+    slider->step = 1.0f;
+    Menu_AddItem(&colorPicker.menu, slider);
+}
+
+static void ColorPicker_Init(void)
+{
+    if (colorPicker.initialized) {
+        return;
+    }
+
+    memset(&colorPicker, 0, sizeof(colorPicker));
+    colorPicker.initialized = true;
+    colorPicker.redCvar = Cvar_Get("ui_colorpicker_r", "255", CVAR_NOARCHIVE);
+    colorPicker.greenCvar = Cvar_Get("ui_colorpicker_g", "255", CVAR_NOARCHIVE);
+    colorPicker.blueCvar = Cvar_Get("ui_colorpicker_b", "255", CVAR_NOARCHIVE);
+    colorPicker.alphaCvar = Cvar_Get("ui_colorpicker_a", "255", CVAR_NOARCHIVE);
+
+    colorPicker.menu.name = "colorpicker";
+    colorPicker.menu.title = colorPicker.title;
+    colorPicker.menu.push = Menu_Push;
+    colorPicker.menu.pop = ColorPicker_Pop;
+    colorPicker.menu.draw = ColorPicker_Draw;
+    colorPicker.menu.keydown = ColorPicker_Keydown;
+    colorPicker.menu.color.u32 = MakeColor(0, 0, 0, 0);
+    colorPicker.menu.compact = true;
+    colorPicker.menu.transparent = true;
+    colorPicker.menu.live = true;
+    colorPicker.menu.halign = MENU_HALIGN_LEFT;
+
+    ColorPicker_InitSlider(&colorPicker.red, colorPicker.redName, colorPicker.redCvar);
+    ColorPicker_InitSlider(&colorPicker.green, colorPicker.greenName, colorPicker.greenCvar);
+    ColorPicker_InitSlider(&colorPicker.blue, colorPicker.blueName, colorPicker.blueCvar);
+    ColorPicker_InitSlider(&colorPicker.alpha, colorPicker.alphaName, colorPicker.alphaCvar);
+}
+
+static void ColorPicker_Open(menuField_t *field)
+{
+    color_t color;
+    const char *name = field->generic.name ? field->generic.name : field->cvar->name;
+    const char *value = field->colorPickerOnly ? field->cvar->string : field->field.text;
+
+    ColorPicker_Init();
+
+    colorPicker.target = field->cvar;
+    colorPicker.source = field;
+    colorPicker.originalValid = Field_ParseColor(value, &color);
+    if (!colorPicker.originalValid) {
+        colorPicker.originalValid = Field_ParseColor(field->cvar->string, &color);
+    }
+    if (!colorPicker.originalValid) {
+        color.u32 = U32_WHITE;
+        colorPicker.originalValid = true;
+    }
+    colorPicker.original = color;
+
+    Q_snprintf(colorPicker.title, sizeof(colorPicker.title), "%s color", name);
+    ColorPicker_SetFromColor(&color, false);
+    ColorPicker_UpdateNames();
+    UI_PushMenu(&colorPicker.menu);
+}
+
+static menuSound_t Field_ColorActivate(menuCommon_t *item)
+{
+    menuField_t *field = (menuField_t *)item;
+
+    if (!field->colorPreview) {
+        return QMS_NOTHANDLED;
+    }
+
+    ColorPicker_Open(field);
+    return QMS_IN;
+}
+
 /*
 =================
 Field_Init
@@ -390,16 +826,20 @@ Field_Init
 */
 static void Field_Init(menuField_t *f)
 {
-    int w = f->width * CHAR_WIDTH;
+    int w = Field_TextInputWidth(f);
+    int preview = Field_ColorPreviewWidth(f);
 
     f->generic.uiFlags &= ~(UI_LEFT | UI_RIGHT);
+    if (f->colorPreview) {
+        f->generic.activate = Field_ColorActivate;
+    }
 
     if (f->generic.name) {
         f->generic.rect.x = f->generic.x + LCOLUMN_OFFSET;
         f->generic.rect.y = f->generic.y;
         UI_StringDimensions(&f->generic.rect,
                             f->generic.uiFlags | UI_RIGHT, f->generic.name);
-        f->generic.rect.width += (RCOLUMN_OFFSET - LCOLUMN_OFFSET) + w;
+        f->generic.rect.width += (RCOLUMN_OFFSET - LCOLUMN_OFFSET) + w + preview;
     } else {
         f->generic.rect.x = f->generic.x - w / 2;
         f->generic.rect.y = f->generic.y;
@@ -417,28 +857,44 @@ Field_Draw
 static void Field_Draw(menuField_t *f)
 {
     int flags = f->generic.uiFlags;
+    int inputWidth = Field_TextInputWidth(f);
     uint32_t color = uis.color.normal.u32;
 
     if (f->generic.flags & QMF_HASFOCUS) {
         flags |= UI_DRAWCURSOR;
         color = uis.color.active.u32;
+        Menu_SetColor(color);
     }
 
     if (f->generic.name) {
         UI_DrawString(f->generic.x + LCOLUMN_OFFSET, f->generic.y,
                       f->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR, f->generic.name);
 
+        if (!f->colorPickerOnly) {
         R_DrawFill32(f->generic.x + RCOLUMN_OFFSET, f->generic.y - 1,
                      f->field.visibleChars * CHAR_WIDTH, CHAR_HEIGHT + 2, color);
 
         IF_Draw(&f->field, f->generic.x + RCOLUMN_OFFSET, f->generic.y,
                 flags, uis.fontHandle);
+        }
+
+        if (f->colorPreview) {
+            Field_DrawColorPreview(
+                f,
+                f->generic.x + RCOLUMN_OFFSET + inputWidth +
+                    (inputWidth ? FIELD_COLOR_SWATCH_GAP : 0),
+                f->generic.y - 1);
+        }
     } else {
         R_DrawFill32(f->generic.rect.x, f->generic.rect.y - 1,
                      f->generic.rect.width, CHAR_HEIGHT + 2, color);
 
         IF_Draw(&f->field, f->generic.rect.x, f->generic.rect.y,
                 flags, uis.fontHandle);
+    }
+
+    if (f->generic.flags & QMF_HASFOCUS) {
+        Menu_SetNormalColor();
     }
 }
 
@@ -458,7 +914,12 @@ Field_Key
 */
 static int Field_Key(menuField_t *f, int key)
 {
+    if (f->colorPickerOnly) {
+        return QMS_NOTHANDLED;
+    }
+
     if (IF_KeyEvent(&f->field, key)) {
+        Menu_LiveCommit(&f->generic);
         return QMS_SILENT;
     }
 
@@ -478,11 +939,16 @@ static int Field_Char(menuField_t *f, int key)
 {
     bool ret;
 
+    if (f->colorPickerOnly) {
+        return QMS_NOTHANDLED;
+    }
+
     if (!Field_TestKey(f, key)) {
         return QMS_BEEP;
     }
 
     ret = IF_CharEvent(&f->field, key);
+    Menu_LiveCommit(&f->generic);
     if (f->generic.change) {
         f->generic.change(&f->generic);
     }
@@ -582,6 +1048,8 @@ static int SpinControl_DoEnter(menuSpinControl_t *s)
         s->generic.change(&s->generic);
     }
 
+    Menu_LiveCommit(&s->generic);
+
     return QMS_MOVE;
 }
 
@@ -607,6 +1075,8 @@ static int SpinControl_DoSlide(menuSpinControl_t *s, int dir)
         s->generic.change(&s->generic);
     }
 
+    Menu_LiveCommit(&s->generic);
+
     return QMS_MOVE;
 }
 
@@ -618,9 +1088,14 @@ SpinControl_Draw
 static void SpinControl_Draw(menuSpinControl_t *s)
 {
     const char *name;
+    int flags = s->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR;
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
 
     UI_DrawString(s->generic.x + LCOLUMN_OFFSET, s->generic.y,
-                  s->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR, s->generic.name);
+                  flags, s->generic.name);
 
     if (s->generic.flags & QMF_HASFOCUS) {
         if ((uis.realtime >> 8) & 1) {
@@ -636,6 +1111,10 @@ static void SpinControl_Draw(menuSpinControl_t *s)
 
     UI_DrawString(s->generic.x + RCOLUMN_OFFSET, s->generic.y,
                   s->generic.uiFlags, name);
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetNormalColor();
+    }
 }
 
 /*
@@ -767,6 +1246,42 @@ static void Toggle_Pop(menuSpinControl_t *s)
 {
     if (s->curvalue == 0 || s->curvalue == 1)
         Cvar_SetInteger(s->cvar, s->curvalue ^ s->negate, FROM_MENU);
+}
+
+static void Menu_CommitItem(menuCommon_t *item)
+{
+    switch (item->type) {
+    case MTYPE_SLIDER:
+        Slider_Pop((menuSlider_t *)item);
+        break;
+    case MTYPE_BITFIELD:
+        BitField_Pop((menuSpinControl_t *)item);
+        break;
+    case MTYPE_PAIRS:
+        Pairs_Pop((menuSpinControl_t *)item);
+        break;
+    case MTYPE_STRINGS:
+        Strings_Pop((menuSpinControl_t *)item);
+        break;
+    case MTYPE_SPINCONTROL:
+        SpinControl_Pop((menuSpinControl_t *)item);
+        break;
+    case MTYPE_TOGGLE:
+        Toggle_Pop((menuSpinControl_t *)item);
+        break;
+    case MTYPE_FIELD:
+        Field_Pop((menuField_t *)item);
+        break;
+    default:
+        break;
+    }
+}
+
+static void Menu_LiveCommit(menuCommon_t *item)
+{
+    if (item->parent && item->parent->live) {
+        Menu_CommitItem(item);
+    }
 }
 
 /*
@@ -1353,6 +1868,7 @@ static void MenuList_Draw(menuList_t *l)
                 flags = 0;
                 if (l->generic.flags & QMF_HASFOCUS) {
                     color = uis.color.active.u32;
+                    Menu_SetColor(color);
                 }
             }
             R_DrawFill32(xx, y, l->columns[j].width - 1,
@@ -1361,6 +1877,10 @@ static void MenuList_Draw(menuList_t *l)
             if (l->columns[j].name) {
                 MenuList_DrawString(xx, y, flags,
                                     &l->columns[j], l->columns[j].name);
+            }
+
+            if (l->generic.flags & QMF_HASFOCUS) {
+                Menu_SetNormalColor();
             }
             xx += l->columns[j].width;
         }
@@ -1396,7 +1916,7 @@ static void MenuList_Draw(menuList_t *l)
     // draw background
     xx = x;
     for (j = 0; j < l->numcolumns; j++) {
-        uint32_t color = uis.color.normal.u32;
+        uint32_t color = uis.color.background.u32;
 
         if (!l->columns[j].width) {
             continue;
@@ -1418,6 +1938,9 @@ static void MenuList_Draw(menuList_t *l)
     for (i = l->prestep; i < k; i++) {
         // draw selection
         if (!(l->generic.flags & QMF_DISABLED) && i == l->curvalue) {
+            if (l->generic.flags & QMF_HASFOCUS) {
+                Menu_SetColor(uis.color.active.u32);
+            }
             xx = x;
             for (j = 0; j < l->numcolumns; j++) {
                 if (!l->columns[j].width) {
@@ -1432,7 +1955,7 @@ static void MenuList_Draw(menuList_t *l)
         // draw contents
         s = (char *)l->items[i] + l->extrasize;
         if (l->mlFlags & MLF_COLOR) {
-            R_SetColor(*((uint32_t *)(s - 4)));
+            Menu_SetColor(*((uint32_t *)(s - 4)));
         }
 
         xx = x;
@@ -1448,11 +1971,17 @@ static void MenuList_Draw(menuList_t *l)
             s += strlen(s) + 1;
         }
 
+        if (!(l->generic.flags & QMF_DISABLED) && i == l->curvalue) {
+            if (l->generic.flags & QMF_HASFOCUS) {
+                Menu_SetNormalColor();
+            }
+        }
+
         yy += MLIST_SPACING;
     }
 
     if (l->mlFlags & MLF_COLOR) {
-        R_SetColor(U32_WHITE);
+        Menu_SetNormalColor();
     }
 }
 
@@ -1582,6 +2111,7 @@ static menuSound_t Slider_MouseMove(menuSlider_t *s)
 
     s->modified = true;
     s->curvalue = s->minvalue + steps * s->step;
+    Menu_LiveCommit(&s->generic);
     return QMS_SILENT;
 }
 
@@ -1591,10 +2121,12 @@ static menuSound_t Slider_Key(menuSlider_t *s, int key)
     case K_END:
         s->modified = true;
         s->curvalue = s->maxvalue;
+        Menu_LiveCommit(&s->generic);
         return QMS_MOVE;
     case K_HOME:
         s->modified = true;
         s->curvalue = s->minvalue;
+        Menu_LiveCommit(&s->generic);
         return QMS_MOVE;
     case K_MOUSE1:
         return Slider_Click(s);
@@ -1617,9 +2149,12 @@ static menuSound_t Slider_DoSlide(menuSlider_t *s, int dir)
     if (s->generic.change) {
         menuSound_t sound = s->generic.change(&s->generic);
         if (sound != QMS_NOTHANDLED) {
+            Menu_LiveCommit(&s->generic);
             return sound;
         }
     }
+
+    Menu_LiveCommit(&s->generic);
 
     return QMS_SILENT;
 }
@@ -1637,6 +2172,10 @@ static void Slider_Draw(menuSlider_t *s)
     flags = s->generic.uiFlags & ~(UI_LEFT | UI_RIGHT);
 
     if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
+
+    if (s->generic.flags & QMF_HASFOCUS) {
         if ((uis.realtime >> 8) & 1) {
             UI_DrawChar(s->generic.x + RCOLUMN_OFFSET / 2, s->generic.y, s->generic.uiFlags | UI_RIGHT, 13);
         }
@@ -1644,6 +2183,10 @@ static void Slider_Draw(menuSlider_t *s)
 
     UI_DrawString(s->generic.x + LCOLUMN_OFFSET, s->generic.y,
                   flags | UI_RIGHT | UI_ALTCOLOR, s->generic.name);
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetNormalColor();
+    }
 
     UI_DrawChar(s->generic.x + RCOLUMN_OFFSET, s->generic.y, flags | UI_LEFT, 128);
 
@@ -1769,15 +2312,74 @@ static void UI_AddRectToBounds(const vrect_t *rc, int mins[2], int maxs[2])
 {
     if (mins[0] > rc->x) {
         mins[0] = rc->x;
-    } else if (maxs[0] < rc->x + rc->width) {
+    }
+    if (maxs[0] < rc->x + rc->width) {
         maxs[0] = rc->x + rc->width;
     }
 
     if (mins[1] > rc->y) {
         mins[1] = rc->y;
-    } else if (maxs[1] < rc->y + rc->height) {
+    }
+    if (maxs[1] < rc->y + rc->height) {
         maxs[1] = rc->y + rc->height;
     }
+}
+
+static void Menu_CalcItemBounds(menuFrameWork_t *menu, int mins[2], int maxs[2])
+{
+    int i;
+
+    UI_ClearBounds(mins, maxs);
+
+    for (i = 0; i < menu->nitems; i++) {
+        menuCommon_t *item = menu->items[i];
+
+        UI_AddRectToBounds(&item->rect, mins, maxs);
+    }
+}
+
+static void Menu_TranslateHorizontal(menuFrameWork_t *menu, int dx)
+{
+    int i;
+
+    if (!dx) {
+        return;
+    }
+
+    for (i = 0; i < menu->nitems; i++) {
+        menuCommon_t *item = menu->items[i];
+
+        item->x += dx;
+        item->rect.x += dx;
+    }
+
+    menu->banner_rc.x += dx;
+    menu->plaque_rc.x += dx;
+    menu->logo_rc.x += dx;
+}
+
+static void Menu_ClampHorizontal(menuFrameWork_t *menu)
+{
+    int mins[2], maxs[2];
+    int dx = 0;
+
+    if (menu->halign == MENU_HALIGN_CENTER) {
+        return;
+    }
+
+    Menu_CalcItemBounds(menu, mins, maxs);
+
+    if (mins[0] < MENU_SPACING) {
+        dx = MENU_SPACING - mins[0];
+    }
+    if (maxs[0] + dx > uis.width - MENU_SPACING) {
+        dx = uis.width - MENU_SPACING - maxs[0];
+    }
+    if (mins[0] + dx < MENU_SPACING) {
+        dx = MENU_SPACING - mins[0];
+    }
+
+    Menu_TranslateHorizontal(menu, dx);
 }
 
 void Menu_Init(menuFrameWork_t *menu)
@@ -1785,7 +2387,6 @@ void Menu_Init(menuFrameWork_t *menu)
     void *item;
     int i;
     int focus = 0;
-    vrect_t *rc;
 
     menu->y1 = 0;
     menu->y2 = uis.height;
@@ -1839,6 +2440,8 @@ void Menu_Init(menuFrameWork_t *menu)
         }
     }
 
+    Menu_ClampHorizontal(menu);
+
     // set focus to the first item by default
     if (!focus && menu->nitems) {
         item = menu->items[0];
@@ -1849,14 +2452,7 @@ void Menu_Init(menuFrameWork_t *menu)
     }
 
     // calc menu bounding box
-    UI_ClearBounds(menu->mins, menu->maxs);
-
-    for (i = 0; i < menu->nitems; i++) {
-        item = menu->items[i];
-        rc = &((menuCommon_t *)item)->rect;
-
-        UI_AddRectToBounds(rc, menu->mins, menu->maxs);
-    }
+    Menu_CalcItemBounds(menu, menu->mins, menu->maxs);
 
     // expand
     menu->mins[0] -= MENU_SPACING;
@@ -1909,7 +2505,13 @@ void Menu_Size(menuFrameWork_t *menu)
 
     // set menu horizontal base
     if (widest == -1) {
+        if (menu->halign == MENU_HALIGN_LEFT) {
+            x = uis.width / 4;
+        } else if (menu->halign == MENU_HALIGN_RIGHT) {
+            x = uis.width * 3 / 4;
+        } else {
         x = uis.width / 2;
+        }
     } else {
         // if menu has bitmaps, it is expected to have plaque and logo
         // align them horizontally to avoid going off screen on small resolution
@@ -2002,14 +2604,21 @@ void Menu_SetFocus(menuCommon_t *focus)
 
         if (item == focus) {
             item->flags |= QMF_HASFOCUS;
-            if (item->focus) {
+            if (item->type == MTYPE_BITMAP) {
+                menu->status = ((menuBitmap_t *)item)->generic.status;
+            } else if (item->focus) {
                 item->focus(item, true);
             } else if (item->status) {
                 menu->status = item->status;
             }
         } else if (item->flags & QMF_HASFOCUS) {
             item->flags &= ~QMF_HASFOCUS;
-            if (item->focus) {
+            if (item->type == MTYPE_BITMAP) {
+                if (menu->status == ((menuBitmap_t *)item)->generic.status
+                    && menu->status != focus->status) {
+                    menu->status = NULL;
+                }
+            } else if (item->focus) {
                 item->focus(item, false);
             } else if (menu->status == item->status
                        && menu->status != focus->status) {
@@ -2116,11 +2725,11 @@ static void Menu_DrawStatus(menuFrameWork_t *menu)
 
     lens[count++] = x;
 
-    R_DrawFill8(0, menu->y2 - count * CHAR_HEIGHT, uis.width, count * CHAR_HEIGHT, 4);
+    R_DrawFill8(0, uis.height - count * CHAR_HEIGHT, uis.width, count * CHAR_HEIGHT, 4);
 
     for (l = 0; l < count; l++) {
         x = (uis.width - lens[l] * CHAR_WIDTH) / 2;
-        y = menu->y2 - (count - l) * CHAR_HEIGHT;
+        y = uis.height - (count - l) * CHAR_HEIGHT;
         R_DrawString(x, y, 0, lens[l], ptrs[l], uis.fontHandle);
     }
 }
@@ -2130,6 +2739,15 @@ static void Menu_DrawStatus(menuFrameWork_t *menu)
 Menu_Draw
 =================
 */
+static int Menu_TitleX(menuFrameWork_t *menu)
+{
+    if (menu->halign == MENU_HALIGN_CENTER) {
+        return uis.width / 2;
+    }
+
+    return (menu->mins[0] + menu->maxs[0]) / 2;
+}
+
 void Menu_Draw(menuFrameWork_t *menu)
 {
     void *item;
@@ -2150,8 +2768,10 @@ void Menu_Draw(menuFrameWork_t *menu)
 // draw title bar
 //
     if (menu->title) {
-        UI_DrawString(uis.width / 2, menu->y1,
-                      UI_CENTER | UI_ALTCOLOR, menu->title);
+        Menu_SetColor(uis.color.title.u32);
+        UI_DrawString(Menu_TitleX(menu), menu->y1,
+                      UI_CENTER, menu->title);
+        R_ClearColor();
     }
 
 //
@@ -2170,6 +2790,7 @@ void Menu_Draw(menuFrameWork_t *menu)
 //
 // draw contents
 //
+    Menu_SetNormalColor();
     for (i = 0; i < menu->nitems; i++) {
         item = menu->items[i];
         if (((menuCommon_t *)item)->flags & QMF_HIDDEN) {
@@ -2487,28 +3108,16 @@ void Menu_Pop(menuFrameWork_t *menu)
 
         switch (((menuCommon_t *)item)->type) {
         case MTYPE_SLIDER:
-            Slider_Pop(item);
-            break;
         case MTYPE_BITFIELD:
-            BitField_Pop(item);
-            break;
         case MTYPE_PAIRS:
-            Pairs_Pop(item);
-            break;
         case MTYPE_STRINGS:
-            Strings_Pop(item);
-            break;
         case MTYPE_SPINCONTROL:
-            SpinControl_Pop(item);
-            break;
         case MTYPE_TOGGLE:
-            Toggle_Pop(item);
+        case MTYPE_FIELD:
+            Menu_CommitItem(item);
             break;
         case MTYPE_KEYBIND:
             Keybind_Pop(item);
-            break;
-        case MTYPE_FIELD:
-            Field_Pop(item);
             break;
         default:
             break;

@@ -179,6 +179,41 @@ bool UI_IsTransparent(void)
     return uis.activeMenu->transparent;
 }
 
+bool UI_IsLive(void)
+{
+    if (!(Key_GetDest() & KEY_MENU)) {
+        return false;
+    }
+
+    if (!uis.activeMenu) {
+        return false;
+    }
+
+    return uis.activeMenu->live;
+}
+
+bool UI_IsMenuActive(const char *name)
+{
+    int i;
+
+    if (!(Key_GetDest() & KEY_MENU)) {
+        return false;
+    }
+
+    if (!name || !*name) {
+        return false;
+    }
+
+    for (i = 0; i < uis.menuDepth; i++) {
+        if (uis.layers[i] && uis.layers[i]->name &&
+            !strcmp(uis.layers[i]->name, name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 menuFrameWork_t *UI_FindMenu(const char *name)
 {
     menuFrameWork_t *menu;
@@ -630,9 +665,12 @@ void UI_Init(void)
     }
 
     uis.color.background.u32    = MakeColor(0,   0,   0, 255);
-    uis.color.normal.u32        = MakeColor(15, 128, 235, 100);
-    uis.color.active.u32        = MakeColor(15, 128, 235, 100);
-    uis.color.selection.u32     = MakeColor(15, 128, 235, 100);
+    uis.color.title.u32         = MakeColor(15, 128, 235, 255);
+    uis.color.normal.u32        = MakeColor(15, 128, 235, 255);
+    uis.color.selectable.u32    = MakeColor(15, 128, 235, 255);
+    uis.color.alternate.u32     = MakeColor(255, 255, 255, 255);
+    uis.color.active.u32        = MakeColor(15, 128, 235, 255);
+    uis.color.selection.u32     = MakeColor(15, 128, 235, 255);
     uis.color.disabled.u32      = MakeColor(127, 127, 127, 255);
 
     strcpy(uis.weaponModel, "w_railgun.md2");

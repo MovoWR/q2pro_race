@@ -75,6 +75,12 @@ typedef enum {
     QMS_BEEP
 } menuSound_t;
 
+typedef enum {
+    MENU_HALIGN_CENTER,
+    MENU_HALIGN_LEFT,
+    MENU_HALIGN_RIGHT
+} menuHAlign_t;
+
 #define RCOLUMN_OFFSET  (CHAR_WIDTH * 2)
 #define LCOLUMN_OFFSET -RCOLUMN_OFFSET
 
@@ -99,7 +105,9 @@ typedef struct menuFrameWork_s {
 
     bool compact;
     bool transparent;
+    bool live;
     bool keywait;
+    menuHAlign_t halign;
 
     qhandle_t image;
     color_t color;
@@ -152,6 +160,8 @@ typedef struct {
     inputField_t field;
     cvar_t *cvar;
     int width;
+    bool colorPreview;
+    bool colorPickerOnly;
 } menuField_t;
 
 #define SLIDER_RANGE 10
@@ -299,7 +309,10 @@ typedef struct {
 
     struct {
         color_t background;
+        color_t title;
         color_t normal;
+        color_t selectable;
+        color_t alternate;
         color_t active;
         color_t selection;
         color_t disabled;

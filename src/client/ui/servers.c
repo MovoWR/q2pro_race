@@ -52,6 +52,7 @@ typedef struct {
         SLOT_ERROR,
         SLOT_VALID
     } status;
+    int         index;
     netadr_t    address;
     char        *hostname; // original domain name, only used for favorites
     int         numRules;
@@ -70,6 +71,8 @@ typedef struct {
     menuList_t      players;
     void            *names[MAX_STATUS_SERVERS];
     char            *args;
+    bool            nosort;
+    bool            jump_only;
     unsigned        timestamp;
     int             pingstage;
     int             pingindex;
@@ -253,6 +256,28 @@ void UI_StatusEvent(const serverStatus_t *status)
         mod = "baseq2";
     }
 
+    if (m_servers.jump_only && !Q_stristr(mod, "jump") && !Q_stristr(mod, "race")) {
+        if (slot) {
+            Z_Free(hostname);
+            m_servers.list.numItems--;
+            for (; i < m_servers.list.numItems; i++) {
+                m_servers.list.items[i] = m_servers.list.items[i + 1];
+                ((serverslot_t *)m_servers.list.items[i])->index = i;
+            }
+            m_servers.list.items[m_servers.list.numItems] = NULL;
+            if (i < m_servers.pingindex)
+                m_servers.pingindex--;
+            if (i < m_servers.list.curvalue)
+                m_servers.list.curvalue--;
+            else if (i == m_servers.list.curvalue) {
+                if (m_servers.list.curvalue >= m_servers.list.numItems)
+                    m_servers.list.curvalue = m_servers.list.numItems - 1;
+                UpdateSelection();
+            }
+        }
+        return;
+    }
+
     map = Info_ValueForKey(info, "mapname");
     if (COM_IsWhite(map)) {
         map = "???";
@@ -407,6 +432,7 @@ static menuSound_t PingSelected(void)
     serverslot_t *slot;
     netadr_t address;
     char *hostname;
+    int index;
 
     if (!m_servers.list.numItems)
         return QMS_BEEP;
@@ -416,11 +442,13 @@ static menuSound_t PingSelected(void)
     slot = m_servers.list.items[m_servers.list.curvalue];
     address = slot->address;
     hostname = slot->hostname;
+    index = slot->index;
     FreeSlot(slot);
 
     slot = UI_FormatColumns(SLOT_EXTRASIZE, hostname,
                             "???", "???", "?/?", "???", NULL);
     slot->status = SLOT_PENDING;
+    slot->index = index;
     slot->address = address;
     slot->hostname = hostname;
     slot->color = U32_WHITE;
@@ -474,6 +502,7 @@ static void AddServer(const netadr_t *address, const char *hostname)
     slot = UI_FormatColumns(SLOT_EXTRASIZE, hostname,
                             "???", "???", "?/?", "???", NULL);
     slot->status = SLOT_IDLE;
+    slot->index = m_servers.list.numItems;
     slot->address = *address;
     slot->hostname = UI_CopyString(hostname);
     slot->color = U32_WHITE;
@@ -482,6 +511,21 @@ static void AddServer(const netadr_t *address, const char *hostname)
     slot->timestamp = com_eventTime;
 
     m_servers.list.items[m_servers.list.numItems++] = slot;
+}
+
+static void ParseLine(char *line)
+{
+    while (*line && (*line == ' ' || *line == '\t'))
+        line++;
+
+    if (*line && *line != '#' && *line != ';') {
+        char *s = line + strlen(line) - 1;
+        while (s > line && (*s == ' ' || *s == '\t'))
+            *s-- = 0;
+
+        if (*line)
+            AddServer(NULL, line);
+    }
 }
 
 static void ParsePlain(void *data, size_t len, size_t chunk)
@@ -500,8 +544,7 @@ static void ParsePlain(void *data, size_t len, size_t chunk)
             *p = 0;
         }
 
-        if (*list)
-            AddServer(NULL, list);
+        ParseLine(list);
 
         if (!p)
             break;
@@ -557,6 +600,8 @@ static void ParseMasterArgs(netadr_t *broadcast)
 
     Cmd_TokenizeString(m_servers.args, false);
 
+    m_servers.nosort = false;
+
     argc = Cmd_Argc();
     if (!argc) {
         // default action to take when no URLs are given
@@ -611,6 +656,16 @@ static void ParseMasterArgs(netadr_t *broadcast)
 
         if (!strncmp(s, "favorites://", 12)) {
             ParseAddressBook();
+            continue;
+        }
+
+        if (!strncmp(s, "cvar://", 7)) {
+            cvar_t *var = Cvar_FindVar(s + 7);
+            if (var && var->string[0]) {
+                char temp[MAX_INFO_STRING];
+                Q_strlcpy(temp, var->string, sizeof(temp));
+                ParseLine(temp);
+            }
             continue;
         }
 
@@ -806,6 +861,24 @@ static int slotcmp(const void *p1, const void *p2)
     serverslot_t *s2 = *(serverslot_t **)p2;
     int r;
 
+    // if nosort is active, always use original order (index)
+    if (m_servers.nosort) {
+        if (s1->index < s2->index)
+            return -1;
+        if (s1->index > s2->index)
+            return 1;
+        return 0;
+    }
+
+    // if no specific column is selected for sorting, use original order (index)
+    if (m_servers.list.sortcol == -1) {
+        if (s1->index < s2->index)
+            return -1;
+        if (s1->index > s2->index)
+            return 1;
+        return 0;
+    }
+
     // sort by validity
     r = statuscmp(s1, s2);
     if (r)
@@ -832,11 +905,12 @@ static int slotcmp(const void *p1, const void *p2)
         return r;
 
     // stabilize sort
-    r = namecmp(s1, s2, COL_NAME);
-    if (r)
-        return r;
+    if (s1->index < s2->index)
+        return -1;
+    if (s1->index > s2->index)
+        return 1;
 
-    return addresscmp(s1, s2);
+    return 0;
 }
 
 static menuSound_t Sort(menuList_t *self)
@@ -1010,16 +1084,6 @@ static menuSound_t Keydown(menuFrameWork_t *self, int key)
 
 static void DrawStatus(void)
 {
-    int w;
-
-    if (m_servers.pingstage == PING_STAGES)
-        w = m_servers.pingindex * uis.width / m_servers.list.numItems;
-    else
-        w = uis.width;
-
-    R_DrawFill8(0, uis.height - CHAR_HEIGHT, w, CHAR_HEIGHT, 4);
-    R_DrawFill8(w, uis.height - CHAR_HEIGHT, uis.width - w, CHAR_HEIGHT, 0);
-
     if (m_servers.status_c)
         UI_DrawString(uis.width / 2, uis.height - CHAR_HEIGHT, UI_CENTER, m_servers.status_c);
 
@@ -1045,8 +1109,19 @@ static void Draw(menuFrameWork_t *self)
 
 static bool Push(menuFrameWork_t *self)
 {
+    const char *args = COM_StripQuotes(Cmd_RawArgsFrom(2));
+
+    if (strncmp(args, "@jump", 5) == 0 && (args[5] == 0 || args[5] == ' ')) {
+        m_servers.jump_only = true;
+        args += 5;
+        while (*args == ' ')
+            args++;
+    } else {
+        m_servers.jump_only = false;
+    }
+
     // save our arguments for refreshing
-    m_servers.args = UI_CopyString(COM_StripQuotes(Cmd_RawArgsFrom(2)));
+    m_servers.args = UI_CopyString(args);
     return true;
 }
 
@@ -1094,9 +1169,9 @@ void M_Menu_Servers(void)
     m_servers.menu.size         = Size;
     m_servers.menu.keydown      = Keydown;
     m_servers.menu.free         = Free;
-    m_servers.menu.image        = uis.backgroundHandle;
-    m_servers.menu.color.u32    = uis.color.background.u32;
-    m_servers.menu.transparent  = uis.transparent;
+    m_servers.menu.image        = 0;
+    m_servers.menu.color.u32    = 0;
+    m_servers.menu.transparent  = true;
 
 //
 // server list

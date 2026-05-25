@@ -40,6 +40,60 @@ static byte     buttondown[256 / 8];
 
 static bool     key_overstrike;
 
+static bool Key_IsLiveMenuPassthroughBinding(const char *binding)
+{
+    static const char *const pass[] = {
+        "+forward",
+        "+back",
+        "+moveleft",
+        "+moveright",
+        "+moveup",
+        "+movedown",
+        "+left",
+        "+right",
+        "+lookup",
+        "+lookdown",
+        "+speed",
+        "+strafe",
+        "+dj",
+        "+mlook",
+        "+klook",
+        NULL
+    };
+    const char *end;
+    size_t len;
+    int i;
+
+    if (!binding || binding[0] != '+') {
+        return false;
+    }
+
+    for (end = binding; *end && *end > ' ' && *end != ';'; end++)
+        ;
+
+    len = end - binding;
+    for (i = 0; pass[i]; i++) {
+        if (strlen(pass[i]) == len && !Q_strncasecmp(binding, pass[i], len)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool Key_ShouldPassLiveMenuBinding(unsigned key)
+{
+    if (!(cls.key_dest & KEY_MENU) || !UI_IsLive()) {
+        return false;
+    }
+
+    if (key >= K_MOUSEFIRST && key <= K_MOUSELAST) {
+        return false;
+    }
+
+    return Key_IsLiveMenuPassthroughBinding(keybindings[key]);
+}
+
 typedef struct {
     const char  *name;
     int         keynum;
@@ -709,6 +763,7 @@ void Key_Event(unsigned key, bool down, unsigned time)
     if ((cls.key_dest == KEY_GAME) ||
         ((cls.key_dest & KEY_CONSOLE) && !Q_IsBitSet(consolekeys, key)) ||
         ((cls.key_dest & KEY_MENU) && (key >= K_F1 && key <= K_F12)) ||
+        Key_ShouldPassLiveMenuBinding(key) ||
         (!down && Q_IsBitSet(buttondown, key))) {
 //
 // Key up events only generate commands if the game key binding is a button

@@ -223,6 +223,238 @@ void SH_OptimalWidth_f(void) {
     }
 }
 
+static bool SH_IsOnOffValue(const char *value) {
+    return value && (!strcmp(value, "0") || !strcmp(value, "1"));
+}
+
+static bool SH_IsColorString(const char *color) {
+    int r, g, b, a;
+    return sscanf(color, "%d %d %d %d", &r, &g, &b, &a) == 4 &&
+           r >= 0 && r <= 255 && g >= 0 && g <= 255 &&
+           b >= 0 && b <= 255 && a >= 0 && a <= 255;
+}
+
+static void SH_SetColorCvar(const char *cvar_name, const char *label, const char *usage) {
+    const char *color = Cmd_ArgsFrom(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- %s: %s\n", label, Cvar_VariableString(cvar_name));
+        return;
+    }
+
+    if (SH_IsColorString(color)) {
+        Cvar_Set(cvar_name, color);
+        Com_Printf("%s set to: %s\n", label, color);
+    } else {
+        Com_Printf("Wrong input. Use '%s'\n", usage);
+    }
+}
+
+void SH_Alpha_f(void) {
+    const char *alpha = Cmd_Argv(3);
+    float value;
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Alpha: %.2f\n", cl_strafehelperAlpha->value);
+        return;
+    }
+
+    if (sscanf(alpha, "%f", &value) == 1 && value >= 0.0f && value <= 1.0f) {
+        Cvar_Set("sh_alpha", alpha);
+        Com_Printf("Strafe helper alpha set to: %s\n", alpha);
+    } else {
+        Com_Printf("Invalid alpha value. Usage: 'sh hud alpha <0.0-1.0>'\n");
+    }
+}
+
+void SH_FadeInactive_f(void) {
+    const char *value = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Fade inactive: %d\n", cl_strafehelperFadeInactive->integer);
+        return;
+    }
+
+    if (SH_IsOnOffValue(value)) {
+        Cvar_Set("sh_fade_inactive", value);
+        Com_Printf("Fade inactive %s.\n", cl_strafehelperFadeInactive->integer ? "enabled" : "disabled");
+    } else {
+        Com_Printf("Invalid value. Usage: 'sh hud fade_inactive <0|1>'\n");
+    }
+}
+
+void SH_BarStyle_f(void) {
+    const char *style = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Bar style: %s\n", cl_strafehelperBarStyle->string);
+        return;
+    }
+
+    if (!Q_stricmp(style, "solid") || !Q_stricmp(style, "gradient") ||
+        !Q_stricmp(style, "outline") || !Q_stricmp(style, "minimal")) {
+        Cvar_Set("sh_bar_style", style);
+        Com_Printf("Bar style set to: %s\n", style);
+    } else {
+        Com_Printf("Invalid bar style. Usage: 'sh hud bar_style <solid|gradient|outline|minimal>'\n");
+    }
+}
+
+void SH_Ups_Enable_f(void) {
+    Cvar_Set("sh_ups", "1");
+    Com_Printf("Center UPS enabled.\n");
+}
+
+void SH_Ups_Disable_f(void) {
+    Cvar_Set("sh_ups", "0");
+    Com_Printf("Center UPS disabled.\n");
+}
+
+void SH_Ups_Toggle_f(void) {
+    const bool enable = !cl_strafehelperUps->integer;
+    Cvar_Set("sh_ups", enable ? "1" : "0");
+    Com_Printf("Center UPS %s.\n", enable ? "enabled" : "disabled");
+}
+
+void SH_Ups_Status_f(void) {
+    Com_Printf("- Center UPS: %s\n", cl_strafehelperUps->integer ? "enabled" : "disabled");
+    Com_Printf("- Scale: %.2f\n", cl_strafehelperUpsScale->value);
+    Com_Printf("- Shadow: %d\n", cl_strafehelperUpsShadow->integer);
+    Com_Printf("- Hide zero: %d\n", cl_strafehelperUpsHideZero->integer);
+    Com_Printf("- Color mode: %s\n", cl_strafehelperUpsColorMode->string);
+    Com_Printf("- Format: %s\n", cl_strafehelperUpsFormat->string);
+    Com_Printf("- Gain color: %s\n", cl_strafehelperUpsColorGain->string);
+    Com_Printf("- Loss color: %s\n", cl_strafehelperUpsColorLoss->string);
+    Com_Printf("- Neutral color: %s\n", cl_strafehelperUpsColorNeutral->string);
+}
+
+void SH_Ups_Scale_f(void) {
+    const char *scale = Cmd_Argv(3);
+    float value;
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS scale: %.2f\n", cl_strafehelperUpsScale->value);
+        return;
+    }
+
+    if (sscanf(scale, "%f", &value) == 1 && value >= 0.25f && value <= 8.0f) {
+        Cvar_Set("sh_ups_scale", scale);
+        Com_Printf("Center UPS scale set to: %s\n", scale);
+    } else {
+        Com_Printf("Invalid scale value. Usage: 'sh ups scale <0.25-8.0>'\n");
+    }
+}
+
+void SH_Ups_Shadow_f(void) {
+    const char *value = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS shadow: %d\n", cl_strafehelperUpsShadow->integer);
+        return;
+    }
+
+    if (SH_IsOnOffValue(value)) {
+        Cvar_Set("sh_ups_shadow", value);
+        Com_Printf("Center UPS shadow %s.\n", cl_strafehelperUpsShadow->integer ? "enabled" : "disabled");
+    } else {
+        Com_Printf("Invalid value. Usage: 'sh ups shadow <0|1>'\n");
+    }
+}
+
+void SH_Ups_HideZero_f(void) {
+    const char *value = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS hide zero: %d\n", cl_strafehelperUpsHideZero->integer);
+        return;
+    }
+
+    if (SH_IsOnOffValue(value)) {
+        Cvar_Set("sh_ups_hide_zero", value);
+        Com_Printf("Center UPS hide zero %s.\n", cl_strafehelperUpsHideZero->integer ? "enabled" : "disabled");
+    } else {
+        Com_Printf("Invalid value. Usage: 'sh ups hide_zero <0|1>'\n");
+    }
+}
+
+void SH_Ups_ColorMode_f(void) {
+    const char *mode = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS color mode: %s\n", cl_strafehelperUpsColorMode->string);
+        return;
+    }
+
+    if (!Q_stricmp(mode, "dynamic") || !Q_stricmp(mode, "static") ||
+        !Q_stricmp(mode, "threshold") || !Q_stricmp(mode, "rainbow")) {
+        Cvar_Set("sh_ups_color_mode", mode);
+        Com_Printf("Center UPS color mode set to: %s\n", mode);
+    } else {
+        Com_Printf("Invalid color mode. Usage: 'sh ups color_mode <dynamic|static|threshold|rainbow>'\n");
+    }
+}
+
+void SH_Ups_ColorGain_f(void) {
+    SH_SetColorCvar("sh_ups_color_gain", "Center UPS gain color", "sh ups color_gain R G B A");
+}
+
+void SH_Ups_ColorLoss_f(void) {
+    SH_SetColorCvar("sh_ups_color_loss", "Center UPS loss color", "sh ups color_loss R G B A");
+}
+
+void SH_Ups_ColorNeutral_f(void) {
+    SH_SetColorCvar("sh_ups_color_neutral", "Center UPS neutral color", "sh ups color_neutral R G B A");
+}
+
+void SH_Ups_Format_f(void) {
+    const char *format = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS format: %s\n", cl_strafehelperUpsFormat->string);
+        return;
+    }
+
+    if (!Q_stricmp(format, "plain") || !Q_stricmp(format, "suffix") ||
+        !Q_stricmp(format, "prefix") || !strcmp(format, "0") ||
+        !strcmp(format, "1") || !strcmp(format, "2")) {
+        Cvar_Set("sh_ups_format", format);
+        Com_Printf("Center UPS format set to: %s\n", format);
+    } else {
+        Com_Printf("Invalid format. Usage: 'sh ups format <plain|suffix|prefix>'\n");
+    }
+}
+
+void SH_Ups_Help_f(void) {
+    Com_Printf("========================================================================================\n");
+    Com_LPrintf(PRINT_WARNING, "Center UPS Menu\n");
+    Com_Printf("Usage: sh ups <command> [options]\n");
+    Com_Printf("========================================================================================\n");
+    Com_Printf("Visibility\n");
+    Com_Printf("  %-32s %s\n", "enable", "Draw cl_ups in the center of the screen.");
+    Com_Printf("  %-32s %s\n", "disable", "Hide the center cl_ups display.");
+    Com_Printf("  %-32s %s\n", "toggle", "Toggle center cl_ups.");
+    Com_Printf("  %-32s %s\n", "status", "Show current center cl_ups settings.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Layout\n");
+    Com_Printf("  %-32s %s\n", "scale <0.25-8.0>", "Resize center UPS text.");
+    Com_Printf("  %-32s %s\n", "shadow <0|1>", "Toggle text shadow.");
+    Com_Printf("  %-32s %s\n", "hide_zero <0|1>", "Hide when rounded UPS is 0.");
+    Com_Printf("  %-32s %s\n", "format <plain|suffix|prefix>", "Use 742, 742 ups, or UPS: 742.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Color\n");
+    Com_Printf("  %-32s %s\n", "color_mode <mode>", "dynamic, static, threshold, or rainbow.");
+    Com_Printf("  %-32s %s\n", "color_gain R G B A", "Gain/high-speed color.");
+    Com_Printf("  %-32s %s\n", "color_loss R G B A", "Loss/low-speed color.");
+    Com_Printf("  %-32s %s\n", "color_neutral R G B A", "Neutral/static color.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Examples\n");
+    Com_Printf("  sh ups enable\n");
+    Com_Printf("  sh ups scale 1.5\n");
+    Com_Printf("  sh ups format suffix\n");
+    Com_Printf("  sh ups color_mode rainbow\n");
+    Com_Printf("========================================================================================\n");
+}
+
 void SH_Color_Accel_f(void) {
     const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
@@ -285,19 +517,37 @@ void SH_Color_CenterMarker_f(void) {
 
 void SH_Hud_Help_f(void) {
     Com_Printf("========================================================================================\n");
-    Com_LPrintf(PRINT_WARNING, "Usage: sh <command> [options]\n");
-    Com_LPrintf(PRINT_WARNING, "Commands:\n");
+    Com_LPrintf(PRINT_WARNING, "Strafe HUD Menu\n");
+    Com_Printf("Usage: sh hud <command> [options]\n");
     Com_Printf("========================================================================================\n");
-    Com_Printf("  enable                                  Enable the strafe helper.\n");
-    Com_Printf("  disable                                 Disable the strafe helper.\n");
-    Com_Printf("  scale <value>                           Set the scale (default: 1.5).\n");
-    Com_Printf("  ypos <value>                            Set the Y position (default: 100).\n");
-    Com_Printf("  height <value>                          Set the height (default: 20).\n");
-    Com_Printf("  centermarker                            Toggle the center marker on/off.\n");
-    Com_Printf("  center_width <value>                    Set the center line width (default: 2).\n");
-    Com_Printf("  optimal_width <value>                   Set the optimal line width (default: 2).\n");
-    Com_Printf("  color_<type> <R> <G> <B> <A>            Set color (0-255).\n");
-    Com_Printf("                                          Types: optimal, centermarker, accelerating\n");
-    Com_Printf("  preset <name> or <number>               Apply a predefined color preset.\n");
+    Com_Printf("Visibility\n");
+    Com_Printf("  %-34s %s\n", "enable", "Enable the strafe helper bar.");
+    Com_Printf("  %-34s %s\n", "disable", "Disable the strafe helper bar.");
+    Com_Printf("  %-34s %s\n", "status", "Show current HUD, UPS, and indicator settings.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Layout\n");
+    Com_Printf("  %-34s %s\n", "scale <value>", "Set bar horizontal scale.");
+    Com_Printf("  %-34s %s\n", "ypos <value>", "Set vertical position.");
+    Com_Printf("  %-34s %s\n", "height <value>", "Set bar height.");
+    Com_Printf("  %-34s %s\n", "center_width <0.1-5.0>", "Set center marker width.");
+    Com_Printf("  %-34s %s\n", "optimal_width <value>", "Set optimal marker width.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Style\n");
+    Com_Printf("  %-34s %s\n", "alpha <0.0-1.0>", "Set helper opacity.");
+    Com_Printf("  %-34s %s\n", "fade_inactive <0|1>", "Fade when there is no movement input.");
+    Com_Printf("  %-34s %s\n", "bar_style <style>", "solid, gradient, outline, or minimal.");
+    Com_Printf("  %-34s %s\n", "center_marker", "Toggle the center marker.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Color\n");
+    Com_Printf("  %-34s %s\n", "color_accelerating R G B A", "Acceleration zone color.");
+    Com_Printf("  %-34s %s\n", "color_optimal R G B A", "Optimal marker color.");
+    Com_Printf("  %-34s %s\n", "color_centermarker R G B A", "Center marker color.");
+    Com_Printf("  %-34s %s\n", "preset <name|number|random>", "Apply a predefined color preset.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Examples\n");
+    Com_Printf("  sh hud enable\n");
+    Com_Printf("  sh hud bar_style outline\n");
+    Com_Printf("  sh hud alpha 0.7\n");
+    Com_Printf("  sh hud preset random\n");
     Com_Printf("========================================================================================\n");
 }

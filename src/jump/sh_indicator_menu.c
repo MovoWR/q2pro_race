@@ -120,16 +120,27 @@ void SH_Indicator_Tolerance_f(void) {
 
 void SH_Indicator_Help(void) {
     Com_Printf("========================================================================================\n");
-    Com_LPrintf(PRINT_WARNING, "Usage: sh indicator <command> [options]\n");
-    Com_LPrintf(PRINT_WARNING, "Commands:\n");
+    Com_LPrintf(PRINT_WARNING, "Indicator Menu\n");
+    Com_Printf("Usage: sh indicator <command> [options]\n");
     Com_Printf("========================================================================================\n");
-    Com_Printf("  enable           Enable the indicator.\n");
-    Com_Printf("  disable          Disable the indicator.\n");
-    Com_Printf("  tolerance        Set tolerance (degrees) from optimal angle.\n");
-    Com_Printf("  pos X Y          Set position. Example: pos 100 200\n");
-    Com_Printf("  size W H         Set size. Example: size 50 50\n");
-    Com_Printf("  color R G B A    Set color (0-255). Example: color 255 255 255 128\n");
-    Com_Printf("  pic <1-9|off>    Set picture index or turn off. Example: pic 2\n");
+    Com_Printf("Visibility\n");
+    Com_Printf("  %-24s %s\n", "enable", "Enable the indicator.");
+    Com_Printf("  %-24s %s\n", "disable", "Disable the indicator.");
+    Com_Printf("  %-24s %s\n", "status", "Show current helper settings.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Layout\n");
+    Com_Printf("  %-24s %s\n", "pos X Y", "Set position. Example: sh indicator pos 100 200");
+    Com_Printf("  %-24s %s\n", "size W H", "Set size. Example: sh indicator size 50 50");
+    Com_Printf("  %-24s %s\n", "pic <1-9|off>", "Set picture index or draw a rectangle.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Behavior\n");
+    Com_Printf("  %-24s %s\n", "tolerance <degrees>", "Allowed distance from optimal angle.");
+    Com_Printf("  %-24s %s\n", "color R G B A", "Set rectangle color, 0-255 each.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Examples\n");
+    Com_Printf("  sh indicator enable\n");
+    Com_Printf("  sh indicator tolerance 0.20\n");
+    Com_Printf("  sh indicator pic 2\n");
     Com_Printf("========================================================================================\n");
 }
 
@@ -150,6 +161,8 @@ void SH_Indicator_Cmd_f(void) {
         SH_Indicator_SetColor_f();
     else if (!strcmp(cmd, "pic"))
         SH_Indicator_SetPic_f();
+    else if (!strcmp(cmd, "status"))
+        SH_Status_f();
     else if (!strcmp(cmd, "help"))
         SH_Indicator_Help();
 }

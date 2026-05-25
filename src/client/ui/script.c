@@ -446,6 +446,8 @@ static void Parse_Field(menuFrameWork_t *menu)
 {
     static const cmd_option_t o_field[] = {
         { "c", "center" },
+        { "p", "color" },
+        { "P", "picker" },
         { "i", "integer" },
         { "n", "numeric" },
         { "s:", "status" },
@@ -454,6 +456,8 @@ static void Parse_Field(menuFrameWork_t *menu)
     };
     menuField_t *f;
     bool center = false;
+    bool colorPreview = false;
+    bool colorPickerOnly = false;
     int flags = 0;
     char *status = NULL;
     int width = 16;
@@ -463,6 +467,13 @@ static void Parse_Field(menuFrameWork_t *menu)
         switch (c) {
         case 'c':
             center = true;
+            break;
+        case 'p':
+            colorPreview = true;
+            break;
+        case 'P':
+            colorPreview = true;
+            colorPickerOnly = true;
             break;
         case 'i':
         case 'n':
@@ -490,6 +501,8 @@ static void Parse_Field(menuFrameWork_t *menu)
     f->generic.flags = flags;
     f->cvar = Cvar_WeakGet(Cmd_Argv(center ? cmd_optind : cmd_optind + 1));
     f->width = width;
+    f->colorPreview = colorPreview;
+    f->colorPickerOnly = colorPickerOnly;
 
     Menu_AddItem(menu, f);
 }
@@ -500,6 +513,45 @@ static void Parse_Blank(menuFrameWork_t *menu)
 
     s = UI_Mallocz(sizeof(*s));
     s->generic.type = MTYPE_SEPARATOR;
+
+    Menu_AddItem(menu, s);
+}
+
+static void Parse_Static(menuFrameWork_t *menu)
+{
+    static const cmd_option_t o_static[] = {
+        { "a", "align" },
+        { "s:", "status" },
+        { NULL }
+    };
+    menuStatic_t *s;
+    int uiFlags = UI_CENTER | UI_ALTCOLOR;
+    char *status = NULL;
+    int c;
+
+    while ((c = Cmd_ParseOptions(o_static)) != -1) {
+        switch (c) {
+        case 'a':
+            uiFlags = UI_LEFT | UI_ALTCOLOR;
+            break;
+        case 's':
+            status = cmd_optarg;
+            break;
+        default:
+            return;
+        }
+    }
+
+    if (Cmd_Argc() - cmd_optind < 1) {
+        Com_Printf("Usage: %s <name>\n", Cmd_Argv(0));
+        return;
+    }
+
+    s = UI_Mallocz(sizeof(*s));
+    s->generic.type = MTYPE_STATIC;
+    s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
+    s->generic.uiFlags = uiFlags;
+    s->generic.status = UI_CopyString(status);
 
     Menu_AddItem(menu, s);
 }
@@ -521,7 +573,12 @@ static void Parse_Style(menuFrameWork_t *menu)
 {
     static const cmd_option_t o_style[] = {
         { "c", "compact" },
+        { "x", "left" },
+        { "m", "center" },
+        { "r", "right" },
         { "C", "no-compact" },
+        { "l", "live" },
+        { "L", "no-live" },
         { "t", "transparent" },
         { "T", "no-transparent" },
         { NULL }
@@ -533,8 +590,23 @@ static void Parse_Style(menuFrameWork_t *menu)
         case 'c':
             menu->compact = true;
             break;
+        case 'x':
+            menu->halign = MENU_HALIGN_LEFT;
+            break;
+        case 'm':
+            menu->halign = MENU_HALIGN_CENTER;
+            break;
+        case 'r':
+            menu->halign = MENU_HALIGN_RIGHT;
+            break;
         case 'C':
             menu->compact = false;
+            break;
+        case 'l':
+            menu->live = true;
+            break;
+        case 'L':
+            menu->live = false;
             break;
         case 't':
             menu->transparent = true;
@@ -561,7 +633,15 @@ static void Parse_Color(void)
     c = Cmd_Argv(2);
 
     if (!strcmp(s, "normal")) {
-        SCR_ParseColor(c, &uis.color.normal);
+        if (SCR_ParseColor(c, &uis.color.normal)) {
+            uis.color.selectable = uis.color.normal;
+        }
+    } else if (!strcmp(s, "selectable") || !strcmp(s, "action")) {
+        SCR_ParseColor(c, &uis.color.selectable);
+    } else if (!strcmp(s, "alternate") || !strcmp(s, "alt")) {
+        SCR_ParseColor(c, &uis.color.alternate);
+    } else if (!strcmp(s, "title")) {
+        SCR_ParseColor(c, &uis.color.title);
     } else if (!strcmp(s, "active")) {
         SCR_ParseColor(c, &uis.color.active);
     } else if (!strcmp(s, "selection")) {
@@ -609,26 +689,28 @@ static void Parse_Banner(menuFrameWork_t *menu)
     }
 }
 
-static bool Parse_File(const char *path, int depth)
+static bool IsReservedMenuName(const char *name)
 {
-    char *raw, *data, *p, *cmd;
+    return !strcmp(name, "demos") ||
+        !strcmp(name, "servers") ||
+        !strcmp(name, "players");
+}
+
+static bool Parse_File(const char *path, int depth);
+
+static bool Parse_Buffer(const char *path, char *data, int depth)
+{
+    char *p, *cmd;
     int argc;
     menuFrameWork_t *menu = NULL;
-    int ret;
+    menuFrameWork_t *replace = NULL;
+    bool skip_menu = false;
+    int line = 0;
 
-    ret = FS_LoadFile(path, (void **)&raw);
-    if (!raw) {
-        if (ret != Q_ERR(ENOENT) || depth) {
-            Com_WPrintf("Couldn't %s %s: %s\n", depth ? "include" : "load",
-                        path, Q_ErrorString(ret));
-        }
-        return false;
-    }
-
-    data = raw;
     COM_Compress(data);
 
     while (*data) {
+        line++;
         p = strchr(data, '\n');
         if (p) {
             *p = 0;
@@ -639,15 +721,28 @@ static bool Parse_File(const char *path, int depth)
         argc = Cmd_Argc();
         if (argc) {
             cmd = Cmd_Argv(0);
-            if (menu) {
+            if (skip_menu) {
+                if (!strcmp(cmd, "end")) {
+                    skip_menu = false;
+                }
+            } else if (menu) {
                 if (!strcmp(cmd, "end")) {
                     if (menu->nitems) {
+                        if (replace) {
+                            List_Remove(&replace->entry);
+                            if (replace->free) {
+                                replace->free(replace);
+                            }
+                            replace = NULL;
+                        }
                         List_Append(&ui_menus, &menu->entry);
                     } else {
-                        Com_WPrintf("Menu entry without items\n");
+                        Com_WPrintf("%s:%d: Menu entry '%s' without items\n",
+                                    path, line, menu->name);
                         menu->free(menu);
                     }
                     menu = NULL;
+                    replace = NULL;
                 } else if (!strcmp(cmd, "title")) {
                     Z_Free(menu->title);
                     menu->title = UI_CopyString(Cmd_Argv(1));
@@ -683,23 +778,27 @@ static bool Parse_File(const char *path, int depth)
                     Parse_Field(menu);
                 } else if (!strcmp(cmd, "blank")) {
                     Parse_Blank(menu);
+                } else if (!strcmp(cmd, "static")) {
+                    Parse_Static(menu);
                 } else {
-                    Com_WPrintf("Unknown keyword '%s'\n", cmd);
+                    Com_WPrintf("%s:%d: Unknown keyword '%s'\n",
+                                path, line, cmd);
                 }
             } else {
                 if (!strcmp(cmd, "begin")) {
                     char *s = Cmd_Argv(1);
                     if (!*s) {
-                        Com_WPrintf("Expected menu name after '%s'\n", cmd);
+                        Com_WPrintf("%s:%d: Expected menu name after '%s'\n",
+                                    path, line, cmd);
                         break;
                     }
-                    menu = UI_FindMenu(s);
-                    if (menu) {
-                        List_Remove(&menu->entry);
-                        if (menu->free) {
-                            menu->free(menu);
+                    if (IsReservedMenuName(s)) {
+                        Com_WPrintf("%s:%d: Built-in menu '%s' can not be overridden\n",
+                                    path, line, s);
+                        skip_menu = true;
+                        continue;
                         }
-                    }
+                    replace = UI_FindMenu(s);
                     menu = UI_Mallocz(sizeof(*menu));
                     menu->name = UI_CopyString(s);
                     menu->push = Menu_Push;
@@ -711,11 +810,13 @@ static bool Parse_File(const char *path, int depth)
                 } else if (!strcmp(cmd, "include")) {
                     char *s = Cmd_Argv(1);
                     if (!*s) {
-                        Com_WPrintf("Expected file name after '%s'\n", cmd);
+                        Com_WPrintf("%s:%d: Expected file name after '%s'\n",
+                                    path, line, cmd);
                         break;
                     }
                     if (depth == 16) {
-                        Com_WPrintf("Includes too deeply nested\n");
+                        Com_WPrintf("%s:%d: Includes too deeply nested\n",
+                                    path, line);
                     } else {
                         Parse_File(s, depth + 1);
                     }
@@ -740,7 +841,8 @@ static bool Parse_File(const char *path, int depth)
                 } else if (!strcmp(cmd, "weapon")) {
                     Cmd_ArgvBuffer(1, uis.weaponModel, sizeof(uis.weaponModel));
                 } else {
-                    Com_WPrintf("Unknown keyword '%s'\n", cmd);
+                    Com_WPrintf("%s:%d: Unknown keyword '%s'\n",
+                                path, line, cmd);
                     break;
                 }
             }
@@ -753,17 +855,58 @@ static bool Parse_File(const char *path, int depth)
         data = p + 1;
     }
 
-    FS_FreeFile(raw);
-
     if (menu) {
-        Com_WPrintf("Menu entry without 'end' terminator\n");
+        Com_WPrintf("%s:%d: Menu entry '%s' without 'end' terminator\n",
+                    path, line, menu->name);
         menu->free(menu);
+        replace = NULL;
+    }
+    if (skip_menu) {
+        Com_WPrintf("%s:%d: Skipped menu entry without 'end' terminator\n",
+                    path, line);
     }
 
     return true;
 }
 
+static bool Parse_File(const char *path, int depth)
+{
+    char *raw;
+    int ret;
+
+    ret = FS_LoadFile(path, (void **)&raw);
+    if (!raw) {
+        if (ret != Q_ERR(ENOENT) || depth) {
+            Com_WPrintf("Couldn't %s %s: %s\n", depth ? "include" : "load",
+                        path, Q_ErrorString(ret));
+        }
+        return false;
+    }
+
+    Parse_Buffer(path, raw, depth);
+
+    FS_FreeFile(raw);
+
+    return true;
+}
+
+extern const char *ui_builtin_menu;
+
+static void Parse_BuiltinMenu(void)
+{
+    char *data = UI_CopyString(ui_builtin_menu);
+
+    Parse_Buffer("builtin", data, 0);
+    Z_Free(data);
+}
+
 void UI_LoadScript(void)
 {
+    cvar_t *ui_external_menu = Cvar_Get("ui_external_menu", "0", CVAR_ARCHIVE);
+
+    Parse_BuiltinMenu();
+
+    if (ui_external_menu->integer) {
     Parse_File("q2pro.menu", 0);
+}
 }

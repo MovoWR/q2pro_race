@@ -41,6 +41,8 @@ void        UI_StatusEvent(const serverStatus_t *status);
 void        UI_ErrorEvent(const netadr_t *from);
 void        UI_MouseEvent(int x, int y);
 bool        UI_IsTransparent(void);
+bool        UI_IsLive(void);
+bool        UI_IsMenuActive(const char *name);
 #else
 #define     UI_Init()               (void)0
 #define     UI_Shutdown()           (void)0
@@ -54,4 +56,6 @@ bool        UI_IsTransparent(void);
 #define     UI_ErrorEvent(from)     (void)0
 #define     UI_MouseEvent(x, y)     (void)0
 #define     UI_IsTransparent()      true
+#define     UI_IsLive()             false
+#define     UI_IsMenuActive(name)   false
 #endif
