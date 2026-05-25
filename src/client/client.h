@@ -534,6 +534,7 @@ extern cvar_t   *cl_gun_x;
 extern cvar_t   *cl_gun_y;
 extern cvar_t   *cl_gun_z;
 extern cvar_t   *cl_predict;
+extern cvar_t   *cl_step_smoothing_mode;
 extern cvar_t   *cl_footsteps;
 extern cvar_t   *cl_noskins;
 extern cvar_t   *cl_kickangles;

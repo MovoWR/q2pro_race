@@ -43,6 +43,7 @@ cvar_t  *cl_maxfps;
 cvar_t  *cl_async;
 cvar_t  *r_maxfps;
 cvar_t  *cl_autopause;
+cvar_t  *cl_step_smoothing_mode;
 
 cvar_t  *cl_kickangles;
 cvar_t  *cl_rollhack;
@@ -117,6 +118,18 @@ cvar_t *cl_strafehelper_tolerance;
 cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
+cvar_t *cl_strafehelperUps;
+cvar_t *cl_strafehelperUpsScale;
+cvar_t *cl_strafehelperUpsShadow;
+cvar_t *cl_strafehelperUpsHideZero;
+cvar_t *cl_strafehelperUpsColorMode;
+cvar_t *cl_strafehelperUpsColorGain;
+cvar_t *cl_strafehelperUpsColorLoss;
+cvar_t *cl_strafehelperUpsColorNeutral;
+cvar_t *cl_strafehelperUpsFormat;
+cvar_t *cl_strafehelperAlpha;
+cvar_t *cl_strafehelperFadeInactive;
+cvar_t *cl_strafehelperBarStyle;
 cvar_t *cl_strafehelper_indicator_pic;
 cvar_t *cl_strafehelperNerdStats;
 
@@ -3013,6 +3026,10 @@ static const cmdreg_t c_client[] = {
     { NULL }
 };
 
+static const cmdreg_t c_jump_client[] = {
+    { NULL }
+};
+
 /*
 =================
 CL_InitLocal
@@ -3036,6 +3053,7 @@ static void CL_InitLocal(void)
     CL_GTV_Init();
 
     Cmd_Register(c_client);
+    Cmd_Register(c_jump_client);
 
     for (i = 0; i < MAX_LOCAL_SERVERS; i++) {
         var = Cvar_Get(va("adr%i", i), "", CVAR_ARCHIVE);
@@ -3060,6 +3078,7 @@ static void CL_InitLocal(void)
     cl_noskins->changed = cl_noskins_changed;
     cl_predict = Cvar_Get("cl_predict", "1", 0);
     cl_predict->changed = cl_predict_changed;
+    cl_step_smoothing_mode = Cvar_Get("cl_step_smoothing_mode", "q2pro", 0);
     cl_kickangles = Cvar_Get("cl_kickangles", "1", 0);
     cl_warn_on_fps_rounding = Cvar_Get("cl_warn_on_fps_rounding", "0", 0);
     cl_maxfps = Cvar_Get("cl_maxfps", "120", 0);
@@ -3121,7 +3140,7 @@ static void CL_InitLocal(void)
     cl_changemapcmd = Cvar_Get("cl_changemapcmd", "", 0);
     cl_beginmapcmd = Cvar_Get("cl_beginmapcmd", "", 0);
 
-    cl_ignore_stufftext = Cvar_Get("cl_ignore_stufftext", "0", 0);
+    cl_ignore_stufftext = Cvar_Get("cl_ignore_stufftext", "0", CVAR_CHEAT);
     cl_allow_vid_restart = Cvar_Get("cl_allow_vid_restart", "0", 0);
 
     cl_protocol = Cvar_Get("cl_protocol", "0", 0);
@@ -3186,6 +3205,18 @@ static void CL_InitLocal(void)
     cl_strafeHelperHeight = Cvar_Get("sh_height", "20", CVAR_ARCHIVE);
     cl_strafeHelperScale = Cvar_Get("sh_scale", "1.5", CVAR_ARCHIVE);
     cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
+    cl_strafehelperUps = Cvar_Get("sh_ups", "0", CVAR_ARCHIVE);
+    cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1", CVAR_ARCHIVE);
+    cl_strafehelperUpsShadow = Cvar_Get("sh_ups_shadow", "1", CVAR_ARCHIVE);
+    cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "0", CVAR_ARCHIVE);
+    cl_strafehelperUpsColorMode = Cvar_Get("sh_ups_color_mode", "dynamic", CVAR_ARCHIVE);
+    cl_strafehelperUpsColorGain = Cvar_Get("sh_ups_color_gain", "0 255 0 255", CVAR_ARCHIVE);
+    cl_strafehelperUpsColorLoss = Cvar_Get("sh_ups_color_loss", "255 0 0 255", CVAR_ARCHIVE);
+    cl_strafehelperUpsColorNeutral = Cvar_Get("sh_ups_color_neutral", "255 255 255 255", CVAR_ARCHIVE);
+    cl_strafehelperUpsFormat = Cvar_Get("sh_ups_format", "plain", CVAR_ARCHIVE);
+    cl_strafehelperAlpha = Cvar_Get("sh_alpha", "1", CVAR_ARCHIVE);
+    cl_strafehelperFadeInactive = Cvar_Get("sh_fade_inactive", "0", CVAR_ARCHIVE);
+    cl_strafehelperBarStyle = Cvar_Get("sh_bar_style", "gradient", CVAR_ARCHIVE);
     // width
     cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
     cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
@@ -3198,7 +3229,7 @@ static void CL_InitLocal(void)
     cl_strafehelper_tolerance = Cvar_Get("sh_indicator_tolerance", "0.20", CVAR_ARCHIVE);
     cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
     cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "0 0", CVAR_ARCHIVE);
-    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "10 5", CVAR_ARCHIVE);
+    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "1 5", CVAR_ARCHIVE);
     cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelperNerdStats = Cvar_Get("sh_nerdstats", "0", CVAR_ARCHIVE);
 
@@ -3430,7 +3461,8 @@ void CL_CheckForPause(void)
         return;
     }
 
-    if (cls.key_dest & (KEY_CONSOLE | KEY_MENU)) {
+    if ((cls.key_dest & KEY_CONSOLE) ||
+        ((cls.key_dest & KEY_MENU) && !UI_IsLive())) {
         // only pause in single player
         if (cl_paused->integer == 0 && cl_autopause->integer) {
             Cvar_Set("cl_paused", "1");
