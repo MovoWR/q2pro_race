@@ -3,11 +3,79 @@
 #include "refresh/refresh.h"
 #include "src/client/client.h"
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "src/refresh/gl.h"
 
+#define SHC_GRADIENT_MAX_SEGMENTS 64
+#define SHC_GRADIENT_TARGET_SEGMENT_WIDTH 6.0f
+#define SHC_GRADIENT_PEAK_FRACTION 0.70f
+
+static bool shc_IsFinite(const float value) {
+    return value == value && value > -FLT_MAX && value < FLT_MAX;
+}
+
+static int shc_ClampInt(const int value, const int min_value, const int max_value) {
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
+
+static float shc_ClampFloat(const float value, const float min_value, const float max_value) {
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
+
+static uint8_t shc_LerpByte(const uint8_t from, const uint8_t to, const float fraction) {
+    return (uint8_t) roundf((float) from + ((float) to - (float) from) * fraction);
+}
+
+static uint32_t shc_LerpColor(const uint32_t from, const uint32_t to, const float fraction) {
+    color_t from_color, to_color, out_color;
+    const float clamped_fraction = shc_ClampFloat(fraction, 0.0f, 1.0f);
+
+    from_color.u32 = from;
+    to_color.u32 = to;
+
+    for (int i = 0; i < 4; i++) {
+        out_color.u8[i] = shc_LerpByte(from_color.u8[i], to_color.u8[i], clamped_fraction);
+    }
+    return out_color.u32;
+}
+
+static float shc_HelperAlphaMultiplier(void) {
+    float multiplier = cl_strafehelperAlpha
+                       ? Cvar_ClampValue(cl_strafehelperAlpha, 0.0f, 1.0f)
+                       : 1.0f;
+
+    if (cl_strafehelperFadeInactive && cl_strafehelperFadeInactive->integer) {
+        const float move =
+            fabsf(cl.localmove[0]) + fabsf(cl.localmove[1]) + fabsf(cl.localmove[2]);
+        if (move < 0.1f || cl.frame.ps.pmove.pm_type != PM_NORMAL) {
+            multiplier *= 0.25f;
+        }
+    }
+
+    return multiplier;
+}
+
+static uint32_t shc_ApplyHelperAlpha(const uint32_t color) {
+    color_t out_color;
+    out_color.u32 = color;
+    out_color.u8[3] = (uint8_t) roundf((float) out_color.u8[3] * shc_HelperAlphaMultiplier());
+    return out_color.u32;
+}
 
 uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a) {
     if (!colorStr) {
@@ -75,7 +143,7 @@ uint32_t getColorForElement(const enum shc_ElementId element_id) {
             break;
         default: ;
     }
-    return shc_ParseColorString(colorString, NULL, NULL, NULL, NULL);
+    return shc_ApplyHelperAlpha(shc_ParseColorString(colorString, NULL, NULL, NULL, NULL));
 }
 
 void shc_drawFilledRectangle(const float x, const float y,
@@ -83,4 +151,61 @@ void shc_drawFilledRectangle(const float x, const float y,
                              enum shc_ElementId element_id) {
     const uint32_t color = getColorForElement(element_id);
     R_DrawFill32(roundf(x), roundf(y), roundf(w), roundf(h), color);
+}
+
+void shc_drawGradientRectangle(float x, const float y,
+                               float w, const float h, float peak_x,
+                               enum shc_ElementId edge_element_id,
+                               enum shc_ElementId peak_element_id) {
+    if (!shc_IsFinite(x) || !shc_IsFinite(y) || !shc_IsFinite(w) ||
+        !shc_IsFinite(h) || !shc_IsFinite(peak_x)) {
+        return;
+    }
+    if (w == 0.0f || h == 0.0f) {
+        return;
+    }
+
+    if (w < 0.0f) {
+        x += w;
+        w = -w;
+    }
+
+    const int ix = (int) roundf(x);
+    const int iy = (int) roundf(y);
+    const int iw = (int) roundf(w);
+    const int ih = (int) roundf(h);
+    if (iw <= 0 || ih <= 0) {
+        return;
+    }
+
+    const uint32_t edge_color = getColorForElement(edge_element_id);
+    const uint32_t peak_color = getColorForElement(peak_element_id);
+    const int segment_count = shc_ClampInt((int) ceilf((float) iw / SHC_GRADIENT_TARGET_SEGMENT_WIDTH),
+                                           1, min(iw, SHC_GRADIENT_MAX_SEGMENTS));
+    const float start_x = (float) ix;
+    const float end_x = (float) (ix + iw);
+    const float clamped_peak_x = shc_ClampFloat(peak_x, start_x, end_x);
+
+    for (int i = 0; i < segment_count; i++) {
+        const int segment_x = ix + iw * i / segment_count;
+        const int segment_end_x = ix + iw * (i + 1) / segment_count;
+        const int segment_width = segment_end_x - segment_x;
+        if (segment_width <= 0) {
+            continue;
+        }
+
+        const float midpoint_x = (float) segment_x + (float) segment_width * 0.5f;
+        float quality;
+        if (midpoint_x <= clamped_peak_x) {
+            const float distance_to_peak = clamped_peak_x - start_x;
+            quality = distance_to_peak > 0.0f ? (midpoint_x - start_x) / distance_to_peak : 1.0f;
+        } else {
+            const float distance_to_peak = end_x - clamped_peak_x;
+            quality = distance_to_peak > 0.0f ? (end_x - midpoint_x) / distance_to_peak : 1.0f;
+        }
+
+        R_DrawFill32(segment_x, iy, segment_width, ih,
+                     shc_LerpColor(edge_color, peak_color,
+                                   quality * SHC_GRADIENT_PEAK_FRACTION));
+    }
 }

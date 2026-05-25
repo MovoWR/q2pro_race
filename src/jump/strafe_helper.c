@@ -169,8 +169,153 @@ static float angleToPixel(const float angle, const float scale,
            angleDiffToPixelDiff(angle, scale, hud_width);
 }
 
+typedef enum {
+    SH_BarStyle_Solid,
+    SH_BarStyle_Gradient,
+    SH_BarStyle_Outline,
+    SH_BarStyle_Minimal
+} SH_BarStyle;
+
+static bool stringEquals(const char *value, const char *expected) {
+    return value && !Q_stricmp(value, expected);
+}
+
+static SH_BarStyle SH_GetBarStyle(void) {
+    const char *style = cl_strafehelperBarStyle ? cl_strafehelperBarStyle->string : "gradient";
+
+    if (stringEquals(style, "solid") || stringEquals(style, "0")) {
+        return SH_BarStyle_Solid;
+    }
+    if (stringEquals(style, "outline") || stringEquals(style, "2")) {
+        return SH_BarStyle_Outline;
+    }
+    if (stringEquals(style, "minimal") || stringEquals(style, "3")) {
+        return SH_BarStyle_Minimal;
+    }
+    return SH_BarStyle_Gradient;
+}
+
+static void drawRectangleOutline(float x, const float y, float w, const float h,
+                                 const float thickness,
+                                 const enum shc_ElementId element_id) {
+    if (w < 0.0f) {
+        x += w;
+        w = -w;
+    }
+    if (w <= 0.0f || h <= 0.0f || thickness <= 0.0f) {
+        return;
+    }
+
+    const float t = CLAMP(thickness, 1.0f, h * 0.5f);
+    shc_drawFilledRectangle(x, y, w, t, element_id);
+    shc_drawFilledRectangle(x, y + h - t, w, t, element_id);
+    shc_drawFilledRectangle(x, y, t, h, element_id);
+    shc_drawFilledRectangle(x + w - t, y, t, h, element_id);
+}
+
+static void drawGradientAccelerationZone(const float accel_start, const float accel_end,
+                                         const float upper_y, const float height,
+                                         const float optimal_x,
+                                         const float optimal_width) {
+    const float marker_gap_half_width = optimal_width * 0.5f + 1.0f;
+    const float gap_start = CLAMP(optimal_x - marker_gap_half_width, accel_start, accel_end);
+    const float gap_end = CLAMP(optimal_x + marker_gap_half_width, accel_start, accel_end);
+
+    if (gap_start > accel_start) {
+        shc_drawGradientRectangle(
+            accel_start,
+            upper_y,
+            gap_start - accel_start,
+            height,
+            optimal_x,
+            shc_ElementId_AcceleratingAngles,
+            shc_ElementId_OptimalAngle);
+    }
+    if (gap_end < accel_end) {
+        shc_drawGradientRectangle(
+            gap_end,
+            upper_y,
+            accel_end - gap_end,
+            height,
+            optimal_x,
+            shc_ElementId_AcceleratingAngles,
+            shc_ElementId_OptimalAngle);
+    }
+}
+
+static void drawAccelerationZone(const float accel_start, const float accel_end,
+                                 const float upper_y, const float height,
+                                 const float optimal_x,
+                                 const float optimal_width) {
+    const float accel_width = accel_end - accel_start;
+
+    switch (SH_GetBarStyle()) {
+        case SH_BarStyle_Solid:
+            shc_drawFilledRectangle(
+                accel_start,
+                upper_y,
+                accel_width,
+                height,
+                shc_ElementId_AcceleratingAngles);
+            break;
+        case SH_BarStyle_Outline:
+            drawRectangleOutline(
+                accel_start,
+                upper_y,
+                accel_width,
+                height,
+                1.0f,
+                shc_ElementId_AcceleratingAngles);
+            break;
+        case SH_BarStyle_Minimal:
+            break;
+        case SH_BarStyle_Gradient:
+        default:
+            drawGradientAccelerationZone(accel_start, accel_end, upper_y, height,
+                                         optimal_x, optimal_width);
+            break;
+    }
+}
+
 bool StrafeHelper_HasData(void) {
     return sh.velocity_norm > SH_EPSILON;
+}
+
+void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
+                              const float hud_width, const float hud_height) {
+    if (params->height <= 0.0f) {
+        return;
+    }
+
+    const float upper_y = (hud_height - params->height) / 2.0f + params->y;
+    const float center_width = CLAMP(cl_strafehelper_center_width->value, 0.1f, 5.0f);
+    const float optimal_width = CLAMP(cl_strafehelper_optimal_width->value, 0.1f, 5.0f);
+    const float center_x = hud_width * 0.5f;
+    const float scale = CLAMP(params->scale, 0.25f, 8.0f);
+    const float accel_width = CLAMP(hud_width * 0.28f * scale, 96.0f, hud_width * 0.82f);
+    const float accel_start = center_x - accel_width * 0.5f;
+    const float accel_end = center_x + accel_width * 0.5f;
+    const float optimal_offset = CLAMP(36.0f * scale, 12.0f, accel_width * 0.35f);
+    const float optimal_x = center_x + optimal_offset;
+
+    drawAccelerationZone(accel_start, accel_end, upper_y, params->height,
+                         optimal_x, optimal_width);
+
+    shc_drawFilledRectangle(
+        optimal_x - optimal_width / 2.0f,
+        upper_y,
+        optimal_width,
+        params->height,
+        shc_ElementId_OptimalAngle);
+
+    if (params->center_marker) {
+        shc_drawFilledRectangle(
+            center_x - center_width / 2.0f,
+            upper_y + params->height / 2.0f,
+            center_width,
+            params->height / 2.0f,
+            shc_ElementId_CenterMarker);
+    }
 }
 
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
@@ -194,17 +339,23 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
         angle_width = sh.angle_minimum - sh.angle_maximum;
     }
 
-    // Draw accel range
-    shc_drawFilledRectangle(
-        angleToPixel(angle_x, params->scale, hud_width),
-        upper_y,
-        angleDiffToPixelDiff(angle_width, params->scale, hud_width),
-        params->height,
-        shc_ElementId_AcceleratingAngles);
+    const float accel_x = angleToPixel(angle_x, params->scale, hud_width);
+    const float accel_width = angleDiffToPixelDiff(angle_width, params->scale, hud_width);
+    const float optimal_x = angleToPixel(sh.angle_optimal + offset, params->scale, hud_width);
+    float accel_start = accel_x;
+    float accel_end = accel_x + accel_width;
+    if (accel_start > accel_end) {
+        const float tmp = accel_start;
+        accel_start = accel_end;
+        accel_end = tmp;
+    }
 
-    // Draw optimal angle
+    drawAccelerationZone(accel_start, accel_end, upper_y, params->height,
+                         optimal_x, optimal_width);
+
+    // Draw optimal angle as the original full-color marker.
     shc_drawFilledRectangle(
-        angleToPixel(sh.angle_optimal + offset, params->scale, hud_width) - (optimal_width / 2.0f),
+        optimal_x - (optimal_width / 2.0f),
         upper_y,
         optimal_width,
         params->height,

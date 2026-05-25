@@ -24,6 +24,10 @@ uint32_t getColorForElement(enum shc_ElementId element_id);
 
 void shc_drawFilledRectangle(float x, float y, float w, float h, enum shc_ElementId element_id);
 
+void shc_drawGradientRectangle(float x, float y, float w, float h, float peak_x,
+                               enum shc_ElementId edge_element_id,
+                               enum shc_ElementId peak_element_id);
+
 void shc_drawString(float x, float y, const char *string, float scale, enum shc_ElementId element_id);
 
 #endif // STRAFE_HELPER_CUSTOMIZATION_H
