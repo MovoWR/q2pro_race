@@ -28,10 +28,12 @@ static cvar_t    *cl_showpackets;
 #endif
 static cvar_t    *cl_instantpacket;
 static cvar_t    *cl_batchcmds;
+static cvar_t    *cl_preserve_jump_edges;
 
 static cvar_t    *m_filter;
 static cvar_t    *m_accel;
 static cvar_t    *m_autosens;
+static cvar_t    *m_r1q2;
 
 static cvar_t    *cl_upspeed;
 static cvar_t    *cl_forwardspeed;
@@ -235,6 +237,17 @@ typedef struct {
     int         state;
 } kbutton_t;
 
+#define KB_DOWN             BIT(0)
+#define KB_IMPULSE_DOWN     BIT(1)
+#define KB_IMPULSE_UP       BIT(2)
+
+typedef enum {
+    JUMP_EDGE_RELEASE,
+    JUMP_EDGE_PRESS
+} jumpEdge_t;
+
+#define MAX_QUEUED_JUMP_EDGES  8
+
 static kbutton_t    in_klook;
 static kbutton_t    in_left, in_right, in_forward, in_back;
 static kbutton_t    in_lookup, in_lookdown, in_moveleft, in_moveright;
@@ -243,8 +256,41 @@ static kbutton_t    in_up, in_down;
 
 static int          in_impulse;
 static bool         in_mlooking;
+static jumpEdge_t   jump_edges[MAX_QUEUED_JUMP_EDGES];
+static int          num_jump_edges;
 
-static void KeyDown(kbutton_t *b)
+static void CL_MaybeSendInstantPacket(void)
+{
+    if (cl_instantpacket->integer && cls.state == ca_active && !cls.demo.playback) {
+        cl.sendPacketNow = true;
+    }
+}
+
+static void CL_ClearJumpEdges(void)
+{
+    num_jump_edges = 0;
+}
+
+static void CL_QueueJumpEdge(jumpEdge_t edge)
+{
+    if (!cl_preserve_jump_edges->integer) {
+        return;
+    }
+
+    if (cls.state != ca_active || cls.demo.playback) {
+        return;
+    }
+
+    if (num_jump_edges == MAX_QUEUED_JUMP_EDGES) {
+        memmove(jump_edges, jump_edges + 1,
+                sizeof(jump_edges[0]) * (MAX_QUEUED_JUMP_EDGES - 1));
+        num_jump_edges--;
+    }
+
+    jump_edges[num_jump_edges++] = edge;
+}
+
+static bool KeyDown(kbutton_t *b)
 {
     int k;
     char *c;
@@ -256,7 +302,7 @@ static void KeyDown(kbutton_t *b)
         k = -1;        // typed manually at the console for continuous down
 
     if (k == b->down[0] || k == b->down[1])
-        return;        // repeating key
+        return false;  // repeating key
 
     if (!b->down[0])
         b->down[0] = k;
@@ -264,11 +310,11 @@ static void KeyDown(kbutton_t *b)
         b->down[1] = k;
     else {
         Com_WPrintf("Three keys down for a button!\n");
-        return;
+        return false;
     }
 
-    if (b->state & 1)
-        return;        // still down
+    if (b->state & KB_DOWN)
+        return false;  // still down
 
     // save timestamp
     c = Cmd_Argv(2);
@@ -277,10 +323,11 @@ static void KeyDown(kbutton_t *b)
         b->downtime = com_eventTime - 100;
     }
 
-    b->state |= 1 + 2;    // down + impulse down
+    b->state |= KB_DOWN | KB_IMPULSE_DOWN;
+    return true;
 }
 
-static void KeyUp(kbutton_t *b)
+static bool KeyUp(kbutton_t *b)
 {
     int k;
     char *c;
@@ -293,7 +340,7 @@ static void KeyUp(kbutton_t *b)
         // typed manually at the console, assume for unsticking, so clear all
         b->down[0] = b->down[1] = 0;
         b->state = 0;    // impulse up
-        return;
+        return false;
     }
 
     if (b->down[0] == k)
@@ -301,12 +348,12 @@ static void KeyUp(kbutton_t *b)
     else if (b->down[1] == k)
         b->down[1] = 0;
     else
-        return;        // key up without coresponding down (menu pass through)
+        return false;  // key up without coresponding down (menu pass through)
     if (b->down[0] || b->down[1])
-        return;        // some other key is still holding it down
+        return false;  // some other key is still holding it down
 
-    if (!(b->state & 1))
-        return;        // still up (this should not happen)
+    if (!(b->state & KB_DOWN))
+        return false;  // still up (this should not happen)
 
     // save timestamp
     c = Cmd_Argv(2);
@@ -317,22 +364,36 @@ static void KeyUp(kbutton_t *b)
         b->msec += uptime - b->downtime;
     }
 
-    b->state &= ~1;        // now up
+    b->state &= ~KB_DOWN;
+    b->state |= KB_IMPULSE_UP;
+    return true;
 }
 
 static void KeyClear(kbutton_t *b)
 {
     b->msec = 0;
-    b->state &= ~2;        // clear impulses
-    if (b->state & 1) {
+    b->state &= ~(KB_IMPULSE_DOWN | KB_IMPULSE_UP);
+    if (b->state & KB_DOWN) {
         b->downtime = com_eventTime; // still down
     }
 }
 
 static void IN_KLookDown(void) { KeyDown(&in_klook); }
 static void IN_KLookUp(void) { KeyUp(&in_klook); }
-static void IN_UpDown(void) { KeyDown(&in_up); }
-static void IN_UpUp(void) { KeyUp(&in_up); }
+static void IN_UpDown(void)
+{
+    if (KeyDown(&in_up)) {
+        CL_QueueJumpEdge(JUMP_EDGE_PRESS);
+        CL_MaybeSendInstantPacket();
+    }
+}
+static void IN_UpUp(void)
+{
+    if (KeyUp(&in_up)) {
+        CL_QueueJumpEdge(JUMP_EDGE_RELEASE);
+        CL_MaybeSendInstantPacket();
+    }
+}
 static void IN_DownDown(void) { KeyDown(&in_down); }
 static void IN_DownUp(void) { KeyUp(&in_down); }
 static void IN_LeftDown(void) { KeyDown(&in_left); }
@@ -359,10 +420,7 @@ static void IN_StrafeUp(void) { KeyUp(&in_strafe); }
 static void IN_AttackDown(void)
 {
     KeyDown(&in_attack);
-
-    if (cl_instantpacket->integer && cls.state == ca_active && !cls.demo.playback) {
-        cl.sendPacketNow = true;
-    }
+    CL_MaybeSendInstantPacket();
 }
 
 static void IN_AttackUp(void)
@@ -373,10 +431,7 @@ static void IN_AttackUp(void)
 static void IN_UseDown(void)
 {
     KeyDown(&in_use);
-
-    if (cl_instantpacket->integer && cls.state == ca_active && !cls.demo.playback) {
-        cl.sendPacketNow = true;
-    }
+    CL_MaybeSendInstantPacket();
 }
 
 static void IN_UseUp(void)
@@ -418,7 +473,7 @@ static float CL_KeyState(const kbutton_t *key)
 {
     unsigned msec = key->msec;
 
-    if (key->state & 1) {
+    if (key->state & KB_DOWN) {
         // still down
         if (com_eventTime > key->downtime) {
             msec += com_eventTime - key->downtime;
@@ -427,10 +482,15 @@ static float CL_KeyState(const kbutton_t *key)
 
     // special case for instant packet
     if (!cl.cmd.msec) {
-        return (float)(key->state & 1);
+        return (float)(key->state & KB_DOWN);
     }
 
     return Q_clipf((float)msec / cl.cmd.msec, 0, 1);
+}
+
+static float CL_JumpKeyState(void)
+{
+    return (in_up.state & KB_DOWN) ? 1.0f : 0.0f;
 }
 
 //==========================================================================
@@ -474,6 +534,25 @@ static void CL_MouseMove(void)
         return;
     }
 
+    if (m_r1q2->integer) {
+        mx *= sensitivity->value;
+        my *= sensitivity->value;
+
+// add mouse X/Y movement, matching R1Q2
+        if ((in_strafe.state & 1) || (lookstrafe->integer && in_mlooking)) {
+            cl.mousemove[1] += (int)(m_side->value * mx);
+        } else {
+            cl.viewangles[YAW] -= m_yaw->value * mx;
+        }
+
+        if ((in_mlooking || freelook->integer) && !(in_strafe.state & 1)) {
+            cl.viewangles[PITCH] += m_pitch->value * my;
+        } else {
+            cl.mousemove[0] -= (int)(m_forward->value * my);
+        }
+        return;
+    }
+
     Cvar_ClampValue(m_accel, 0, 1);
 
     speed = sqrtf(mx * mx + my * my);
@@ -488,13 +567,13 @@ static void CL_MouseMove(void)
     }
 
 // add mouse X/Y movement
-    if ((in_strafe.state & 1) || (lookstrafe->integer && !in_mlooking)) {
+    if ((in_strafe.state & KB_DOWN) || (lookstrafe->integer && !in_mlooking)) {
         cl.mousemove[1] += m_side->value * mx;
     } else {
         cl.viewangles[YAW] -= m_yaw->value * mx;
     }
 
-    if ((in_mlooking || freelook->integer) && !(in_strafe.state & 1)) {
+    if ((in_mlooking || freelook->integer) && !(in_strafe.state & KB_DOWN)) {
         cl.viewangles[PITCH] += m_pitch->value * my;
     } else {
         cl.mousemove[0] -= m_forward->value * my;
@@ -513,16 +592,16 @@ static void CL_AdjustAngles(int msec)
 {
     float speed;
 
-    if (in_speed.state & 1)
+    if (in_speed.state & KB_DOWN)
         speed = msec * cl_anglespeedkey->value * 0.001f;
     else
         speed = msec * 0.001f;
 
-    if (!(in_strafe.state & 1)) {
+    if (!(in_strafe.state & KB_DOWN)) {
         cl.viewangles[YAW] -= speed * cl_yawspeed->value * CL_KeyState(&in_right);
         cl.viewangles[YAW] += speed * cl_yawspeed->value * CL_KeyState(&in_left);
     }
-    if (in_klook.state & 1) {
+    if (in_klook.state & KB_DOWN) {
         cl.viewangles[PITCH] -= speed * cl_pitchspeed->value * CL_KeyState(&in_forward);
         cl.viewangles[PITCH] += speed * cl_pitchspeed->value * CL_KeyState(&in_back);
     }
@@ -538,9 +617,11 @@ CL_BaseMove
 Build the intended movement vector
 ================
 */
-static void CL_BaseMove(vec3_t move)
+static void CL_BaseMove(vec3_t move, int jump_state)
 {
-    if (in_strafe.state & 1) {
+    float up;
+
+    if (in_strafe.state & KB_DOWN) {
         move[1] += cl_sidespeed->value * CL_KeyState(&in_right);
         move[1] -= cl_sidespeed->value * CL_KeyState(&in_left);
     }
@@ -548,16 +629,21 @@ static void CL_BaseMove(vec3_t move)
     move[1] += cl_sidespeed->value * CL_KeyState(&in_moveright);
     move[1] -= cl_sidespeed->value * CL_KeyState(&in_moveleft);
 
-    move[2] += cl_upspeed->value * CL_KeyState(&in_up);
+    if (jump_state >= 0)
+        up = jump_state ? 1.0f : 0.0f;
+    else
+        up = CL_JumpKeyState();
+
+    move[2] += cl_upspeed->value * up;
     move[2] -= cl_upspeed->value * CL_KeyState(&in_down);
 
-    if (!(in_klook.state & 1)) {
+    if (!(in_klook.state & KB_DOWN)) {
         move[0] += cl_forwardspeed->value * CL_KeyState(&in_forward);
         move[0] -= cl_forwardspeed->value * CL_KeyState(&in_back);
     }
 
 // adjust for speed key / running
-    if ((in_speed.state & 1) ^ cl_run->integer) {
+    if ((in_speed.state & KB_DOWN) ^ cl_run->integer) {
         VectorScale(move, 2, move);
     }
 }
@@ -610,7 +696,7 @@ void CL_UpdateCmd(int msec)
     CL_AdjustAngles(msec);
 
     // get basic movement from keyboard
-    CL_BaseMove(cl.localmove);
+    CL_BaseMove(cl.localmove, -1);
 
     // allow mice to add to the move
     CL_MouseMove();
@@ -689,6 +775,8 @@ CL_RegisterInput
 void CL_RegisterInput(void)
 {
     Cmd_Register(c_input);
+    Cmd_AliasSet("+dj", "+moveup; wait; -moveup; wait; +moveup");
+    Cmd_AliasSet("-dj", "-moveup");
 
     cl_nodelta = Cvar_Get("cl_nodelta", "0", 0);
     cl_maxpackets = Cvar_Get("cl_maxpackets", "30", 0);
@@ -699,6 +787,7 @@ void CL_RegisterInput(void)
 #endif
     cl_instantpacket = Cvar_Get("cl_instantpacket", "1", 0);
     cl_batchcmds = Cvar_Get("cl_batchcmds", "1", 0);
+    cl_preserve_jump_edges = Cvar_Get("cl_preserve_jump_edges", "1", CVAR_ARCHIVE);
 
     cl_upspeed = Cvar_Get("cl_upspeed", "200", 0);
     cl_forwardspeed = Cvar_Get("cl_forwardspeed", "200", 0);
@@ -720,6 +809,7 @@ void CL_RegisterInput(void)
     m_filter = Cvar_Get("m_filter", "0", 0);
     m_accel = Cvar_Get("m_accel", "0", 0);
     m_autosens = Cvar_Get("m_autosens", "0", 0);
+    m_r1q2 = Cvar_Get("m_r1q2", "0", 0);
     m_autosens->changed = m_autosens_changed;
     m_autosens_changed(m_autosens);
 }
@@ -735,6 +825,8 @@ and angles are already set for this frame by CL_UpdateCmd.
 void CL_FinalizeCmd(void)
 {
     vec3_t move;
+    usercmd_t basecmd;
+    int i;
 
     // command buffer ticks in sync with cl_maxfps
     Cbuf_Frame(&cmd_buffer);
@@ -751,9 +843,9 @@ void CL_FinalizeCmd(void)
 //
 // figure button bits
 //
-    if (in_attack.state & 3)
+    if (in_attack.state & (KB_DOWN | KB_IMPULSE_DOWN))
         cl.cmd.buttons |= BUTTON_ATTACK;
-    if (in_use.state & 3)
+    if (in_use.state & (KB_DOWN | KB_IMPULSE_DOWN))
         cl.cmd.buttons |= BUTTON_USE;
 
     if (cls.key_dest == KEY_GAME && Key_AnyKeyDown()) {
@@ -764,11 +856,37 @@ void CL_FinalizeCmd(void)
         cl.cmd.msec = 100;        // time was unreasonable
     }
 
+    basecmd = cl.cmd;
+
+    // Preserve jump edges inside one physics tick without advancing movement time.
+    for (i = 0; i < num_jump_edges - 1; i++) {
+        cl.cmd = basecmd;
+        cl.cmd.msec = 0;
+        cl.cmd.impulse = 0;
+
+        VectorClear(move);
+        CL_BaseMove(move, jump_edges[i] == JUMP_EDGE_PRESS);
+
+        move[0] += cl.mousemove[0];
+        move[1] += cl.mousemove[1];
+
+        CL_ClampSpeed(move);
+
+        cl.cmd.forwardmove = move[0];
+        cl.cmd.sidemove = move[1];
+        cl.cmd.upmove = move[2];
+
+        cl.cmdNumber++;
+        cl.cmds[cl.cmdNumber & CMD_MASK] = cl.cmd;
+    }
+
+    cl.cmd = basecmd;
+
     // rebuild the movement vector
     VectorClear(move);
 
     // get basic movement from keyboard
-    CL_BaseMove(move);
+    CL_BaseMove(move, -1);
 
     // add mouse forward/side movement
     move[0] += cl.mousemove[0];
@@ -789,6 +907,8 @@ void CL_FinalizeCmd(void)
     cl.cmds[cl.cmdNumber & CMD_MASK] = cl.cmd;
 
 clear:
+    CL_ClearJumpEdges();
+
     // clear pending cmd
     memset(&cl.cmd, 0, sizeof(cl.cmd));
 
@@ -796,8 +916,8 @@ clear:
     cl.mousemove[0] = 0;
     cl.mousemove[1] = 0;
 
-    in_attack.state &= ~2;
-    in_use.state &= ~2;
+    in_attack.state &= ~(KB_IMPULSE_DOWN | KB_IMPULSE_UP);
+    in_use.state &= ~(KB_IMPULSE_DOWN | KB_IMPULSE_UP);
 
     KeyClear(&in_right);
     KeyClear(&in_left);

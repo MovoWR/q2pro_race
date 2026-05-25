@@ -1058,6 +1058,11 @@ static void Win_DeAcquireMouse(void)
 {
     SetCursorPos(win.center_x, win.center_y);
 
+    if (win.mouse.restore_parms) {
+        SystemParametersInfo(SPI_SETMOUSE, 0, win.mouse.original_parms, 0);
+        win.mouse.restore_parms = false;
+    }
+
     ClipCursor(NULL);
     ReleaseCapture();
 
@@ -1065,10 +1070,63 @@ static void Win_DeAcquireMouse(void)
         ;
 }
 
+static bool Win_R1Q2Mouse(void)
+{
+    return Cvar_VariableInteger("m_r1q2") != 0;
+}
+
+static void Win_UpdateMouseParms(void)
+{
+    static int r1q2_mouseparms[3] = { 0, 0, 0 };
+
+    if (!win.mouse.parms_valid) {
+        return;
+    }
+
+    if (!win.mouse.grabbed) {
+        if (win.mouse.restore_parms) {
+            SystemParametersInfo(SPI_SETMOUSE, 0, win.mouse.original_parms, 0);
+            win.mouse.restore_parms = false;
+        }
+        return;
+    }
+
+    if (Win_R1Q2Mouse()) {
+        if (!win.mouse.restore_parms) {
+            win.mouse.restore_parms =
+                SystemParametersInfo(SPI_SETMOUSE, 0, r1q2_mouseparms, 0);
+        }
+    } else if (win.mouse.restore_parms) {
+        SystemParametersInfo(SPI_SETMOUSE, 0, win.mouse.original_parms, 0);
+        win.mouse.restore_parms = false;
+    }
+}
+
 bool Win_GetMouseMotion(int *dx, int *dy)
 {
+    POINT current_pos;
+
     if (!win.mouse.grabbed) {
         return false;
+    }
+
+    Win_UpdateMouseParms();
+
+    if (Win_R1Q2Mouse()) {
+        win.mouse.mx = 0;
+        win.mouse.my = 0;
+
+        if (!GetCursorPos(&current_pos)) {
+            return false;
+        }
+
+        *dx = current_pos.x - win.center_x;
+        *dy = current_pos.y - win.center_y;
+
+        if (*dx || *dy) {
+            SetCursorPos(win.center_x, win.center_y);
+        }
+        return true;
     }
 
     *dx = win.mouse.mx;
@@ -1119,6 +1177,9 @@ bool Win_InitMouse(void)
         return false;
     }
 
+    win.mouse.parms_valid =
+        SystemParametersInfo(SPI_GETMOUSE, 0, win.mouse.original_parms, 0);
+
     Com_Printf("Raw mouse initialized.\n");
     win.mouse.initialized = true;
     return true;
@@ -1144,6 +1205,7 @@ void Win_GrabMouse(bool grab)
     }
 
     win.mouse.grabbed = grab;
+    Win_UpdateMouseParms();
     win.mouse.mx = 0;
     win.mouse.my = 0;
 }

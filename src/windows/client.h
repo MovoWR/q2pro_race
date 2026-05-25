@@ -112,7 +112,10 @@ typedef struct {
     struct {
         bool        initialized;
         bool        grabbed;
+        bool        parms_valid;
+        bool        restore_parms;
         int         mx, my;
+        int         original_parms[3];
     } mouse;
 
     UINT (WINAPI *GetDpiForWindow)(HWND hwnd);
