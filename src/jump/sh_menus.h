@@ -30,6 +30,38 @@ void SH_CenterWidth_f(void);
 
 void SH_OptimalWidth_f(void);
 
+void SH_Alpha_f(void);
+
+void SH_FadeInactive_f(void);
+
+void SH_BarStyle_f(void);
+
+void SH_Ups_Enable_f(void);
+
+void SH_Ups_Disable_f(void);
+
+void SH_Ups_Toggle_f(void);
+
+void SH_Ups_Status_f(void);
+
+void SH_Ups_Help_f(void);
+
+void SH_Ups_Scale_f(void);
+
+void SH_Ups_Shadow_f(void);
+
+void SH_Ups_HideZero_f(void);
+
+void SH_Ups_ColorMode_f(void);
+
+void SH_Ups_ColorGain_f(void);
+
+void SH_Ups_ColorLoss_f(void);
+
+void SH_Ups_ColorNeutral_f(void);
+
+void SH_Ups_Format_f(void);
+
 void SH_Color_Accel_f(void);
 
 void SH_Color_Optimal_f(void);

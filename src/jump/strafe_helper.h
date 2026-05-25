@@ -89,6 +89,8 @@ bool StrafeHelper_HasData(void);
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
                               float hud_width, float hud_height);
 
+void SH_Ups_Draw(float hud_width, float hud_height, float hud_scale, int font_pic);
+
 // NerdStats
 void NerdStatsUpdate(const float velocity[3],
                      const float wishdir[3],

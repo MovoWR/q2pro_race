@@ -169,6 +169,10 @@ static float angleToPixel(const float angle, const float scale,
            angleDiffToPixelDiff(angle, scale, hud_width);
 }
 
+#define SH_UPS_DYNAMIC_EPSILON 0.01f
+#define SH_UPS_THRESHOLD_LOW 400.0f
+#define SH_UPS_THRESHOLD_HIGH 600.0f
+
 typedef enum {
     SH_BarStyle_Solid,
     SH_BarStyle_Gradient,
@@ -178,6 +182,132 @@ typedef enum {
 
 static bool stringEquals(const char *value, const char *expected) {
     return value && !Q_stricmp(value, expected);
+}
+
+static bool SH_Ups_GetSpeed(float *out_speed) {
+    vec3_t vel;
+
+    if (cl.frame.clientNum == CLIENTNUM_NONE) {
+        return false;
+    }
+
+    if (!cls.demo.playback && cl.frame.clientNum == cl.clientNum &&
+        cl_predict->integer) {
+        VectorCopy(cl.predicted_velocity, vel);
+    } else {
+        VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
+    }
+
+    vel[2] = 0.0f;
+    *out_speed = VectorLength(vel);
+    return true;
+}
+
+static uint32_t SH_Ups_ParseColor(cvar_t *color_cvar, const uint32_t fallback) {
+    if (!color_cvar) {
+        return fallback;
+    }
+    return shc_ParseColorString(color_cvar->string, NULL, NULL, NULL, NULL);
+}
+
+static uint32_t SH_Ups_RainbowColor(void) {
+    const float time = (float) cls.realtime * 0.006f;
+    const int r = Q_rint(127.5f + sinf(time) * 127.5f);
+    const int g = Q_rint(127.5f + sinf(time + 2.094395f) * 127.5f);
+    const int b = Q_rint(127.5f + sinf(time + 4.188790f) * 127.5f);
+    return MakeColor(r, g, b, 255);
+}
+
+static uint32_t SH_Ups_ColorForSpeed(const float speed) {
+    static float previous_speed = 0.0f;
+    const char *mode = cl_strafehelperUpsColorMode ? cl_strafehelperUpsColorMode->string : "dynamic";
+    uint32_t color;
+
+    if (stringEquals(mode, "rainbow")) {
+        color = SH_Ups_RainbowColor();
+    } else if (stringEquals(mode, "static")) {
+        color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);
+    } else if (stringEquals(mode, "threshold")) {
+        if (speed >= SH_UPS_THRESHOLD_HIGH) {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorGain, U32_GREEN);
+        } else if (speed >= SH_UPS_THRESHOLD_LOW) {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);
+        } else {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorLoss, U32_RED);
+        }
+    } else {
+        if (speed > previous_speed + SH_UPS_DYNAMIC_EPSILON) {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorGain, U32_GREEN);
+        } else if (speed < previous_speed - SH_UPS_DYNAMIC_EPSILON) {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorLoss, U32_RED);
+        } else {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);
+        }
+    }
+
+    previous_speed = speed;
+    return color;
+}
+
+static bool SH_Ups_FormatText(const float speed, char *buffer, const size_t size) {
+    const int rounded_speed = Q_rint(speed);
+    const char *format = cl_strafehelperUpsFormat ? cl_strafehelperUpsFormat->string : "plain";
+
+    if (cl_strafehelperUpsHideZero && cl_strafehelperUpsHideZero->integer && rounded_speed == 0) {
+        if (size) {
+            *buffer = 0;
+        }
+        return false;
+    }
+
+    if (stringEquals(format, "suffix") || stringEquals(format, "ups") || stringEquals(format, "1")) {
+        Q_scnprintf(buffer, size, "%d ups", rounded_speed);
+    } else if (stringEquals(format, "prefix") || stringEquals(format, "label") || stringEquals(format, "2")) {
+        Q_scnprintf(buffer, size, "UPS: %d", rounded_speed);
+    } else {
+        Q_scnprintf(buffer, size, "%d", rounded_speed);
+    }
+
+    return buffer[0] != 0;
+}
+
+void SH_Ups_Draw(const float hud_width, const float hud_height,
+                 const float hud_scale, const int font_pic) {
+    char buffer[MAX_STRING_CHARS];
+    float speed;
+    const float text_scale = cl_strafehelperUpsScale
+                             ? Cvar_ClampValue(cl_strafehelperUpsScale, 0.25f, 8.0f)
+                             : 1.0f;
+    const float draw_scale = (hud_scale > 0.0f ? hud_scale : 1.0f) / text_scale;
+    const float draw_hud_width = hud_width / text_scale;
+    const float draw_hud_height = hud_height / text_scale;
+    int flags = UI_CENTER;
+
+    if (!cl_strafehelperUps || !cl_strafehelperUps->integer) {
+        return;
+    }
+
+    if (!SH_Ups_GetSpeed(&speed)) {
+        return;
+    }
+
+    if (!SH_Ups_FormatText(speed, buffer, sizeof(buffer))) {
+        return;
+    }
+
+    if (cl_strafehelperUpsShadow && cl_strafehelperUpsShadow->integer) {
+        flags |= UI_DROPSHADOW;
+    } else {
+        flags |= UI_NOSHADOW;
+    }
+
+    R_SetColor(SH_Ups_ColorForSpeed(speed));
+    R_SetScale(draw_scale);
+    SCR_DrawStringEx(Q_rint(draw_hud_width / 2.0f),
+                     Q_rint((draw_hud_height - CHAR_HEIGHT) / 2.0f),
+                     flags, MAX_STRING_CHARS, buffer, font_pic);
+    R_SetScale(hud_scale);
+    R_ClearColor();
 }
 
 static SH_BarStyle SH_GetBarStyle(void) {
