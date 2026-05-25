@@ -646,7 +646,6 @@ static void CL_AddLasers(void)
     laser_t *l;
     entity_t ent;
     int i, time;
-    extern cvar_t* cl_race_alpha;
 
     memset(&ent, 0, sizeof(ent));
     ent.rgba.u32 = 0xFFFFFFFF;
