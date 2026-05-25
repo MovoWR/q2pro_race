@@ -133,6 +133,7 @@ void SCR_UpdateScreen(void);
 // q2pro_race - draw_dynamic from q2pro_jump
 //
 #define UI_DYNAMICCOLOR     BIT(11)
+#define UI_NOSHADOW         BIT(12)
 
 extern const uint32_t   colorTable[8];
 uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);

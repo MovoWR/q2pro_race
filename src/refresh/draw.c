@@ -173,6 +173,7 @@ void R_ClearColor(void)
 {
     draw.colors[0].u32 = U32_WHITE;
     draw.colors[1].u32 = U32_WHITE;
+    draw.forceAltColor = false;
 }
 
 void R_SetAlpha(float alpha)
@@ -185,6 +186,13 @@ void R_SetColor(uint32_t color)
 {
     draw.colors[0].u32 = color;
     draw.colors[1].u8[3] = draw.colors[0].u8[3];
+    draw.forceAltColor = false;
+}
+
+void R_SetAltColor(uint32_t color)
+{
+    draw.colors[1].u32 = color;
+    draw.forceAltColor = true;
 }
 
 void R_SetClipRect(const clipRect_t *clip)
@@ -348,15 +356,28 @@ void R_DrawFill32(int x, int y, int w, int h, uint32_t color)
 static inline void draw_char(int x, int y, int flags, int c, const image_t *image)
 {
     float s, t;
+    int color_index;
 
     if ((c & 127) == 32)
         return;
 
-    if (flags & UI_ALTCOLOR)
+    if (flags & UI_ALTCOLOR) {
+        if (draw.forceAltColor) {
+            color_index = 1;
+        } else {
         c |= 0x80;
+            color_index = c >> 7;
+        }
+    } else {
+        color_index = c >> 7;
+    }
 
-    if (flags & UI_XORCOLOR)
+    if (flags & UI_XORCOLOR) {
         c ^= 0x80;
+        if (!(draw.forceAltColor && (flags & UI_ALTCOLOR))) {
+            color_index = c >> 7;
+        }
+    }
 
     s = (c & 15) * 0.0625f;
     t = (c >> 4) * 0.0625f;
@@ -373,12 +394,12 @@ static inline void draw_char(int x, int y, int flags, int c, const image_t *imag
     }
 
     GL_StretchPic(x, y, CHAR_WIDTH, CHAR_HEIGHT, s, t,
-                  s + 0.0625f, t + 0.0625f, draw.colors[c >> 7].u32, image);
+                  s + 0.0625f, t + 0.0625f, draw.colors[color_index].u32, image);
 }
 
 void R_DrawChar(int x, int y, int flags, int c, qhandle_t font)
 {
-    if (gl_fontshadow->integer > 0)
+    if (gl_fontshadow->integer > 0 && !(flags & UI_NOSHADOW))
         flags |= UI_DROPSHADOW;
 
     draw_char(x, y, flags, c & 255, IMG_ForHandle(font));
@@ -388,7 +409,7 @@ int R_DrawString(int x, int y, int flags, size_t maxlen, const char *s, qhandle_
 {
     const image_t *image = IMG_ForHandle(font);
 
-    if (gl_fontshadow->integer > 0)
+    if (gl_fontshadow->integer > 0 && !(flags & UI_NOSHADOW))
         flags |= UI_DROPSHADOW;
 
     while (maxlen-- && *s) {

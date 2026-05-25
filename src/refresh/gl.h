@@ -857,7 +857,8 @@ void GL_UpdateBlurParams(void);
  *
  */
 typedef struct {
-    color_t     colors[2]; // 0 - actual color, 1 - transparency (for text drawing)
+    color_t     colors[2]; // 0 - normal text, 1 - alternate text/alpha
+    bool        forceAltColor;
     bool        scissor;
     float       scale;
 } drawStatic_t;
