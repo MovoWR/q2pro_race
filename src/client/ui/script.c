@@ -45,6 +45,7 @@ static menuSound_t Activate(menuCommon_t *self)
 
 static const cmd_option_t o_common[] = {
     { "s:", "status" },
+    { "v", "show-value" },
     { NULL }
 };
 
@@ -117,12 +118,16 @@ static void Parse_Spin(menuFrameWork_t *menu, menuType_t type)
 {
     menuSpinControl_t *s;
     int c, i, numItems;
+    int flags = 0;
     char *status = NULL;
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
         case 's':
             status = cmd_optarg;
+            break;
+        case 'v':
+            flags |= QMF_SHOW_VALUE;
             break;
         default:
             return;
@@ -139,6 +144,7 @@ static void Parse_Spin(menuFrameWork_t *menu, menuType_t type)
     s->generic.type = type;
     s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
     s->generic.status = UI_CopyString(status);
+    s->generic.flags = flags;
     s->cvar = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
 
     cmd_optind += 2;
@@ -159,12 +165,16 @@ static void Parse_Pairs(menuFrameWork_t *menu)
 {
     menuSpinControl_t *s;
     int c, i, numItems;
+    int flags = 0;
     char *status = NULL;
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
         case 's':
             status = cmd_optarg;
+            break;
+        case 'v':
+            flags |= QMF_SHOW_VALUE;
             break;
         default:
             return;
@@ -181,6 +191,7 @@ static void Parse_Pairs(menuFrameWork_t *menu)
     s->generic.type = MTYPE_PAIRS;
     s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
     s->generic.status = UI_CopyString(status);
+    s->generic.flags = flags;
     s->cvar = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
     numItems /= 2;
     s->itemnames = UI_Mallocz(sizeof(char *) * (numItems + 1));
@@ -198,12 +209,16 @@ static void Parse_Range(menuFrameWork_t *menu)
 {
     menuSlider_t *s;
     char *status = NULL;
+    int flags = 0;
     int c;
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
         case 's':
             status = cmd_optarg;
+            break;
+        case 'v':
+            flags |= QMF_SHOW_VALUE;
             break;
         default:
             return;
@@ -219,6 +234,7 @@ static void Parse_Range(menuFrameWork_t *menu)
     s->generic.type = MTYPE_SLIDER;
     s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
     s->generic.status = UI_CopyString(status);
+    s->generic.flags = flags;
     s->cvar = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
     s->minvalue = Q_atof(Cmd_Argv(cmd_optind + 2));
     s->maxvalue = Q_atof(Cmd_Argv(cmd_optind + 3));
@@ -397,13 +413,16 @@ static void Parse_Toggle(menuFrameWork_t *menu)
     menuSpinControl_t *s;
     bool negate = false;
     menuType_t type = MTYPE_TOGGLE;
-    int c, bit = 0;
+    int c, bit = 0, flags = 0;
     char *b, *status = NULL;
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
         case 's':
             status = cmd_optarg;
+            break;
+        case 'v':
+            flags |= QMF_SHOW_VALUE;
             break;
         default:
             return;
@@ -433,6 +452,7 @@ static void Parse_Toggle(menuFrameWork_t *menu)
     s->generic.type = type;
     s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
     s->generic.status = UI_CopyString(status);
+    s->generic.flags = flags;
     s->cvar = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
     s->itemnames = (char **)yes_no_names;
     s->numItems = 2;

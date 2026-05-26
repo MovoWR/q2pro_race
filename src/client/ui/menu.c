@@ -1110,6 +1110,7 @@ SpinControl_Draw
 static void SpinControl_Draw(menuSpinControl_t *s)
 {
     const char *name;
+    char value[MAX_QPATH];
     int flags = s->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR;
 
     if (s->generic.flags & QMF_HASFOCUS) {
@@ -1133,6 +1134,31 @@ static void SpinControl_Draw(menuSpinControl_t *s)
 
     UI_DrawString(s->generic.x + RCOLUMN_OFFSET, s->generic.y,
                   s->generic.uiFlags, name);
+
+    if (s->generic.flags & QMF_SHOW_VALUE) {
+        char raw[MAX_QPATH];
+        const char *val = NULL;
+
+        if (s->generic.type == MTYPE_PAIRS &&
+            s->curvalue >= 0 && s->curvalue < s->numItems) {
+            val = s->itemvalues[s->curvalue];
+        } else if ((s->generic.type == MTYPE_TOGGLE ||
+                    s->generic.type == MTYPE_BITFIELD) &&
+                   s->curvalue >= 0) {
+            Q_snprintf(raw, sizeof(raw), "%d",
+                       s->generic.type == MTYPE_TOGGLE ?
+                       (s->curvalue ^ s->negate) : s->cvar->integer);
+            val = raw;
+        } else if (s->cvar) {
+            val = s->cvar->string;
+        }
+
+        if (val) {
+            Q_snprintf(value, sizeof(value), "[%s]", val);
+            UI_DrawString(s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH,
+                          s->generic.y, s->generic.uiFlags, value);
+        }
+    }
 
     if (s->generic.flags & QMF_HASFOCUS) {
         Menu_SetNormalColor();
@@ -2181,6 +2207,20 @@ static menuSound_t Slider_DoSlide(menuSlider_t *s, int dir)
     return QMS_SILENT;
 }
 
+static void Slider_ValueString(menuSlider_t *s, char *buffer, size_t size)
+{
+    char *p;
+
+    Q_snprintf(buffer, size, "%.2f", s->curvalue);
+    p = strchr(buffer, 0);
+    while (p > buffer && p[-1] == '0') {
+        *--p = 0;
+    }
+    if (p > buffer && p[-1] == '.') {
+        *--p = 0;
+    }
+}
+
 /*
 =================
 Slider_Draw
@@ -2190,6 +2230,7 @@ static void Slider_Draw(menuSlider_t *s)
 {
     int     i, flags;
     float   pos;
+    char    value[32];
 
     flags = s->generic.uiFlags & ~(UI_LEFT | UI_RIGHT);
 
@@ -2220,6 +2261,12 @@ static void Slider_Draw(menuSlider_t *s)
     pos = Q_clipf((s->curvalue - s->minvalue) / (s->maxvalue - s->minvalue), 0, 1);
 
     UI_DrawChar(CHAR_WIDTH + RCOLUMN_OFFSET + s->generic.x + (SLIDER_RANGE - 1) * CHAR_WIDTH * pos, s->generic.y, flags | UI_LEFT, 131);
+
+    if (s->generic.flags & QMF_SHOW_VALUE) {
+        Slider_ValueString(s, value, sizeof(value));
+        UI_DrawString(s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH,
+                      s->generic.y, flags | UI_LEFT, value);
+    }
 }
 
 /*

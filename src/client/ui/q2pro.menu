@@ -37,12 +37,12 @@ begin <menuname>
    plaque <plaque> [logo]
    style [--compact|--no-compact] [--left|--center|--right] [--transparent|--no-transparent] [--live|--no-live]
 
-   range <name> <cvar> <min> <max> [step]
+   range [--show-value] [--status <text>] <name> <cvar> <min> <max> [step]
 
-   pairs <name> <cvar> <string1> <value1> [...]
-   values <name> <cvar> <string1> [...]
-   strings <name> <cvar> <value1> [...]
-   toggle <name> <cvar> [~][bit]
+   pairs [--show-value] [--status <text>] <name> <cvar> <string1> <value1> [...]
+   values [--show-value] [--status <text>] <name> <cvar> <string1> [...]
+   strings [--show-value] [--status <text>] <name> <cvar> <value1> [...]
+   toggle [--show-value] [--status <text>] <name> <cvar> [~][bit]
 
    bind <name> <command>
    action <name> <command>
@@ -352,45 +352,45 @@ begin jumpnetwork
     background #3f6da080
     style --compact --center --transparent --live
     static "[Run Feedback]"
-    pairs --status "Full-width low-profile history ribbon; subtle is recommended for racing." "network bar" scr_netbar off 0 subtle 1 hybrid 2 debug 3
-    pairs --status "Short warning text for incidents likely to affect a run." "incident notice" scr_netbar_notice off 0 "on bar" 1 "top center" 2
-    pairs --status "Small label near the bar; verbose also shows current ping." "bar label" scr_netbar_labels off 0 label 1 verbose 2
+    pairs --show-value --status "Full-width low-profile history ribbon; subtle is recommended for racing." "network bar" scr_netbar off 0 subtle 1 hybrid 2 debug 3
+    pairs --show-value --status "Short warning text for incidents likely to affect a run." "incident notice" scr_netbar_notice off 0 "on bar" 1 "top center" 2
+    pairs --show-value --status "Small label near the bar; verbose also shows current ping." "bar label" scr_netbar_labels off 0 label 1 verbose 2
     blank
 
     static "[Bar Layout]"
-    range --status "Bar height in HUD pixels; 3-5 keeps it quiet." "height" scr_netbar_h 1 16 1
-    range --status "Vertical offset; negative values align from the bottom edge." "Y position" scr_netbar_y -120 120 1
-    range --status "Opacity of normal samples; lower values keep stable network almost invisible." "normal alpha" scr_netbar_alpha 0 1 0.05
-    range --status "Opacity of loss/stall/prediction samples." "incident alpha" scr_netbar_bad_alpha 0 1 0.05
-    range --status "How much recent history the bar represents, in milliseconds." "history ms" scr_netbar_history_ms 500 120000 1000
-    pairs --status "Fixed is quietest; hybrid adds ping height only when useful." "ping height" scr_netbar_ping_mode off 0 height 1 hybrid 2
+    range --show-value --status "Bar height in HUD pixels; 3-5 keeps it quiet." "height" scr_netbar_h 1 16 1
+    range --show-value --status "Vertical offset; negative values align from the bottom edge." "Y position" scr_netbar_y -120 120 1
+    range --show-value --status "Opacity of normal samples; lower values keep stable network almost invisible." "normal alpha" scr_netbar_alpha 0 1 0.05
+    range --show-value --status "Opacity of loss/stall/prediction samples." "incident alpha" scr_netbar_bad_alpha 0 1 0.05
+    range --show-value --status "How much recent history the bar represents, in milliseconds." "history ms" scr_netbar_history_ms 500 120000 1000
+    pairs --show-value --status "Fixed is quietest; hybrid adds ping height only when useful." "ping height" scr_netbar_ping_mode off 0 height 1 hybrid 2
     blank
 
     static "[Notice Layout]"
-    range --status "Top-center notice vertical position." "notice Y" scr_netbar_notice_y 0 180 1
-    range --status "How long incident text stays visible, in milliseconds." "notice ms" scr_netbar_notice_ms 250 5000 250
-    range --status "Opacity of incident notice text." "notice alpha" scr_netbar_notice_alpha 0 1 0.05
+    range --show-value --status "Top-center notice vertical position." "notice Y" scr_netbar_notice_y 0 180 1
+    range --show-value --status "How long incident text stays visible, in milliseconds." "notice ms" scr_netbar_notice_ms 250 5000 250
+    range --show-value --status "Opacity of incident notice text." "notice alpha" scr_netbar_notice_alpha 0 1 0.05
     blank
 
     static "[Adaptive Detection]"
-    toggle --status "Compare spikes and jitter against your current ping baseline; recommended for distant servers." "adaptive ping" scr_netwarn_ping_adaptive
-    range --status "Optional absolute high-ping warning. Leave at 0 to allow stable high-ping servers." "high ping" scr_netwarn_highping 0 500 10
-    range --status "Minimum sudden ping jump before a spike warning." "spike ms" scr_netwarn_spike_ms 0 300 5
-    range --status "Adaptive spike threshold as percent of your rolling ping baseline." "spike pct" scr_netwarn_spike_pct 0 100 5
-    range --status "Repeated ping wobble threshold before jitter warning." "jitter ms" scr_netwarn_jitter_ms 0 150 5
+    toggle --show-value --status "Compare spikes and jitter against your current ping baseline; recommended for distant servers." "adaptive ping" scr_netwarn_ping_adaptive
+    range --show-value --status "Optional absolute high-ping warning. Leave at 0 to allow stable high-ping servers." "high ping" scr_netwarn_highping 0 500 10
+    range --show-value --status "Minimum sudden ping jump before a spike warning." "spike ms" scr_netwarn_spike_ms 0 300 5
+    range --show-value --status "Adaptive spike threshold as percent of your rolling ping baseline." "spike pct" scr_netwarn_spike_pct 0 100 5
+    range --show-value --status "Repeated ping wobble threshold before jitter warning." "jitter ms" scr_netwarn_jitter_ms 0 150 5
     blank
 
     static "[Incident Thresholds]"
-    range --status "No server packets for this many ms before stall warning." "stall ms" scr_netwarn_stall_ms 0 3000 100
-    range --status "No server packets for this many ms before critical stall." "stall critical" scr_netwarn_stall_crit_ms 0 5000 100
-    range --status "Prediction correction size before warning." "pred warn" scr_netwarn_pred_warn 0 240 4
-    range --status "Prediction correction size before critical warning." "pred critical" scr_netwarn_pred_crit 0 640 8
+    range --show-value --status "No server packets for this many ms before stall warning." "stall ms" scr_netwarn_stall_ms 0 3000 100
+    range --show-value --status "No server packets for this many ms before critical stall." "stall critical" scr_netwarn_stall_crit_ms 0 5000 100
+    range --show-value --status "Prediction correction size before warning." "pred warn" scr_netwarn_pred_warn 0 240 4
+    range --show-value --status "Prediction correction size before critical warning." "pred critical" scr_netwarn_pred_crit 0 640 8
     blank
 
     static "[Legacy / Debug]"
-    toggle --status "Original small 48x48 ping graph." "ping graph" scr_lag_draw
-    pairs --status "Original full-width Q2PRO netgraph; keep off for subtle race feedback." "legacy netgraph" netgraph off 0 ping 1 size 2
-    pairs --status "Text dump of frame/network errors." "turtle text" scr_showturtle off 0 normal 1 verbose 2
+    toggle --show-value --status "Original small 48x48 ping graph." "ping graph" scr_lag_draw
+    pairs --show-value --status "Original full-width Q2PRO netgraph; keep off for subtle race feedback." "legacy netgraph" netgraph off 0 ping 1 size 2
+    pairs --show-value --status "Text dump of frame/network errors." "turtle text" scr_showturtle off 0 normal 1 verbose 2
 end
 
 begin replayrecording
