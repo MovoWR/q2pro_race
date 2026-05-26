@@ -135,6 +135,21 @@ static float SH_SmoothAngle(const float previous, const float target, const floa
     return previous + SH_EaseOut(factor) * (unwrapped_target - previous);
 }
 
+static float SH_AngleOffset(const float angle, const float origin) {
+    return SH_UnwrapAngle(angle, origin) - origin;
+}
+
+static float SH_SmoothAngleOffset(const float previous_angle,
+                                  const float previous_origin,
+                                  const float target_angle,
+                                  const float target_origin,
+                                  const float factor) {
+    const float previous_offset = SH_AngleOffset(previous_angle, previous_origin);
+    const float target_offset = SH_AngleOffset(target_angle, target_origin);
+
+    return SH_SmoothAngle(previous_offset, target_offset, factor);
+}
+
 static void SH_ApplyVisualSmoothing(const float frametime) {
     float factor;
 
@@ -151,10 +166,22 @@ static void SH_ApplyVisualSmoothing(const float frametime) {
 
     factor = SH_SmoothingFactor(frametime);
     sh = sh_raw;
-    sh.angle_optimal = SH_SmoothAngle(sh_previous_smooth.angle_optimal, sh_raw.angle_optimal, factor);
-    sh.angle_minimum = SH_SmoothAngle(sh_previous_smooth.angle_minimum, sh_raw.angle_minimum, factor);
-    sh.angle_maximum = SH_SmoothAngle(sh_previous_smooth.angle_maximum, sh_raw.angle_maximum, factor);
-    sh.angle_current = SH_SmoothAngle(sh_previous_smooth.angle_current, sh_raw.angle_current, factor);
+    sh.angle_optimal = sh_raw.angle_current + SH_SmoothAngleOffset(sh_previous_smooth.angle_optimal,
+                                                                   sh_previous_smooth.angle_current,
+                                                                   sh_raw.angle_optimal,
+                                                                   sh_raw.angle_current,
+                                                                   factor);
+    sh.angle_minimum = sh_raw.angle_current + SH_SmoothAngleOffset(sh_previous_smooth.angle_minimum,
+                                                                   sh_previous_smooth.angle_current,
+                                                                   sh_raw.angle_minimum,
+                                                                   sh_raw.angle_current,
+                                                                   factor);
+    sh.angle_maximum = sh_raw.angle_current + SH_SmoothAngleOffset(sh_previous_smooth.angle_maximum,
+                                                                   sh_previous_smooth.angle_current,
+                                                                   sh_raw.angle_maximum,
+                                                                   sh_raw.angle_current,
+                                                                   factor);
+    sh.angle_current = sh_raw.angle_current;
     sh.angle_diff = sh.angle_current - sh.angle_optimal;
 
     sh_previous_smooth = sh;
