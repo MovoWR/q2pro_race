@@ -493,6 +493,81 @@ scr_lag_max::
     Specifies ping graph scale by defining the maximum value that can be
     displayed. Default value is 200.
 
+scr_netbar::
+    Toggles drawing of a subtle full-width network history bar. Default value is
+    0.
+      - 0 -- do not draw the bar
+      - 1 -- draw a thin event-colored history bar
+      - 2 -- draw a hybrid ping-height/event bar
+      - 3 -- draw debug-style hybrid bar
+
+scr_netbar_y::
+    Vertical placement of the network bar. Negative values align from the
+    bottom edge of the screen. Default value is -1.
+
+scr_netbar_h::
+    Height of the network bar in pixels. Default value is 4.
+
+scr_netbar_alpha::
+    Opacity of normal network samples. Default value is 0.20.
+
+scr_netbar_bad_alpha::
+    Opacity of warning and critical network samples. Default value is 0.75.
+
+scr_netbar_history_ms::
+    Time window represented by the network bar, in milliseconds. Default value
+    is 3000.
+
+scr_netbar_ping_mode::
+    Controls whether ping affects sample height. Default value is 0.
+      - 0 -- draw fixed-height event samples
+      - 1 -- draw ping-height samples
+      - 2 -- draw hybrid samples with quiet normal traffic
+
+scr_netbar_labels::
+    Toggles a small label for the strongest recent network warning. Default
+    value is 1. Values higher than 1 also draw the last measured ping.
+
+scr_netbar_notice::
+    Toggles a larger short incident notice for network events that may affect a
+    run. Default value is 2.
+      - 0 -- do not draw notices
+      - 1 -- draw notice near the network bar
+      - 2 -- draw notice at top center
+
+scr_netbar_notice_y::
+    Top-center notice vertical position. Default value is 48.
+
+scr_netbar_notice_ms::
+    Visibility time for recent incident notices, in milliseconds. Default value
+    is 1200.
+
+scr_netbar_notice_alpha::
+    Opacity of incident notice text. Default value is 0.85.
+
+scr_netwarn_highping::
+    Optional absolute high ping warning threshold, in milliseconds. Default
+    value is 0, which disables absolute high ping warnings. This keeps stable
+    high-latency servers from constantly drawing warnings.
+
+scr_netwarn_ping_adaptive::
+    Enables adaptive ping spike and jitter detection relative to the current
+    rolling ping baseline. Default value is 1.
+
+scr_netwarn_spike_ms, scr_netwarn_spike_pct, scr_netwarn_jitter_ms::
+    Thresholds for ping spike and jitter warnings. Spike detection uses the
+    larger of the millisecond threshold and the percentage of the rolling ping
+    baseline when adaptive detection is enabled. Default values are 60, 25 and
+    18.
+
+scr_netwarn_stall_ms, scr_netwarn_stall_crit_ms::
+    Time since last received server packet, in milliseconds, before drawing a
+    connection stall warning and critical stall warning. Default values are 500
+    and 1000.
+
+scr_netwarn_pred_warn, scr_netwarn_pred_crit::
+    Client prediction correction thresholds. Default values are 24 and 80.
+
 scr_chathud::
     Toggles drawing of the last chat lines on the screen. Default value is 0.
       - 0 — do not draw chat lines
