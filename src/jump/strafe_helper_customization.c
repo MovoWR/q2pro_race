@@ -135,9 +135,6 @@ uint32_t getColorForElement(const enum shc_ElementId element_id) {
         case shc_ElementId_CenterMarker:
             colorString = cl_strafehelper_color_centermarker->string;
             break;
-        case shc_ElementId_Indicator:
-            colorString = cl_strafehelper_color_indicator->string;
-            break;
         case shc_ElementId_NerdStats:
             colorString = cl_strafehelper_color_nerdstats->string;
             break;

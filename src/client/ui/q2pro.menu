@@ -212,7 +212,6 @@ begin jump
     blank
     action --status "Configure the visual strafe-assist bar." "strafe helper" pushmenu strafehelper
     action --status "Show your current speed (Units Per Second)." "UPS display" pushmenu jumpups
-    action --status "Visual keys-pressed and sync indicator." "strafe indicator" pushmenu jumpindicator
     action --status "Draw a trailing line behind your movement." "race line" pushmenu raceline
     action --status "Configure subtle network history and incident warnings for race runs." "network bar" pushmenu jumpnetwork
     action --status "Bind keys for mod-specific actions." "mod bindings" pushmenu jumpmodbinds
@@ -286,6 +285,8 @@ begin strafehelper
     range --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
     toggle --status "Automatically hide the bar when not moving." "fade inactive" sh_fade_inactive
     strings --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
+    range --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1
+    pairs --status "Easing curve used by strafe helper smoothing." "smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5
     range --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
     range --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
     field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating
@@ -323,18 +324,6 @@ begin jumpups
     field --picker --status "Color used when gaining speed." "gain color" sh_ups_color_gain
     field --picker --status "Color used when losing speed." "loss color" sh_ups_color_loss
     field --picker --status "Color used when at constant speed." "neutral color" sh_ups_color_neutral
-end
-
-begin jumpindicator
-    title "Strafe Indicator"
-    background #3f6da080
-    style --compact --center --transparent --live
-    pairs --status "Visual style of the input/sync indicator." "mode" sh_indicator off 0 rectangle 1 picture 2
-    range --status "Precision threshold for movement sync." "tolerance" sh_indicator_tolerance 0 10 0.05
-    field --width 11 --status "Screen coordinates (X Y)." "position" sh_indicator_pos
-    field --width 11 --status "Physical size (W H)." "size" sh_indicator_size
-    field --picker --status "Color of the indicator elements." "color" sh_color_indicator
-    pairs --status "Select an icon for picture mode." "picture" scr_indicator 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9
 end
 
 

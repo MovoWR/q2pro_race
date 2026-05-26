@@ -300,6 +300,52 @@ void SH_BarStyle_f(void) {
     }
 }
 
+void SH_Smoothing_f(void) {
+    const char *value = Cmd_Argv(3);
+    float smoothing;
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Smoothing: %.2f\n", cl_strafehelperSmoothing->value);
+        return;
+    }
+
+    if (sscanf(value, "%f", &smoothing) == 1 && smoothing >= 0.0f && smoothing <= 10.0f) {
+        Cvar_Set("sh_smoothing", value);
+        Com_Printf("Strafe helper smoothing set to: %s\n", value);
+    } else {
+        Com_Printf("Invalid smoothing value. Usage: 'sh hud smoothing <0.0-10.0>'\n");
+    }
+}
+
+void SH_SmoothingMode_f(void) {
+    const char *mode = Cmd_Argv(3);
+    const char *mode_value = NULL;
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Smoothing mode: %s\n", cl_strafehelperSmoothingMode->string);
+        return;
+    }
+
+    if (!Q_stricmp(mode, "linear") || !strcmp(mode, "1")) {
+        mode_value = "1";
+    } else if (!Q_stricmp(mode, "quadratic") || !strcmp(mode, "2")) {
+        mode_value = "2";
+    } else if (!Q_stricmp(mode, "cubic") || !strcmp(mode, "3")) {
+        mode_value = "3";
+    } else if (!Q_stricmp(mode, "sine") || !strcmp(mode, "4")) {
+        mode_value = "4";
+    } else if (!Q_stricmp(mode, "exponential") || !strcmp(mode, "5")) {
+        mode_value = "5";
+    }
+
+    if (mode_value) {
+        Cvar_Set("sh_smoothing_mode", mode_value);
+        Com_Printf("Smoothing mode set to: %s\n", mode);
+    } else {
+        Com_Printf("Invalid smoothing mode. Usage: 'sh hud smoothing_mode <linear|quadratic|cubic|sine|exponential>'\n");
+    }
+}
+
 void SH_Ups_Enable_f(void) {
     Cvar_Set("sh_ups", "1");
     Com_Printf("Center UPS enabled.\n");
@@ -523,7 +569,7 @@ void SH_Hud_Help_f(void) {
     Com_Printf("Visibility\n");
     Com_Printf("  %-34s %s\n", "enable", "Enable the strafe helper bar.");
     Com_Printf("  %-34s %s\n", "disable", "Disable the strafe helper bar.");
-    Com_Printf("  %-34s %s\n", "status", "Show current HUD, UPS, and indicator settings.");
+    Com_Printf("  %-34s %s\n", "status", "Show current HUD and UPS settings.");
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Layout\n");
     Com_Printf("  %-34s %s\n", "scale <value>", "Set bar horizontal scale.");
@@ -536,6 +582,8 @@ void SH_Hud_Help_f(void) {
     Com_Printf("  %-34s %s\n", "alpha <0.0-1.0>", "Set helper opacity.");
     Com_Printf("  %-34s %s\n", "fade_inactive <0|1>", "Fade when there is no movement input.");
     Com_Printf("  %-34s %s\n", "bar_style <style>", "solid, gradient, outline, or minimal.");
+    Com_Printf("  %-34s %s\n", "smoothing <0.0-10.0>", "Smooth visual angle movement; 0 disables it.");
+    Com_Printf("  %-34s %s\n", "smoothing_mode <mode>", "linear, quadratic, cubic, sine, or exponential.");
     Com_Printf("  %-34s %s\n", "center_marker", "Toggle the center marker.");
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Color\n");

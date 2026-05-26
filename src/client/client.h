@@ -620,6 +620,8 @@ extern cvar_t    *cl_strafehelperUpsFormat;
 extern cvar_t    *cl_strafehelperAlpha;
 extern cvar_t    *cl_strafehelperFadeInactive;
 extern cvar_t    *cl_strafehelperBarStyle;
+extern cvar_t    *cl_strafehelperSmoothing;
+extern cvar_t    *cl_strafehelperSmoothingMode;
 extern cvar_t    *cl_strafehelper_color_accelerating;
 extern cvar_t    *cl_strafehelper_color_optimal;
 extern cvar_t    *cl_strafehelper_color_centermarker;
@@ -627,17 +629,10 @@ extern cvar_t    *cl_race_color;
 extern cvar_t    *cl_race_width;
 extern cvar_t    *cl_race_life;
 extern cvar_t    *cl_race_alpha;
-extern cvar_t    *cl_strafehelper_color_indicator;
-extern cvar_t 	 *cl_strafehelper_tolerance;
 extern cvar_t    *cl_strafehelper_center_width;
 extern cvar_t    *cl_strafehelper_optimal_width;
-extern cvar_t    *cl_strafehelperIndicator;
-extern cvar_t    *cl_strafehelper_indicator_pos;
-extern cvar_t    *cl_strafehelper_indicator_size;
 extern cvar_t    *cl_strafehelperNerdStats;
 extern cvar_t    *cl_strafehelper_color_nerdstats;
-extern cvar_t    *cl_strafehelper_indicator_pic;
-extern cvar_t    *scr_indicator;
 
 
 size_t CL_Mfps_m(char *buffer, size_t size);

@@ -7,9 +7,6 @@ extern "C" {
 #include "src/client/client.h"
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
-#define DEG_TO_RAD(deg) ((deg) * ((float)M_PI / 180.0f))
-#define OPTIMAL_ANGLE_TOLERANCE DEG_TO_RAD(CLAMP(cl_strafehelper_tolerance->value, 0.0f, 10.0f))
-
 
 struct StrafeHelperParams {
     int center;
@@ -82,7 +79,7 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
 
 // StrafeHud
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
-                       float hud_width, float hud_height, int indicator_pic, int font_pic);
+                       float hud_width, float hud_height, int font_pic);
 
 bool StrafeHelper_HasData(void);
 
@@ -102,12 +99,6 @@ void NerdStatsUpdate(const float velocity[3],
 void OriginUpdate(void);
 
 char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic);
-
-
-// Indicator
-void SH_Indicator_Draw(const struct StrafeHelperParams *params,
-                       float hud_width, float hud_height, int indicator_pic, int font_pic);
-
 
 // Debug
 void SH_DebugNow_f(void);

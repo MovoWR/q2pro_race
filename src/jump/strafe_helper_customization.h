@@ -12,7 +12,6 @@ enum shc_ElementId {
     shc_ElementId_AcceleratingAngles,
     shc_ElementId_OptimalAngle,
     shc_ElementId_CenterMarker,
-    shc_ElementId_Indicator,
     shc_ElementId_NerdStats,
 };
 

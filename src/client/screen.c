@@ -42,7 +42,6 @@ static struct {
     int         hit_marker_width, hit_marker_height;
 
     qhandle_t   pause_pic;
-    qhandle_t   indicator_pic;
 
 
     qhandle_t   loading_pic;
@@ -114,7 +113,6 @@ static cvar_t   *scr_font;
 static cvar_t   *scr_scale;
 
 static cvar_t   *scr_crosshair;
-cvar_t   *scr_indicator;
 
 static cvar_t   *scr_chathud;
 static cvar_t   *scr_chathud_lines;
@@ -1844,39 +1842,6 @@ static void ch_color_changed(cvar_t *self)
     }
     scr.crosshair_color.u8[3] = Cvar_ClampValue(ch_alpha, 0, 1) * 255;
 }
-static void scr_indicator_changed(cvar_t *self) {
-    static int last_indicator = -1; // Tracks the last attempted indicator
-    static int fallback_used = 0;   // Tracks whether fallback was used
-
-    if (self->integer > 0) {
-        char pic_name[16];
-        snprintf(pic_name, sizeof(pic_name), "sh%i", self->integer);
-
-        // Only attempt to register if a new indicator is selected
-        if (last_indicator != self->integer) {
-            scr.indicator_pic = R_RegisterPic(pic_name);
-            if (!scr.indicator_pic) {
-                if (!fallback_used) {
-                    Com_Printf("[WARNING] Indicator picture '%s.pcx' not found. Falling back to crosshair picture.\n", pic_name);
-                    scr.indicator_pic = scr.crosshair_pic;
-                    if (!scr.indicator_pic) {
-                        Com_Printf("[ERROR] Crosshair picture not found. Indicator disabled.\n");
-                        scr.indicator_pic = 0; // Disable the indicator
-                    }
-                    fallback_used = 1; // Mark that fallback was used
-                }
-            } else {
-                fallback_used = 0; // Reset fallback status if new indicator is found
-            }
-            last_indicator = self->integer; // Update the last indicator
-        }
-    } else {
-        scr.indicator_pic = 0; // Disable the indicator
-        last_indicator = -1;  // Reset last indicator
-        fallback_used = 0;    // Reset fallback state
-    }
-}
-
 
 
 static void scr_crosshair_changed(cvar_t *self)
@@ -1969,7 +1934,6 @@ void SCR_RegisterMedia(void)
     scr.net_pic = R_RegisterPic("net");
     scr.hit_marker_pic = R_RegisterImage("marker", IT_PIC, IF_PERMANENT | IF_OPTIONAL);
 
-    scr_indicator_changed(scr_indicator);
     scr_crosshair_changed(scr_crosshair);
     scr_font_changed(scr_font);
 }
@@ -2010,9 +1974,6 @@ void SCR_Init(void)
     scr_scale->changed = scr_scale_changed;
     scr_crosshair = Cvar_Get("crosshair", "0", CVAR_ARCHIVE);
     scr_crosshair->changed = scr_crosshair_changed;
-
-    scr_indicator = Cvar_Get("scr_indicator", "1", CVAR_ARCHIVE);
-    scr_indicator->changed = scr_indicator_changed;
 
     scr_netgraph = Cvar_Get("netgraph", "0", 0);
     scr_netgraph_alpha = Cvar_Get("netgraph_alpha", "0", 0);
@@ -2087,7 +2048,6 @@ void SCR_Init(void)
 
     scr_scale_changed(scr_scale);
     ch_color_changed(NULL);
-    scr_indicator_changed(scr_indicator);
     scr.initialized = true;
 }
 
@@ -2877,11 +2837,9 @@ void SCR_DrawStrafeHelper(void) {
         if (preview && !StrafeHelper_HasData()) {
             StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
         } else {
-        StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
+        StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.font_pic);
         }
         SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
-        SH_Indicator_Draw(&params, scr.hud_width, scr.hud_height, scr.indicator_pic, scr.font_pic);
-        scr_indicator_changed(scr_indicator);
         if (cl.frame.ps.pmove.pm_type == PM_FREEZE)
             {
                 OriginUpdate();

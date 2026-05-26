@@ -7,9 +7,13 @@
 #endif
 
 #define SH_EPSILON 0.0001f
+#define SH_SMOOTH_DEADZONE 0.002f
 
 NerdStats ns;
 StrafeHelper sh;
+static StrafeHelper sh_raw;
+static StrafeHelper sh_previous_smooth;
+static bool sh_smoothing_initialized;
 
 bool isOptimal;
 bool insideAccelerationZone;
@@ -52,13 +56,108 @@ static float vectorNorm(const float v[2]) {
 static float safeAcosf(const float value) {
     return acosf(CLAMP(value, -1.0f, 1.0f));
 }
-
 static void clearStrafeAngles(void) {
+    sh_raw.angle_optimal = 0.0f;
+    sh_raw.angle_minimum = 0.0f;
+    sh_raw.angle_maximum = 0.0f;
+    sh_raw.angle_current = 0.0f;
+    sh_raw.angle_diff = 0.0f;
+    sh_raw.velocity_norm = 0.0f;
+
     sh.angle_optimal = 0.0f;
     sh.angle_minimum = 0.0f;
     sh.angle_maximum = 0.0f;
     sh.angle_current = 0.0f;
     sh.angle_diff = 0.0f;
+    sh.velocity_norm = 0.0f;
+
+    sh_smoothing_initialized = false;
+}
+
+static float SH_SmoothingAmount(void) {
+    if (!cl_strafehelperSmoothing) {
+        return 0.0f;
+    }
+
+    return Cvar_ClampValue(cl_strafehelperSmoothing, 0.0f, 10.0f);
+}
+
+static float SH_SmoothingFactor(const float frametime) {
+    const float smoothing = SH_SmoothingAmount();
+    const float tau = 0.05f * smoothing;
+
+    if (tau <= 0.0f || frametime <= 0.0f) {
+        return 1.0f;
+    }
+
+    return CLAMP(1.0f - expf(-frametime / tau), 0.1f, 0.9f);
+}
+
+static float SH_EaseOut(float t) {
+    const int mode = cl_strafehelperSmoothingMode
+                     ? cl_strafehelperSmoothingMode->integer
+                     : 1;
+
+    t = CLAMP(t, 0.0f, 1.0f);
+    switch (mode) {
+        case 2:
+            return 1.0f - (1.0f - t) * (1.0f - t);
+        case 3:
+            return 1.0f - powf(1.0f - t, 3.0f);
+        case 4:
+            return sinf(t * (float) M_PI * 0.5f);
+        case 5:
+            return (t >= 1.0f) ? 1.0f : 1.0f - powf(2.0f, -10.0f * t);
+        default:
+            return t;
+    }
+}
+static float SH_UnwrapAngle(float angle, const float reference) {
+    const float two_pi = 2.0f * (float) M_PI;
+
+    while (angle - reference > (float) M_PI) {
+        angle -= two_pi;
+    }
+    while (angle - reference < -(float) M_PI) {
+        angle += two_pi;
+    }
+
+    return angle;
+}
+
+static float SH_SmoothAngle(const float previous, const float target, const float factor) {
+    const float unwrapped_target = SH_UnwrapAngle(target, previous);
+
+    if (fabsf(unwrapped_target - previous) < SH_SMOOTH_DEADZONE) {
+        return unwrapped_target;
+    }
+
+    return previous + SH_EaseOut(factor) * (unwrapped_target - previous);
+}
+
+static void SH_ApplyVisualSmoothing(const float frametime) {
+    float factor;
+
+    if (SH_SmoothingAmount() <= 0.0f) {
+        sh = sh_raw;
+        sh_smoothing_initialized = false;
+        return;
+    }
+
+    if (!sh_smoothing_initialized) {
+        sh_previous_smooth = sh_raw;
+        sh_smoothing_initialized = true;
+    }
+
+    factor = SH_SmoothingFactor(frametime);
+    sh = sh_raw;
+    sh.angle_optimal = SH_SmoothAngle(sh_previous_smooth.angle_optimal, sh_raw.angle_optimal, factor);
+    sh.angle_minimum = SH_SmoothAngle(sh_previous_smooth.angle_minimum, sh_raw.angle_minimum, factor);
+    sh.angle_maximum = SH_SmoothAngle(sh_previous_smooth.angle_maximum, sh_raw.angle_maximum, factor);
+    sh.angle_current = SH_SmoothAngle(sh_previous_smooth.angle_current, sh_raw.angle_current, factor);
+    sh.angle_diff = sh.angle_current - sh.angle_optimal;
+
+    sh_previous_smooth = sh;
 }
 
 
@@ -104,6 +203,8 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
     sh.angle_current += truncf((sh.angle_maximum - sh.angle_current) / two_pi) * two_pi;
 
     sh.angle_diff = sh.angle_current - sh.angle_optimal;
+    sh_raw = sh;
+    SH_ApplyVisualSmoothing(frametime);
 
     if (cl_strafehelperNerdStats->integer) {
         NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);
@@ -408,7 +509,7 @@ static void drawAccelerationZone(const float accel_start, const float accel_end,
 }
 
 bool StrafeHelper_HasData(void) {
-    return sh.velocity_norm > SH_EPSILON;
+    return sh_raw.velocity_norm > SH_EPSILON;
 }
 
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
@@ -449,7 +550,7 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
 }
 
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
-                       const float hud_width, const float hud_height, int indicator_pic, int font_pic) {
+                       const float hud_width, const float hud_height, int font_pic) {
     float angle_x, angle_width;
     if (!StrafeHelper_HasData() || params->height <= 0.0f) {
         return;
@@ -501,52 +602,4 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
             shc_ElementId_CenterMarker
         );
     }
-}
-
-void SH_Indicator_Draw(const struct StrafeHelperParams *params,
-                       float hud_width, float hud_height, int indicator_pic, int font_pic) {
-    static float previous_velocity_norm = 0.0f;
-    bool isOptimal = fabsf(sh.angle_current - sh.angle_optimal) <= OPTIMAL_ANGLE_TOLERANCE;
-    bool insideAccelerationZone = fabsf(sh.angle_current - sh.angle_minimum) <= fabsf(
-                                      sh.angle_maximum - sh.angle_minimum);
-    bool speedIncreased = sh.velocity_norm > previous_velocity_norm;
-
-    bool drawIndicator = (cl_strafehelperIndicator->integer == 1 || cl_strafehelperIndicator->integer == 2) &&
-                         insideAccelerationZone && speedIncreased && isOptimal;
-    if (drawIndicator) {
-        int ind_x, ind_y;
-        int ind_width = hud_width / 10.0f;
-        int ind_height = hud_height / 10.0f;
-
-        if (sscanf(cl_strafehelper_indicator_size->string, "%d %d", &ind_width, &ind_height) != 2) {
-            ind_width = hud_width / 10.0f;
-            ind_height = hud_height / 10.0f;
-        }
-
-        int ind_x_center = (hud_width - ind_width) / 2.0f;
-        int ind_y_center = (hud_height - ind_height) / 2.0f;
-
-        if (sscanf(cl_strafehelper_indicator_pos->string, "%d %d", &ind_x, &ind_y) != 2) {
-            ind_x = ind_x_center;
-            ind_y = ind_y_center;
-        }
-
-
-        if (ind_x == 0.0f && ind_y == 0.0f) {
-            ind_x = ind_x_center;
-            ind_y = ind_y_center;
-        } else {
-            ind_x = CLAMP(ind_x, 0.0f, hud_width - ind_width);
-            ind_y = CLAMP(ind_y, 0.0f, hud_height - ind_height);
-        }
-
-        if (cl_strafehelperIndicator->integer == 2) {
-            R_DrawStretchPic(
-                ind_x, ind_y, ind_width, ind_height, indicator_pic);
-        } else {
-            shc_drawFilledRectangle(
-                ind_x, ind_y, ind_width, ind_height, shc_ElementId_Indicator);
-        }
-    }
-    previous_velocity_norm = sh.velocity_norm;
 }

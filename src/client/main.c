@@ -111,10 +111,8 @@ extern cvar_t *gl_brightness;
 
 // q2pro_race strafe_helper
 cvar_t *cl_drawStrafeHelper;
-cvar_t *cl_strafehelperIndicator;
 cvar_t *cl_strafeHelperCenter;
 cvar_t *cl_strafeHelperCenterMarker;
-cvar_t *cl_strafehelper_tolerance;
 cvar_t *cl_strafeHelperHeight;
 cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
@@ -130,21 +128,18 @@ cvar_t *cl_strafehelperUpsFormat;
 cvar_t *cl_strafehelperAlpha;
 cvar_t *cl_strafehelperFadeInactive;
 cvar_t *cl_strafehelperBarStyle;
-cvar_t *cl_strafehelper_indicator_pic;
+cvar_t *cl_strafehelperSmoothing;
+cvar_t *cl_strafehelperSmoothingMode;
 cvar_t *cl_strafehelperNerdStats;
 
 
 // width
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_width;
-//indicator
-cvar_t *cl_strafehelper_indicator_pos;
-cvar_t *cl_strafehelper_indicator_size;
 // color settings
 cvar_t *cl_strafehelper_color_accelerating;
 cvar_t *cl_strafehelper_color_optimal;
 cvar_t *cl_strafehelper_color_centermarker;
-cvar_t *cl_strafehelper_color_indicator;
 cvar_t *cl_strafehelper_color_nerdstats;
 // race line
 cvar_t *cl_race_color;
@@ -3217,6 +3212,8 @@ static void CL_InitLocal(void)
     cl_strafehelperAlpha = Cvar_Get("sh_alpha", "1", CVAR_ARCHIVE);
     cl_strafehelperFadeInactive = Cvar_Get("sh_fade_inactive", "0", CVAR_ARCHIVE);
     cl_strafehelperBarStyle = Cvar_Get("sh_bar_style", "gradient", CVAR_ARCHIVE);
+    cl_strafehelperSmoothing = Cvar_Get("sh_smoothing", "0", CVAR_ARCHIVE);
+    cl_strafehelperSmoothingMode = Cvar_Get("sh_smoothing_mode", "1", CVAR_ARCHIVE);
     // width
     cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
     cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
@@ -3225,12 +3222,6 @@ static void CL_InitLocal(void)
     cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);
     cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelper_color_nerdstats = Cvar_Get("sh_color_nerdstats", "50 0 50 100", CVAR_ARCHIVE);
-    //indicator
-    cl_strafehelper_tolerance = Cvar_Get("sh_indicator_tolerance", "0.20", CVAR_ARCHIVE);
-    cl_strafehelperIndicator = Cvar_Get("sh_indicator", "0", CVAR_ARCHIVE);
-    cl_strafehelper_indicator_pos = Cvar_Get("sh_indicator_pos", "0 0", CVAR_ARCHIVE);
-    cl_strafehelper_indicator_size = Cvar_Get("sh_indicator_size", "1 5", CVAR_ARCHIVE);
-    cl_strafehelper_color_indicator = Cvar_Get("sh_color_indicator", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelperNerdStats = Cvar_Get("sh_nerdstats", "0", CVAR_ARCHIVE);
 
 

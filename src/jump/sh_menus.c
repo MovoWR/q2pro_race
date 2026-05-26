@@ -11,7 +11,6 @@ void SH_Help_f(void) {
     Com_Printf("Sections\n");
     Com_Printf("  %-18s %s\n", "hud", "Strafe bar visibility, geometry, style, and colors.");
     Com_Printf("  %-18s %s\n", "ups", "Centered cl_ups readout and its display/color options.");
-    Com_Printf("  %-18s %s\n", "indicator", "Optimal-strafe indicator settings.");
     Com_Printf("  %-18s %s\n", "status", "Show all current strafe helper settings.");
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Common examples\n");
@@ -20,7 +19,6 @@ void SH_Help_f(void) {
     Com_Printf("  sh hud alpha 0.75\n");
     Com_Printf("  sh ups enable\n");
     Com_Printf("  sh ups color_mode dynamic\n");
-    Com_Printf("  sh indicator enable\n");
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Related cvars\n");
     Com_Printf("  %-18s %s\n", "sh_nerdstats", "1 left, 2 right.");
@@ -36,7 +34,6 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
     R_SetColor(U32_RED);
     if (argnum == 1) {
         Prompt_AddMatch(ctx, "hud");
-        Prompt_AddMatch(ctx, "indicator");
         Prompt_AddMatch(ctx, "ups");
         Prompt_AddMatch(ctx, "status");
         Prompt_AddMatch(ctx, "help");
@@ -52,22 +49,14 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
             Prompt_AddMatch(ctx, "alpha");
             Prompt_AddMatch(ctx, "fade_inactive");
             Prompt_AddMatch(ctx, "bar_style");
+            Prompt_AddMatch(ctx, "smoothing");
+            Prompt_AddMatch(ctx, "smoothing_mode");
             Prompt_AddMatch(ctx, "center_width");
             Prompt_AddMatch(ctx, "optimal_width");
             Prompt_AddMatch(ctx, "color_accelerating");
             Prompt_AddMatch(ctx, "color_optimal");
             Prompt_AddMatch(ctx, "color_centermarker");
             Prompt_AddMatch(ctx, "preset");
-            Prompt_AddMatch(ctx, "status");
-            Prompt_AddMatch(ctx, "help");
-        } else if (!strcmp(subcmd, "indicator")) {
-            Prompt_AddMatch(ctx, "enable");
-            Prompt_AddMatch(ctx, "disable");
-            Prompt_AddMatch(ctx, "tolerance");
-            Prompt_AddMatch(ctx, "pos");
-            Prompt_AddMatch(ctx, "size");
-            Prompt_AddMatch(ctx, "color");
-            Prompt_AddMatch(ctx, "pic");
             Prompt_AddMatch(ctx, "status");
             Prompt_AddMatch(ctx, "help");
         } else if (!strcmp(subcmd, "ups")) {
@@ -100,6 +89,12 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
                 Prompt_AddMatch(ctx, "solid");
                 Prompt_AddMatch(ctx, "outline");
                 Prompt_AddMatch(ctx, "minimal");
+            } else if (!strcmp(cmd, "smoothing_mode")) {
+                Prompt_AddMatch(ctx, "linear");
+                Prompt_AddMatch(ctx, "quadratic");
+                Prompt_AddMatch(ctx, "cubic");
+                Prompt_AddMatch(ctx, "sine");
+                Prompt_AddMatch(ctx, "exponential");
             }
         } else if (!strcmp(subcmd, "ups")) {
             if (!strcmp(cmd, "shadow") || !strcmp(cmd, "hide_zero")) {
@@ -114,11 +109,6 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
                 Prompt_AddMatch(ctx, "plain");
                 Prompt_AddMatch(ctx, "suffix");
                 Prompt_AddMatch(ctx, "prefix");
-            }
-        } else if (!strcmp(subcmd, "indicator") && !strcmp(cmd, "pic")) {
-            Prompt_AddMatch(ctx, "off");
-            for (int i = 1; i <= 9; i++) {
-                Prompt_AddMatch(ctx, va("%d", i));
             }
         }
     }
@@ -156,6 +146,10 @@ void SH_Cmd_f(void) {
             SH_FadeInactive_f();
         else if (!strcmp(cmd, "bar_style"))
             SH_BarStyle_f();
+        else if (!strcmp(cmd, "smoothing"))
+            SH_Smoothing_f();
+        else if (!strcmp(cmd, "smoothing_mode"))
+            SH_SmoothingMode_f();
         else if (!strcmp(cmd, "center_marker"))
             SH_CenterMarker_f();
         else if (!strcmp(cmd, "center_width"))
@@ -176,34 +170,6 @@ void SH_Cmd_f(void) {
             SH_Hud_Help_f();
         else
             Com_Printf("Unknown hud command. Use 'sh hud' for a list of commands.\n");
-    } else if
-    (!strcmp(subcmd, "indicator")) {
-        // Forward to indicator commands
-        const char *cmd = Cmd_Argv(2); // Command after "sh indicator"
-        if (!cmd || !cmd[0]) {
-            SH_Indicator_Help();
-            return;
-        }
-        if (!strcmp(cmd, "enable"))
-            SH_Indicator_Enable_f();
-        else if (!strcmp(cmd, "disable"))
-            SH_Indicator_Disable_f();
-        else if (!strcmp(cmd, "tolerance"))
-            SH_Indicator_Tolerance_f();
-        else if (!strcmp(cmd, "pos"))
-            SH_Indicator_SetPos_f();
-        else if (!strcmp(cmd, "size"))
-            SH_Indicator_SetSize_f();
-        else if (!strcmp(cmd, "color"))
-            SH_Indicator_SetColor_f();
-        else if (!strcmp(cmd, "pic"))
-            SH_Indicator_SetPic_f();
-        else if (!strcmp(cmd, "status"))
-            SH_Status_f();
-        else if (!strcmp(cmd, "help"))
-            SH_Indicator_Help();
-        else
-            Com_Printf("Unknown indicator command. Use 'sh indicator' for a list of commands.\n");
     } else if (!strcmp(subcmd, "ups")) {
         const char *cmd = Cmd_Argv(2);
         if (!cmd || !cmd[0]) {
@@ -258,6 +224,8 @@ void SH_Status_f(void) {
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Alpha", cl_strafehelperAlpha->value, 1.0f);
     Com_Printf("  %-20s : %-20d : def: %d\n", "Fade inactive", cl_strafehelperFadeInactive->integer, 0);
     Com_Printf("  %-20s : %-20s : def: %s\n", "Bar style", cl_strafehelperBarStyle->string, "gradient");
+    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Smoothing", cl_strafehelperSmoothing->value, 0.0f);
+    Com_Printf("  %-20s : %-20d : def: %d\n", "Smoothing mode", cl_strafehelperSmoothingMode->integer, 1);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Center width", cl_strafehelper_center_width->value, 1.5f);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Optimal width", cl_strafehelper_optimal_width->value, 1.5f);
     Com_Printf("  %-20s : %-20s : def: %s\n", "Accelerating color", cl_strafehelper_color_accelerating->string,
@@ -277,18 +245,5 @@ void SH_Status_f(void) {
     Com_Printf("  %-20s : %-20s : def: %s\n", "Gain color", cl_strafehelperUpsColorGain->string, "0 255 0 255");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Loss color", cl_strafehelperUpsColorLoss->string, "255 0 0 255");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Neutral color", cl_strafehelperUpsColorNeutral->string, "255 255 255 255");
-    Com_Printf("------------------------------------------------------------------\n");
-    Com_LPrintf(PRINT_WARNING, "                        Indicator Status:\n");
-    Com_Printf("------------------------------------------------------------------\n");
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Enabled", cl_strafehelperIndicator->integer, 0);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Tolerance", cl_strafehelper_tolerance->value, 0.20f);
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Position", cl_strafehelper_indicator_pos->string, "0 0");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Size", cl_strafehelper_indicator_size->string, "10 5");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Color", cl_strafehelper_color_indicator->string, "255 255 255 255");
-    if (cl_strafehelperIndicator->integer == 1) {
-        Com_Printf("  %-20s : %-20s : def: %s\n", "Indicator pic", "off", "1");
-    } else if (cl_strafehelperIndicator->integer == 2) {
-        Com_Printf("  %-20s : %-20d : def: %d\n", "Indicator pic", scr_indicator ? scr_indicator->integer : 0, 1);
-    }
     Com_Printf("------------------------------------------------------------------\n");
 }
