@@ -49,7 +49,16 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - uses: ilammy/setup-nasm@v1
+      - name: Install NASM
+        run: |
+          choco install nasm -y --no-progress
+          $nasmPath = Join-Path $env:ProgramFiles "NASM"
+          if (Test-Path (Join-Path $nasmPath "nasm.exe")) {
+            Add-Content $env:GITHUB_PATH $nasmPath
+            & (Join-Path $nasmPath "nasm.exe") -v
+          } else {
+            nasm -v
+          }
 
       - name: Install dependencies
         run: pip3 install --no-input meson ninja
