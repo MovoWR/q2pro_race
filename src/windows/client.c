@@ -483,8 +483,6 @@ static void Win_Activate(WPARAM wParam)
     if (win.flags & QVF_FULLSCREEN) {
         if (active == ACT_ACTIVATED) {
             ShowWindow(win.wnd, SW_RESTORE);
-        } else {
-            ShowWindow(win.wnd, SW_MINIMIZE);
         }
 
         if (vid_flip_on_switch->integer) {
