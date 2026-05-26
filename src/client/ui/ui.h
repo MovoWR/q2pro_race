@@ -364,6 +364,7 @@ void SpinControl_Init(menuSpinControl_t *s);
 bool        Menu_Push(menuFrameWork_t *menu);
 void        Menu_Pop(menuFrameWork_t *menu);
 void        Menu_Free(menuFrameWork_t *menu);
+void        Menu_FreeColorPicker(void);
 
 void M_Menu_PlayerConfig(void);
 void M_Menu_Demos(void);

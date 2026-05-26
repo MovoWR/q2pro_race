@@ -705,6 +705,7 @@ void UI_Shutdown(void)
     PlayerModel_Free();
 
     UI_FreeMenus();
+    Menu_FreeColorPicker();
 
     Cmd_Deregister(c_ui);
 

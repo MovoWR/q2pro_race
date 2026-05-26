@@ -108,6 +108,18 @@ STATIC CONTROL
 
 /*
 =================
+Static_Free
+=================
+*/
+static void Static_Free(menuStatic_t *s)
+{
+    Z_Free(s->generic.name);
+    Z_Free(s->generic.status);
+    Z_Free(s);
+}
+
+/*
+=================
 Static_Init
 =================
 */
@@ -779,6 +791,16 @@ static void ColorPicker_Init(void)
     ColorPicker_InitSlider(&colorPicker.green, colorPicker.greenName, colorPicker.greenCvar);
     ColorPicker_InitSlider(&colorPicker.blue, colorPicker.blueName, colorPicker.blueCvar);
     ColorPicker_InitSlider(&colorPicker.alpha, colorPicker.alphaName, colorPicker.alphaCvar);
+}
+
+void Menu_FreeColorPicker(void)
+{
+    if (!colorPicker.initialized) {
+        return;
+    }
+
+    Z_Free(colorPicker.menu.items);
+    memset(&colorPicker, 0, sizeof(colorPicker));
 }
 
 static void ColorPicker_Open(menuField_t *field)
@@ -3138,6 +3160,9 @@ void Menu_Free(menuFrameWork_t *menu)
         case MTYPE_SAVEGAME:
         case MTYPE_LOADGAME:
             Action_Free(item);
+            break;
+        case MTYPE_STATIC:
+            Static_Free(item);
             break;
         case MTYPE_SLIDER:
             Slider_Free(item);
