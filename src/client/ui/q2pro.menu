@@ -74,6 +74,7 @@ begin video
     background #3f6da080
     style --compact --center --transparent --live
     values --status "Switch between fullscreen and windowed modes." "video mode" vid_fullscreen windowed $$vid_modelist
+    toggle --status "Keep fullscreen visible and release the mouse while console is open on multi-monitor setups." "multi-monitor" vid_fullscreen_multimonitor
     values --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
     toggle --status "Synchronize frame rate with monitor refresh to prevent tearing." "vertical sync" gl_swapinterval
     pairs --status "Smooth jagged edges of geometry (requires video restart)." "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8

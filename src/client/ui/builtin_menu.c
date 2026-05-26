@@ -18,6 +18,7 @@ const char *ui_builtin_menu =
 "    background #3f6da070\n"
 "    style --compact --center --transparent --live\n"
 "    values --status \"Switch between fullscreen and windowed modes.\" \"video mode\" vid_fullscreen windowed $$vid_modelist\n"
+"    toggle --status \"Keep fullscreen visible and release the mouse while console is open on multi-monitor setups.\" \"multi-monitor\" vid_fullscreen_multimonitor\n"
 "    values --status \"Adjust how Field of View is calculated for wide screens.\" \"fov scaling\" cl_adjustfov vert- hor+\n"
 "    toggle --status \"Synchronize frame rate with monitor refresh to prevent tearing.\" \"vertical sync\" gl_swapinterval\n"
 "    pairs --status \"Smooth jagged edges of geometry (requires video restart).\" \"anti-aliasing\" gl_multisamples no 0 \"2x MSAA\" 2 \"4x MSAA\" 4 \"8x MSAA\" 8\n"
