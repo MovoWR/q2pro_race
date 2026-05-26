@@ -345,13 +345,19 @@ A new packet was just parsed
 */
 void SCR_AddNetgraph(void)
 {
-    int         i, color, ping_height;
+    int         i, color;
     unsigned    ping;
 
     // if using the debuggraph for something else, don't
     // add the net lines
-    if (scr_debuggraph->integer || scr_timegraph->integer || !scr_netgraph->integer)
+    if (scr_debuggraph->integer || scr_timegraph->integer)
         return;
+
+    for (i = 0; i < cls.netchan.dropped; i++)
+        SCR_DebugGraph(30, 0x40);
+
+    for (i = 0; i < cl.suppress_count; i++)
+        SCR_DebugGraph(30, 0xdf);
 
     if (scr_netgraph->integer > 1) {
         ping = msg_read.cursize;
@@ -366,30 +372,14 @@ void SCR_AddNetgraph(void)
         else
             color = 242;
         ping /= 40;
-        ping_height = 30;
     } else {
         // see what the latency was on this packet
         i = cls.netchan.incoming_acknowledged & CMD_MASK;
-        if (cl.history[i].cmdNumber && cls.realtime >= cl.history[i].sent)
-            ping = cls.realtime - cl.history[i].sent;
-        else
-            ping = 0;
-
-        if (cl.frameflags & FF_SUPPRESSED)
-            color = LAG_WARN;
-        else
-            color = LAG_BASE;
-
-        ping_height = ping;
+        ping = (cls.realtime - cl.history[i].sent) / 30;
+        color = scr_graphcolor->integer;
     }
 
-    for (i = 0; i < cls.netchan.dropped; i++)
-        SCR_DebugGraph(ping_height, LAG_CRIT);
-
-    for (i = 0; i < cl.suppress_count; i++)
-        SCR_DebugGraph(ping_height, LAG_WARN);
-
-    SCR_DebugGraph(scr_netgraph->integer > 1 ? min(ping, 30) : ping, color);
+    SCR_DebugGraph(min(ping, 30), color);
 }
 
 #define GRAPH_SAMPLES   4096
@@ -431,15 +421,6 @@ static void SCR_DrawDebugGraph(void)
 
     w = scr.hud_width;
     y = scr.hud_height;
-
-    if (scr_netgraph->integer && !scr_debuggraph->integer && !scr_timegraph->integer) {
-        float alpha = Cvar_ClampValue(scr_netgraph_alpha, 0, 1);
-        if (alpha > 0) {
-            R_SetAlpha(alpha);
-            R_DrawFill8(0, y - height, w, height, 0);
-            R_SetAlpha(Cvar_ClampValue(scr_alpha, 0, 1));
-        }
-    }
 
     for (a = 0; a < w; a++) {
         i = (graph.current - 1 - a) & GRAPH_MASK;
