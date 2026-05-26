@@ -1080,7 +1080,7 @@ static void SCR_DrawNetBar(void)
     }
     y = Q_clip(y, 0, scr.hud_height - height);
 
-    history = Cvar_ClampInteger(scr_netbar_history, 500, 30000);
+    history = Cvar_ClampInteger(scr_netbar_history, 500, 120000);
     ping_mode = Cvar_ClampInteger(scr_netbar_ping_mode, 0, 2);
     if (mode > 1 && !ping_mode) {
         ping_mode = 2;
@@ -2073,12 +2073,12 @@ void SCR_Init(void)
     scr_lag_draw = Cvar_Get("scr_lag_draw", "0", 0);
     scr_lag_min = Cvar_Get("scr_lag_min", "0", 0);
     scr_lag_max = Cvar_Get("scr_lag_max", "200", 0);
-    scr_netbar = Cvar_Get("scr_netbar", "0", CVAR_ARCHIVE);
+    scr_netbar = Cvar_Get("scr_netbar", "1", CVAR_ARCHIVE);
     scr_netbar_y = Cvar_Get("scr_netbar_y", "-1", CVAR_ARCHIVE);
     scr_netbar_h = Cvar_Get("scr_netbar_h", "4", CVAR_ARCHIVE);
     scr_netbar_alpha = Cvar_Get("scr_netbar_alpha", "0.20", CVAR_ARCHIVE);
     scr_netbar_bad_alpha = Cvar_Get("scr_netbar_bad_alpha", "0.75", CVAR_ARCHIVE);
-    scr_netbar_history = Cvar_Get("scr_netbar_history_ms", "3000", CVAR_ARCHIVE);
+    scr_netbar_history = Cvar_Get("scr_netbar_history_ms", "60000", CVAR_ARCHIVE);
     scr_netbar_ping_mode = Cvar_Get("scr_netbar_ping_mode", "0", CVAR_ARCHIVE);
     scr_netbar_labels = Cvar_Get("scr_netbar_labels", "1", CVAR_ARCHIVE);
     scr_netbar_notice = Cvar_Get("scr_netbar_notice", "2", CVAR_ARCHIVE);

@@ -362,7 +362,7 @@ begin jumpnetwork
     range --status "Vertical offset; negative values align from the bottom edge." "Y position" scr_netbar_y -120 120 1
     range --status "Opacity of normal samples; lower values keep stable network almost invisible." "normal alpha" scr_netbar_alpha 0 1 0.05
     range --status "Opacity of loss/stall/prediction samples." "incident alpha" scr_netbar_bad_alpha 0 1 0.05
-    range --status "How much recent history the bar represents, in milliseconds." "history ms" scr_netbar_history_ms 500 10000 250
+    range --status "How much recent history the bar represents, in milliseconds." "history ms" scr_netbar_history_ms 500 120000 1000
     pairs --status "Fixed is quietest; hybrid adds ping height only when useful." "ping height" scr_netbar_ping_mode off 0 height 1 hybrid 2
     blank
 
