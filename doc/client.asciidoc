@@ -649,6 +649,11 @@ vid_flip_on_switch::
     switching from fullscreen Q2PRO to another application or desktop.  Default
     value is 0 (don't switch video modes).
 
+vid_fullscreen_multimonitor::
+    On Windows, enables modern multi-monitor behavior in fullscreen mode: the
+    mouse is released while the in-game console is open, and the window remains
+    visible when focus moves to another screen. Default value is 1.
+
 vid_hwgamma::
     Instructs the video driver to use hardware gamma correction for
     implementing ‘vid_gamma’.  Default value is 0 (use software gamma).

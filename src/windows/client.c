@@ -22,6 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 win_state_t     win;
 
 static cvar_t   *vid_flip_on_switch;
+static cvar_t   *vid_fullscreen_multimonitor;
 static cvar_t   *vid_hwgamma;
 static cvar_t   *win_noalttab;
 static cvar_t   *win_disablewinkey;
@@ -483,6 +484,8 @@ static void Win_Activate(WPARAM wParam)
     if (win.flags & QVF_FULLSCREEN) {
         if (active == ACT_ACTIVATED) {
             ShowWindow(win.wnd, SW_RESTORE);
+        } else if (!vid_fullscreen_multimonitor->integer) {
+            ShowWindow(win.wnd, SW_MINIMIZE);
         }
 
         if (vid_flip_on_switch->integer) {
@@ -934,6 +937,7 @@ void Win_Init(void)
 
     // register variables
     vid_flip_on_switch = Cvar_Get("vid_flip_on_switch", "0", 0);
+    vid_fullscreen_multimonitor = Cvar_Get("vid_fullscreen_multimonitor", "1", CVAR_ARCHIVE);
     vid_hwgamma = Cvar_Get("vid_hwgamma", "0", CVAR_REFRESH);
     win_noalttab = Cvar_Get("win_noalttab", "0", CVAR_ARCHIVE);
     win_noalttab->changed = win_noalttab_changed;
