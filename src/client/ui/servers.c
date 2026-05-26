@@ -169,6 +169,33 @@ static void FreeSlot(serverslot_t *slot)
     Z_Free(slot);
 }
 
+static void RemoveSlot(int index)
+{
+    serverslot_t *slot = m_servers.list.items[index];
+    int i;
+
+    Z_Free(slot->hostname);
+    FreeSlot(slot);
+
+    m_servers.list.numItems--;
+    for (i = index; i < m_servers.list.numItems; i++) {
+        m_servers.list.items[i] = m_servers.list.items[i + 1];
+        ((serverslot_t *)m_servers.list.items[i])->index = i;
+    }
+    m_servers.list.items[m_servers.list.numItems] = NULL;
+
+    if (index < m_servers.pingindex)
+        m_servers.pingindex--;
+
+    if (index < m_servers.list.curvalue)
+        m_servers.list.curvalue--;
+    else if (index == m_servers.list.curvalue) {
+        if (m_servers.list.curvalue >= m_servers.list.numItems)
+            m_servers.list.curvalue = m_servers.list.numItems - 1;
+        UpdateSelection();
+    }
+}
+
 static serverslot_t *FindSlot(const netadr_t *search, int *index_p)
 {
     serverslot_t *slot, *found = NULL;
@@ -223,6 +250,7 @@ void UI_StatusEvent(const serverStatus_t *status)
     char key[MAX_INFO_STRING];
     char value[MAX_INFO_STRING];
     int i;
+    int index;
 
     // ignore unless menu is up
     if (!m_servers.args) {
@@ -231,26 +259,8 @@ void UI_StatusEvent(const serverStatus_t *status)
 
     // see if already added
     slot = FindSlot(&net_from, &i);
-    if (!slot) {
-        // reply to broadcast, create new slot
-        if (m_servers.list.numItems >= MAX_STATUS_SERVERS) {
-            return;
-        }
-        m_servers.list.numItems++;
-        hostname = UI_CopyString(NET_AdrToString(&net_from));
-        timestamp = m_servers.timestamp;
-    } else {
-        // free previous data
-        hostname = slot->hostname;
-        timestamp = slot->timestamp;
-        FreeSlot(slot);
-    }
 
     host = Info_ValueForKey(info, "hostname");
-    if (COM_IsWhite(host)) {
-        host = hostname;
-    }
-
     mod = Info_ValueForKey(info, "game");
     if (COM_IsWhite(mod)) {
         mod = "baseq2";
@@ -258,24 +268,30 @@ void UI_StatusEvent(const serverStatus_t *status)
 
     if (m_servers.jump_only && !Q_stristr(mod, "jump") && !Q_stristr(mod, "race")) {
         if (slot) {
-            Z_Free(hostname);
-            m_servers.list.numItems--;
-            for (; i < m_servers.list.numItems; i++) {
-                m_servers.list.items[i] = m_servers.list.items[i + 1];
-                ((serverslot_t *)m_servers.list.items[i])->index = i;
-            }
-            m_servers.list.items[m_servers.list.numItems] = NULL;
-            if (i < m_servers.pingindex)
-                m_servers.pingindex--;
-            if (i < m_servers.list.curvalue)
-                m_servers.list.curvalue--;
-            else if (i == m_servers.list.curvalue) {
-                if (m_servers.list.curvalue >= m_servers.list.numItems)
-                    m_servers.list.curvalue = m_servers.list.numItems - 1;
-                UpdateSelection();
-            }
+            RemoveSlot(i);
+            UpdateStatus();
         }
         return;
+    }
+
+    if (!slot) {
+        // reply to broadcast, create new slot
+        if (m_servers.list.numItems >= MAX_STATUS_SERVERS) {
+            return;
+        }
+        index = m_servers.list.numItems++;
+        hostname = UI_CopyString(NET_AdrToString(&net_from));
+        timestamp = m_servers.timestamp;
+    } else {
+        // free previous data
+        index = slot->index;
+        hostname = slot->hostname;
+        timestamp = slot->timestamp;
+        FreeSlot(slot);
+    }
+
+    if (COM_IsWhite(host)) {
+        host = hostname;
     }
 
     map = Info_ValueForKey(info, "mapname");
@@ -300,6 +316,7 @@ void UI_StatusEvent(const serverStatus_t *status)
                             va("%u", ping),
                             NULL);
     slot->status = SLOT_VALID;
+    slot->index = index;
     slot->address = net_from;
     slot->hostname = hostname;
     slot->color = ColorForStatus(status, ping);
