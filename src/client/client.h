@@ -1059,6 +1059,7 @@ void    SCR_RegisterMedia(void);
 void    SCR_ModeChanged(void);
 void    SCR_LagSample(void);
 void    SCR_LagClear(void);
+void    SCR_NetBarPredictionError(int len);
 void    SCR_SetCrosshairColor(void);
 void    SCR_AddNetgraph(void);
 void    SCR_DrawStrafeHelper(void);
