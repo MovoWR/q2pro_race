@@ -1055,6 +1055,10 @@ void    SCR_ModeChanged(void);
 void    SCR_LagSample(void);
 void    SCR_LagClear(void);
 void    SCR_NetBarPredictionError(int len);
+
+void    SH_NetBar_Init(void);
+void    SH_NetBar_Sample(unsigned ping);
+void    SH_NetBar_Draw(void);
 void    SCR_SetCrosshairColor(void);
 void    SCR_AddNetgraph(void);
 void    SCR_DrawStrafeHelper(void);
