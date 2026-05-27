@@ -78,19 +78,19 @@ begin video
     values --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
     toggle --status "Synchronize frame rate with monitor refresh to prevent tearing." "vertical sync" gl_swapinterval
     pairs --status "Smooth jagged edges of geometry (requires video restart)." "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8
-    range --status "Adjust the brightness balance of game textures." "texture gamma" vid_gamma 1.3 0.3
+    range --show-value --status "Adjust the brightness balance of game textures." "texture gamma" vid_gamma 1.3 0.3
     toggle --status "Toggle use of monitor hardware for gamma correction." "hardware gamma" vid_hwgamma
-    range --status "Lower values increase texture detail (requires video restart)." "texture quality" gl_picmip 3 0 -1
+    range --show-value --status "Lower values increase texture detail (requires video restart)." "texture quality" gl_picmip 3 0 -1
     pairs --status "Choose between classic pixelated or modern smooth textures." "texture filter" gl_texturemode \
         nearest GL_NEAREST \
         linear GL_LINEAR \
         bilinear GL_LINEAR_MIPMAP_NEAREST \
         trilinear GL_LINEAR_MIPMAP_LINEAR
     pairs --status "Improve texture clarity on surfaces viewed at an angle." "anisotropic filter" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16
-    range --status "Adjust the color intensity of game world textures." "texture saturation" gl_saturation 0 1
+    range --show-value --status "Adjust the color intensity of game world textures." "texture saturation" gl_saturation 0 1
     pairs --status "Boost the overall brightness of textures." "texture intensity" intensity 1x 1 2x 2 3x 3
-    range --status "Adjust the color intensity of static lightmaps." "lightmap saturation" gl_coloredlightmaps 0 1
-    range --status "Fine-tune the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
+    range --show-value --status "Adjust the color intensity of static lightmaps." "lightmap saturation" gl_coloredlightmaps 0 1
+    range --show-value --status "Fine-tune the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
     values --status "Legacy GL1.x vs Modern GL3.x shaders (requires video restart)." "rendering backend" gl_shaders legacy shaders
 end
 
@@ -116,9 +116,9 @@ begin sound
     background #3f6da080
     style --compact --center --transparent
     values --status "Select the audio output engine (OpenAL recommended)." "sound engine" s_enable "no sound" "software" "OpenAL"
-    range --status "Lower values reduce delay but may cause stuttering." "sound latency" s_mixahead 0.05 0.2
-    range --status "Overall volume of sound effects and voices." "effects volume" s_volume 0 1
-    range --status "Volume level for background OGG music." "music volume" ogg_volume 0 1
+    range --show-value --status "Lower values reduce delay but may cause stuttering." "sound latency" s_mixahead 0.05 0.2
+    range --show-value --status "Overall volume of sound effects and voices." "effects volume" s_volume 0 1
+    range --show-value --status "Volume level for background OGG music." "music volume" ogg_volume 0 1
     toggle --status "Enable or disable background music playback." "enable music" ogg_enable
     toggle --status "Play music tracks in random order." "shuffle tracks" ogg_shuffle
     toggle --status "Apply a muffled audio filter when submerged." "underwater effect" s_underwater
@@ -132,9 +132,9 @@ begin railtrail
     style --compact --center --transparent
     values --status "Visual style of the railgun beam." "rail trail type" cl_railtrail_type \
         "default" "core only" "core and spiral"
-    range --status "How long the trail remains visible in seconds." "rail trail duration" cl_railtrail_time 0.1 3.0 0.1
-    range --status "Thickness of the inner beam." "core width" cl_railcore_width 1 6 1
-    range --status "Radius of the outer spiral effect." "spiral radius" cl_railspiral_radius 1 6 1
+    range --show-value --status "How long the trail remains visible in seconds." "rail trail duration" cl_railtrail_time 0.1 3.0 0.1
+    range --show-value --status "Thickness of the inner beam." "core width" cl_railcore_width 1 6 1
+    range --show-value --status "Radius of the outer spiral effect." "spiral radius" cl_railspiral_radius 1 6 1
     strings --status "Color of the inner beam." "core color" cl_railcore_color \
         black red green yellow blue cyan magenta white
     strings --status "Color of the outer spiral." "spiral color" cl_railspiral_color \
@@ -164,23 +164,23 @@ begin crosshair
     values --status "Style of the center-screen aiming cursor." "crosshair type" crosshair none cross dot angle
     pairs --status "Change the physical size of the crosshair." "crosshair scale" ch_scale 0.5x 0.5 1x 1 2x 2
     toggle --status "Change crosshair color based on player health." "color by health" ch_health
-    range --status "Red intensity of the crosshair color." "red channel" ch_red 0 1
-    range --status "Green intensity of the crosshair color." "green channel" ch_green 0 1
-    range --status "Blue intensity of the crosshair color." "blue channel" ch_blue 0 1
-    range --status "Opacity level of the crosshair." "alpha channel" ch_alpha 0 1
+    range --show-value --status "Red intensity of the crosshair color." "red channel" ch_red 0 1
+    range --show-value --status "Green intensity of the crosshair color." "green channel" ch_green 0 1
+    range --show-value --status "Blue intensity of the crosshair color." "blue channel" ch_blue 0 1
+    range --show-value --status "Opacity level of the crosshair." "alpha channel" ch_alpha 0 1
 end
 
 begin screen
     title "Screen Setup"
     background #3f6da080
     style --compact --center --transparent
-    range --status "Vertical field of view adjustment (legacy)." "screen size" viewsize 40 100 10
+    range --show-value --status "Vertical field of view adjustment (legacy)." "screen size" viewsize 40 100 10
     toggle --status "Show a real-time graph of server latency." "ping graph" scr_lag_draw
     pairs --status "Show a subtle full-width network history bar." "network bar" scr_netbar off 0 subtle 1 hybrid 2 debug 3
     pairs --status "Show short warnings for run-affecting network incidents." "network notice" scr_netbar_notice off 0 bar 1 top 2
     values --status "Detailed recording status bar for demos." "demo bar" scr_demobar no yes verbose
-    range --status "Overall transparency of the in-game HUD." "HUD opacity" scr_alpha 0 1
-    range --status "Transparency of the background console." "console opacity" con_alpha 0 1
+    range --show-value --status "Overall transparency of the in-game HUD." "HUD opacity" scr_alpha 0 1
+    range --show-value --status "Transparency of the background console." "console opacity" con_alpha 0 1
     pairs --status "Scale factor for all HUD elements." "HUD scale" scr_scale auto 0 1x 1 2x 2 4x 4
     pairs --status "Scale factor for the console text." "console scale" con_scale auto 0 1x 1 2x 2 4x 4
     pairs --status "Scale factor for this menu system." "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
@@ -277,18 +277,18 @@ begin strafehelper
     title "Strafe Helper"
     background #3f6da080
     style --compact --center --transparent --live
-    toggle --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
-    toggle --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker
-    range --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1
-    range --status "Vertical position from the top of the screen." "Y position" sh_y 0 320 5
-    range --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1
-    range --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
-    toggle --status "Automatically hide the bar when not moving." "fade inactive" sh_fade_inactive
-    strings --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
-    range --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1
-    pairs --status "Easing curve used by strafe helper smoothing." "smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5
-    range --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
-    range --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
+    toggle --show-value --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
+    toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker
+    range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1
+    range --show-value --status "Vertical position from the top of the screen." "Y position" sh_y 0 320 5
+    range --show-value --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1
+    range --show-value --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
+    toggle --show-value --status "Automatically hide the bar when not moving." "fade inactive" sh_fade_inactive
+    strings --show-value --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
+    range --show-value --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1
+    pairs --show-value --status "Easing curve used by strafe helper smoothing." "smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5
+    range --show-value --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
+    range --show-value --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
     field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating
     field --picker --status "Color when moving at perfect angle." "optimal color" sh_color_optimal
     field --picker --status "Color of the center neutral marker." "center marker color" sh_color_centermarker
@@ -315,13 +315,13 @@ begin jumpups
     title "UPS Display"
     background #3f6da080
     style --compact --center --transparent --live
-    toggle --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
-    range --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 4 0.25
-    range --status "Vertical offset from screen center." "Y position" sh_ups_y -300 300 5
-    toggle --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow
-    toggle --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero
-    strings --status "How speed changes affect text color." "color mode" sh_ups_color_mode dynamic static threshold rainbow
-    strings --status "Display speed as raw number or with label." "format" sh_ups_format plain suffix prefix
+    toggle --show-value --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
+    range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 4 0.25
+    range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -300 300 5
+    toggle --show-value --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow
+    toggle --show-value --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero
+    strings --show-value --status "How speed changes affect text color." "color mode" sh_ups_color_mode dynamic static threshold rainbow
+    strings --show-value --status "Display speed as raw number or with label." "format" sh_ups_format plain suffix prefix
     field --picker --status "Color used when gaining speed." "gain color" sh_ups_color_gain
     field --picker --status "Color used when losing speed." "loss color" sh_ups_color_loss
     field --picker --status "Color used when at constant speed." "neutral color" sh_ups_color_neutral
@@ -332,9 +332,9 @@ begin raceline
     title "Race Line"
     background #3f6da080
     style --compact --center --transparent --live
-    range --status "Thickness of the movement trail line." "width" race_width 0 20 1
-    range --status "Opacity level of the movement trail." "opacity" race_alpha 0 1 0.05
-    range --status "Duration before the line fades away (ms)." "lifetime (ms)" race_life 0 5000 100
+    range --show-value --status "Thickness of the movement trail line." "width" race_width 0 20 1
+    range --show-value --status "Opacity level of the movement trail." "opacity" race_alpha 0 1 0.05
+    range --show-value --status "Duration before the line fades away (ms)." "lifetime (ms)" race_life 0 5000 100
     field --picker --status "Color of the movement trail line." "line color" race_color
 end
 
