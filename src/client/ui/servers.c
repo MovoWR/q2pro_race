@@ -859,18 +859,6 @@ static int playercmp(serverslot_t *s1, serverslot_t *s2)
     return (s2->numPlayers - s1->numPlayers) * m_servers.list.sortdir;
 }
 
-static int addresscmp(serverslot_t *s1, serverslot_t *s2)
-{
-    if (s1->address.ip.u32 > s2->address.ip.u32)
-        return 1;
-    if (s1->address.ip.u32 < s2->address.ip.u32)
-        return -1;
-    if (s1->address.port > s2->address.port)
-        return 1;
-    if (s1->address.port < s2->address.port)
-        return -1;
-    return 0;
-}
 
 static int slotcmp(const void *p1, const void *p2)
 {
