@@ -260,6 +260,7 @@ const char *ui_builtin_menu =
 "    style --compact --center --transparent --live\n"
 "    toggle --status \"Show current movement speed (Units Per Second).\" \"enabled\" sh_ups\n"
 "    range --status \"Scale factor for the speed digits.\" \"scale\" sh_ups_scale 0.25 4 0.25\n"
+"    range --status \"Vertical offset from screen center.\" \"Y position\" sh_ups_y -300 300 5\n"
 "    toggle --status \"Draw a drop-shadow behind the speed digits.\" \"shadow\" sh_ups_shadow\n"
 "    toggle --status \"Hide the display when speed is zero.\" \"hide zero\" sh_ups_hide_zero\n"
 "    strings --status \"How speed changes affect text color.\" \"color mode\" sh_ups_color_mode dynamic static threshold rainbow\n"

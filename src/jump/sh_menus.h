@@ -45,6 +45,8 @@ void SH_Ups_Help_f(void);
 
 void SH_Ups_Scale_f(void);
 
+void SH_Ups_Ypos_f(void);
+
 void SH_Ups_Shadow_f(void);
 
 void SH_Ups_HideZero_f(void);

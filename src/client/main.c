@@ -118,6 +118,7 @@ cvar_t *cl_strafeHelperScale;
 cvar_t *cl_strafeHelperY;
 cvar_t *cl_strafehelperUps;
 cvar_t *cl_strafehelperUpsScale;
+cvar_t *cl_strafehelperUpsY;
 cvar_t *cl_strafehelperUpsShadow;
 cvar_t *cl_strafehelperUpsHideZero;
 cvar_t *cl_strafehelperUpsColorMode;
@@ -3202,6 +3203,7 @@ static void CL_InitLocal(void)
     cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
     cl_strafehelperUps = Cvar_Get("sh_ups", "0", CVAR_ARCHIVE);
     cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1", CVAR_ARCHIVE);
+    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "0", CVAR_ARCHIVE);
     cl_strafehelperUpsShadow = Cvar_Get("sh_ups_shadow", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "0", CVAR_ARCHIVE);
     cl_strafehelperUpsColorMode = Cvar_Get("sh_ups_color_mode", "dynamic", CVAR_ARCHIVE);

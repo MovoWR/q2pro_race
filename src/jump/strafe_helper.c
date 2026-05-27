@@ -409,6 +409,9 @@ void SH_Ups_Draw(const float hud_width, const float hud_height,
     const float draw_scale = (hud_scale > 0.0f ? hud_scale : 1.0f) / text_scale;
     const float draw_hud_width = hud_width / text_scale;
     const float draw_hud_height = hud_height / text_scale;
+    const float y_offset = cl_strafehelperUpsY
+                           ? Cvar_ClampValue(cl_strafehelperUpsY, -hud_height, hud_height) / text_scale
+                           : 0.0f;
     int flags = UI_CENTER;
 
     if (!cl_strafehelperUps || !cl_strafehelperUps->integer) {
@@ -432,7 +435,7 @@ void SH_Ups_Draw(const float hud_width, const float hud_height,
     R_SetColor(SH_Ups_ColorForSpeed(speed));
     R_SetScale(draw_scale);
     SCR_DrawStringEx(Q_rint(draw_hud_width / 2.0f),
-                     Q_rint((draw_hud_height - CHAR_HEIGHT) / 2.0f),
+                     Q_rint((draw_hud_height - CHAR_HEIGHT) / 2.0f + y_offset),
                      flags, MAX_STRING_CHARS, buffer, font_pic);
     R_SetScale(hud_scale);
     R_ClearColor();

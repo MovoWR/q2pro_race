@@ -65,6 +65,7 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
             Prompt_AddMatch(ctx, "toggle");
             Prompt_AddMatch(ctx, "status");
             Prompt_AddMatch(ctx, "scale");
+            Prompt_AddMatch(ctx, "ypos");
             Prompt_AddMatch(ctx, "shadow");
             Prompt_AddMatch(ctx, "hide_zero");
             Prompt_AddMatch(ctx, "color_mode");
@@ -186,6 +187,8 @@ void SH_Cmd_f(void) {
             SH_Ups_Status_f();
         else if (!strcmp(cmd, "scale"))
             SH_Ups_Scale_f();
+        else if (!strcmp(cmd, "ypos"))
+            SH_Ups_Ypos_f();
         else if (!strcmp(cmd, "shadow"))
             SH_Ups_Shadow_f();
         else if (!strcmp(cmd, "hide_zero"))
@@ -238,6 +241,7 @@ void SH_Status_f(void) {
     Com_Printf("------------------------------------------------------------------\n");
     Com_Printf("  %-20s : %-20d : def: %d\n", "Enabled", cl_strafehelperUps->integer, 0);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Scale", cl_strafehelperUpsScale->value, 1.0f);
+    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Y pos", cl_strafehelperUpsY->value, 0.0f);
     Com_Printf("  %-20s : %-20d : def: %d\n", "Shadow", cl_strafehelperUpsShadow->integer, 1);
     Com_Printf("  %-20s : %-20d : def: %d\n", "Hide zero", cl_strafehelperUpsHideZero->integer, 0);
     Com_Printf("  %-20s : %-20s : def: %s\n", "Color mode", cl_strafehelperUpsColorMode->string, "dynamic");

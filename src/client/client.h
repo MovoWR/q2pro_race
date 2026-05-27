@@ -610,6 +610,7 @@ extern cvar_t    *cl_strafeHelperScale;
 extern cvar_t    *cl_strafeHelperY;
 extern cvar_t    *cl_strafehelperUps;
 extern cvar_t    *cl_strafehelperUpsScale;
+extern cvar_t    *cl_strafehelperUpsY;
 extern cvar_t    *cl_strafehelperUpsShadow;
 extern cvar_t    *cl_strafehelperUpsHideZero;
 extern cvar_t    *cl_strafehelperUpsColorMode;

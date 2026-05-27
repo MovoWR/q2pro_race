@@ -365,6 +365,7 @@ void SH_Ups_Toggle_f(void) {
 void SH_Ups_Status_f(void) {
     Com_Printf("- Center UPS: %s\n", cl_strafehelperUps->integer ? "enabled" : "disabled");
     Com_Printf("- Scale: %.2f\n", cl_strafehelperUpsScale->value);
+    Com_Printf("- Y pos: %.2f\n", cl_strafehelperUpsY->value);
     Com_Printf("- Shadow: %d\n", cl_strafehelperUpsShadow->integer);
     Com_Printf("- Hide zero: %d\n", cl_strafehelperUpsHideZero->integer);
     Com_Printf("- Color mode: %s\n", cl_strafehelperUpsColorMode->string);
@@ -372,6 +373,23 @@ void SH_Ups_Status_f(void) {
     Com_Printf("- Gain color: %s\n", cl_strafehelperUpsColorGain->string);
     Com_Printf("- Loss color: %s\n", cl_strafehelperUpsColorLoss->string);
     Com_Printf("- Neutral color: %s\n", cl_strafehelperUpsColorNeutral->string);
+}
+
+void SH_Ups_Ypos_f(void) {
+    const char *ypos = Cmd_Argv(3);
+    float value;
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Center UPS Y pos: %.2f\n", cl_strafehelperUpsY->value);
+        return;
+    }
+
+    if (sscanf(ypos, "%f", &value) == 1 && value >= -1000.0f && value <= 1000.0f) {
+        Cvar_Set("sh_ups_y", ypos);
+        Com_Printf("Center UPS Y pos set to: %s\n", ypos);
+    } else {
+        Com_Printf("Invalid Y position value. Usage: 'sh ups ypos <-1000-1000>'\n");
+    }
 }
 
 void SH_Ups_Scale_f(void) {
@@ -483,6 +501,7 @@ void SH_Ups_Help_f(void) {
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Layout\n");
     Com_Printf("  %-32s %s\n", "scale <0.25-8.0>", "Resize center UPS text.");
+    Com_Printf("  %-32s %s\n", "ypos <-1000-1000>", "Move center UPS text up/down from center.");
     Com_Printf("  %-32s %s\n", "shadow <0|1>", "Toggle text shadow.");
     Com_Printf("  %-32s %s\n", "hide_zero <0|1>", "Hide when rounded UPS is 0.");
     Com_Printf("  %-32s %s\n", "format <plain|suffix|prefix>", "Use 742, 742 ups, or UPS: 742.");
