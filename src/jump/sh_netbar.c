@@ -13,6 +13,14 @@ cvar_t   *scr_netbar_notice;
 cvar_t   *scr_netbar_notice_y;
 cvar_t   *scr_netbar_notice_ms;
 cvar_t   *scr_netbar_notice_alpha;
+cvar_t   *scr_netbar_notice_stall;
+cvar_t   *scr_netbar_notice_loss;
+cvar_t   *scr_netbar_notice_pred;
+cvar_t   *scr_netbar_notice_choke;
+cvar_t   *scr_netbar_notice_frame;
+cvar_t   *scr_netbar_notice_jitter;
+cvar_t   *scr_netbar_notice_spike;
+cvar_t   *scr_netbar_notice_ping;
 cvar_t   *scr_netwarn_highping;
 cvar_t   *scr_netwarn_ping_adaptive;
 cvar_t   *scr_netwarn_spike_ms;
@@ -78,6 +86,14 @@ void SH_NetBar_Init(void)
     scr_netbar_notice_y = Cvar_Get("scr_netbar_notice_y", "48", CVAR_ARCHIVE);
     scr_netbar_notice_ms = Cvar_Get("scr_netbar_notice_ms", "1200", CVAR_ARCHIVE);
     scr_netbar_notice_alpha = Cvar_Get("scr_netbar_notice_alpha", "0.85", CVAR_ARCHIVE);
+    scr_netbar_notice_stall = Cvar_Get("scr_netbar_notice_stall", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_loss = Cvar_Get("scr_netbar_notice_loss", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_pred = Cvar_Get("scr_netbar_notice_pred", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_choke = Cvar_Get("scr_netbar_notice_choke", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_frame = Cvar_Get("scr_netbar_notice_frame", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_jitter = Cvar_Get("scr_netbar_notice_jitter", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_spike = Cvar_Get("scr_netbar_notice_spike", "1", CVAR_ARCHIVE);
+    scr_netbar_notice_ping = Cvar_Get("scr_netbar_notice_ping", "1", CVAR_ARCHIVE);
 
     scr_netwarn_highping = Cvar_Get("scr_netwarn_highping", "0", CVAR_ARCHIVE);
     scr_netwarn_ping_adaptive = Cvar_Get("scr_netwarn_ping_adaptive", "1", CVAR_ARCHIVE);
@@ -253,6 +269,53 @@ static const char *SCR_NetBarLabel(unsigned flags)
     return NULL;
 }
 
+static bool SCR_NetBarNoticeEnabled(unsigned flag)
+{
+    switch (flag) {
+    case NETBAR_STALL:
+        return scr_netbar_notice_stall->integer != 0;
+    case NETBAR_LOSS:
+        return scr_netbar_notice_loss->integer != 0;
+    case NETBAR_PRED:
+        return scr_netbar_notice_pred->integer != 0;
+    case NETBAR_CHOKE:
+        return scr_netbar_notice_choke->integer != 0;
+    case NETBAR_FRAME:
+        return scr_netbar_notice_frame->integer != 0;
+    case NETBAR_JITTER:
+        return scr_netbar_notice_jitter->integer != 0;
+    case NETBAR_SPIKE:
+        return scr_netbar_notice_spike->integer != 0;
+    case NETBAR_PING:
+        return scr_netbar_notice_ping->integer != 0;
+    default:
+        return false;
+    }
+}
+
+static unsigned SCR_NetBarNoticeFlags(unsigned flags)
+{
+    unsigned ordered[] = {
+        NETBAR_STALL,
+        NETBAR_LOSS,
+        NETBAR_PRED,
+        NETBAR_CHOKE,
+        NETBAR_FRAME,
+        NETBAR_JITTER,
+        NETBAR_SPIKE,
+        NETBAR_PING
+    };
+    size_t i;
+
+    for (i = 0; i < q_countof(ordered); i++) {
+        if ((flags & ordered[i]) && SCR_NetBarNoticeEnabled(ordered[i])) {
+            return ordered[i];
+        }
+    }
+
+    return 0;
+}
+
 static const char *SCR_NetBarNotice(unsigned flags)
 {
     if (flags & NETBAR_STALL) {
@@ -283,7 +346,8 @@ static const char *SCR_NetBarNotice(unsigned flags)
 }
 
 static void SCR_NetBarActiveWarning(unsigned *flags, unsigned *ping,
-                                    netbar_severity_t *severity, unsigned hold)
+                                    netbar_severity_t *severity, unsigned hold,
+                                    bool notice_only)
 {
     unsigned count, now = cls.realtime;
     unsigned i, age;
@@ -294,6 +358,8 @@ static void SCR_NetBarActiveWarning(unsigned *flags, unsigned *ping,
 
     for (count = 0; count < NETBAR_SAMPLES; count++) {
         netbar_sample_t *sample = &netbar.samples[(netbar.head - 1 - count) & NETBAR_MASK];
+        unsigned sample_flags;
+
         if (!sample->time) {
             break;
         }
@@ -303,15 +369,23 @@ static void SCR_NetBarActiveWarning(unsigned *flags, unsigned *ping,
             break;
         }
 
+        sample_flags = notice_only ? SCR_NetBarNoticeFlags(sample->flags) : sample->flags;
+        if (!sample_flags) {
+            continue;
+        }
+
         if (sample->severity > *severity) {
             *severity = sample->severity;
-            *flags = sample->flags;
+            *flags = sample_flags;
             *ping = sample->ping;
         }
     }
 
     i = Cvar_ClampInteger(scr_netwarn_stall_ms, 0, 10000);
     if (i && cls.netchan.last_received && now - cls.netchan.last_received >= i) {
+        if (notice_only && !SCR_NetBarNoticeEnabled(NETBAR_STALL)) {
+            return;
+        }
         *flags = NETBAR_STALL;
         *ping = netbar.last_ping;
         *severity = now - cls.netchan.last_received >=
@@ -333,7 +407,7 @@ static void SCR_DrawNetBarLabel(int y)
         return;
     }
 
-    SCR_NetBarActiveWarning(&flags, &ping, &severity, 900);
+    SCR_NetBarActiveWarning(&flags, &ping, &severity, 900, false);
     if (severity == NETBAR_SEV_NONE) {
         return;
     }
@@ -383,7 +457,8 @@ static void SCR_DrawNetBarNotice(int bar_y, int bar_h)
     }
 
     SCR_NetBarActiveWarning(&flags, &ping, &severity,
-                            Cvar_ClampInteger(scr_netbar_notice_ms, 250, 5000));
+                            Cvar_ClampInteger(scr_netbar_notice_ms, 250, 5000),
+                            true);
     if (severity == NETBAR_SEV_NONE) {
         return;
     }

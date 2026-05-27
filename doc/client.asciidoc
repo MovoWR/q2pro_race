@@ -545,6 +545,13 @@ scr_netbar_notice_ms::
 scr_netbar_notice_alpha::
     Opacity of incident notice text. Default value is 0.85.
 
+scr_netbar_notice_stall, scr_netbar_notice_loss, scr_netbar_notice_pred,
+scr_netbar_notice_choke, scr_netbar_notice_frame, scr_netbar_notice_jitter,
+scr_netbar_notice_spike, scr_netbar_notice_ping::
+    Toggles each incident notice type independently. Default value is 1 for
+    every notice type. These only affect the large incident notice; the network
+    bar history and small bar label keep using all detected incidents.
+
 scr_netwarn_highping::
     Optional absolute high ping warning threshold, in milliseconds. Default
     value is 0, which disables absolute high ping warnings. This keeps stable
