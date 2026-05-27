@@ -52,6 +52,22 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+      - name: Set up vcpkg
+        run: |
+          $vcpkgRoot = Split-Path (Get-Command vcpkg).Source -Parent
+          Add-Content $env:GITHUB_ENV "VCPKG_INSTALLATION_ROOT=$vcpkgRoot"
+          Add-Content $env:GITHUB_ENV "VCPKG_ROOT=$vcpkgRoot"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed\${{ matrix.vcpkg-triplet }}
+            C:\vcpkg\packages
+            C:\vcpkg\downloads
+          key: vcpkg-${{ matrix.vcpkg-triplet }}-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            vcpkg-${{ matrix.vcpkg-triplet }}-
+
       - name: Install NASM
         run: |
           choco install nasm -y --no-progress
@@ -67,10 +83,6 @@ jobs:
         run: |
           pip3 install --no-input meson ninja
           choco install pkgconfiglite -y --no-progress
-          if (-not $env:VCPKG_INSTALLATION_ROOT) {
-            $env:VCPKG_INSTALLATION_ROOT = Split-Path (Get-Command vcpkg).Source -Parent
-            Add-Content $env:GITHUB_ENV "VCPKG_INSTALLATION_ROOT=$env:VCPKG_INSTALLATION_ROOT"
-          }
           vcpkg install "ffmpeg[avcodec,avformat,swresample,swscale]:${{ matrix.vcpkg-triplet }}"
 
       - name: Build
