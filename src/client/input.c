@@ -807,7 +807,7 @@ void CL_RegisterInput(void)
 #endif
     cl_instantpacket = Cvar_Get("cl_instantpacket", "1", 0);
     cl_batchcmds = Cvar_Get("cl_batchcmds", "1", 0);
-    cl_preserve_jump_edges = Cvar_Get("cl_preserve_jump_edges", "1", CVAR_ARCHIVE);
+    cl_preserve_jump_edges = Cvar_Get("cl_preserve_jump_edges", "0", CVAR_ARCHIVE);
 
     cl_upspeed = Cvar_Get("cl_upspeed", "200", 0);
     cl_forwardspeed = Cvar_Get("cl_forwardspeed", "200", 0);
