@@ -31,34 +31,7 @@ typedef struct {
     uint16_t    crop;
 } cin_crop_t;
 
-static struct {
-    bool        initialized;        // ready to draw
-
-    qhandle_t   crosshair_pic;
-    int         crosshair_width, crosshair_height;
-    color_t     crosshair_color;
-
-    qhandle_t   hit_marker_pic;
-    int         hit_marker_width, hit_marker_height;
-
-    qhandle_t   pause_pic;
-
-
-    qhandle_t   loading_pic;
-    bool        draw_loading;
-
-    qhandle_t   sb_pics[2][STAT_PICS];
-    qhandle_t   inven_pic;
-    qhandle_t   field_pic;
-
-    qhandle_t   backtile_pic;
-
-    qhandle_t   net_pic;
-    qhandle_t   font_pic;
-
-    int         hud_width, hud_height;
-    float       hud_scale;
-} scr;
+scr_t scr;
 
 static cvar_t   *scr_viewsize;
 static cvar_t   *scr_centertime;
@@ -86,7 +59,8 @@ static cvar_t   *scr_lag_draw;
 static cvar_t   *scr_lag_min;
 static cvar_t   *scr_lag_max;
 
-static cvar_t   *scr_alpha;
+cvar_t   *scr_alpha;
+
 
 static cvar_t   *scr_demobar;
 static cvar_t   *scr_font;
@@ -135,9 +109,6 @@ UTILS
 
 ===============================================================================
 */
-
-#define SCR_DrawString(x, y, flags, string) \
-    SCR_DrawStringEx(x, y, flags, MAX_STRING_CHARS, string, scr.font_pic)
 
 /*
 ==============
@@ -1517,28 +1488,8 @@ void SCR_Init(void)
     scr_lag_draw = Cvar_Get("scr_lag_draw", "0", 0);
     scr_lag_min = Cvar_Get("scr_lag_min", "0", 0);
     scr_lag_max = Cvar_Get("scr_lag_max", "200", 0);
-    scr_netbar = Cvar_Get("scr_netbar", "1", CVAR_ARCHIVE);
-    scr_netbar_y = Cvar_Get("scr_netbar_y", "-1", CVAR_ARCHIVE);
-    scr_netbar_h = Cvar_Get("scr_netbar_h", "4", CVAR_ARCHIVE);
-    scr_netbar_alpha = Cvar_Get("scr_netbar_alpha", "0.20", CVAR_ARCHIVE);
-    scr_netbar_bad_alpha = Cvar_Get("scr_netbar_bad_alpha", "0.75", CVAR_ARCHIVE);
-    scr_netbar_history = Cvar_Get("scr_netbar_history_ms", "60000", CVAR_ARCHIVE);
-    scr_netbar_ping_mode = Cvar_Get("scr_netbar_ping_mode", "0", CVAR_ARCHIVE);
-    scr_netbar_labels = Cvar_Get("scr_netbar_labels", "1", CVAR_ARCHIVE);
-    scr_netbar_notice = Cvar_Get("scr_netbar_notice", "2", CVAR_ARCHIVE);
-    scr_netbar_notice_y = Cvar_Get("scr_netbar_notice_y", "48", CVAR_ARCHIVE);
-    scr_netbar_notice_ms = Cvar_Get("scr_netbar_notice_ms", "1200", CVAR_ARCHIVE);
-    scr_netbar_notice_alpha = Cvar_Get("scr_netbar_notice_alpha", "0.85", CVAR_ARCHIVE);
-    scr_netwarn_highping = Cvar_Get("scr_netwarn_highping", "0", CVAR_ARCHIVE);
-    scr_netwarn_ping_adaptive = Cvar_Get("scr_netwarn_ping_adaptive", "1", CVAR_ARCHIVE);
-    scr_netwarn_spike_ms = Cvar_Get("scr_netwarn_spike_ms", "60", CVAR_ARCHIVE);
-    scr_netwarn_spike_pct = Cvar_Get("scr_netwarn_spike_pct", "25", CVAR_ARCHIVE);
-    scr_netwarn_jitter_ms = Cvar_Get("scr_netwarn_jitter_ms", "18", CVAR_ARCHIVE);
-    scr_netwarn_stall_ms = Cvar_Get("scr_netwarn_stall_ms", "500", CVAR_ARCHIVE);
-    scr_netwarn_stall_crit_ms = Cvar_Get("scr_netwarn_stall_crit_ms", "1000", CVAR_ARCHIVE);
-    scr_netwarn_pred_warn = Cvar_Get("scr_netwarn_pred_warn", "24", CVAR_ARCHIVE);
-    scr_netwarn_pred_crit = Cvar_Get("scr_netwarn_pred_crit", "80", CVAR_ARCHIVE);
     scr_alpha = Cvar_Get("scr_alpha", "1", 0);
+
 #if USE_DEBUG
     scr_showstats = Cvar_Get("scr_showstats", "0", 0);
     scr_showpmove = Cvar_Get("scr_showpmove", "0", 0);

@@ -997,6 +997,50 @@ void CL_Stop_f(void);
 bool CL_GetDemoInfo(const char *path, demoInfo_t *info);
 
 
+#define STAT_PICS       11
+#define STAT_MINUS      (STAT_PICS - 1)  // num frame for '-' stats digit
+
+typedef struct {
+    bool        initialized;        // ready to draw
+
+    qhandle_t   crosshair_pic;
+    int         crosshair_width, crosshair_height;
+    color_t     crosshair_color;
+
+    qhandle_t   hit_marker_pic;
+    int         hit_marker_width, hit_marker_height;
+
+    qhandle_t   pause_pic;
+
+
+    qhandle_t   loading_pic;
+    bool        draw_loading;
+
+    qhandle_t   sb_pics[2][STAT_PICS];
+    qhandle_t   inven_pic;
+    qhandle_t   field_pic;
+
+    qhandle_t   backtile_pic;
+
+    qhandle_t   net_pic;
+    qhandle_t   font_pic;
+
+    int         hud_width, hud_height;
+    float       hud_scale;
+} scr_t;
+
+extern scr_t scr;
+
+#define LAG_WARN_BIT    BIT(30)
+#define LAG_CRIT_BIT    BIT(31)
+
+#define LAG_BASE    0xD5
+#define LAG_WARN    0xDC
+#define LAG_CRIT    0xF2
+
+#define SCR_DrawString(x, y, flags, string) \
+    SCR_DrawStringEx(x, y, flags, MAX_STRING_CHARS, string, scr.font_pic)
+
 //
 // locs.c
 //
@@ -1054,11 +1098,35 @@ void    SCR_RegisterMedia(void);
 void    SCR_ModeChanged(void);
 void    SCR_LagSample(void);
 void    SCR_LagClear(void);
-void    SCR_NetBarPredictionError(int len);
+void    SH_NetBar_PredictionError(int len);
 
 void    SH_NetBar_Init(void);
 void    SH_NetBar_Sample(unsigned ping);
 void    SH_NetBar_Draw(void);
+
+extern cvar_t *scr_netbar;
+extern cvar_t *scr_netbar_y;
+extern cvar_t *scr_netbar_h;
+extern cvar_t *scr_netbar_alpha;
+extern cvar_t *scr_netbar_bad_alpha;
+extern cvar_t *scr_netbar_history;
+extern cvar_t *scr_netbar_ping_mode;
+extern cvar_t *scr_netbar_labels;
+extern cvar_t *scr_netbar_notice;
+extern cvar_t *scr_netbar_notice_y;
+extern cvar_t *scr_netbar_notice_ms;
+extern cvar_t *scr_netbar_notice_alpha;
+extern cvar_t *scr_netwarn_highping;
+extern cvar_t *scr_netwarn_ping_adaptive;
+extern cvar_t *scr_netwarn_spike_ms;
+extern cvar_t *scr_netwarn_spike_pct;
+extern cvar_t *scr_netwarn_jitter_ms;
+extern cvar_t *scr_netwarn_stall_ms;
+extern cvar_t *scr_netwarn_stall_crit_ms;
+extern cvar_t *scr_netwarn_pred_warn;
+extern cvar_t *scr_netwarn_pred_crit;
+extern cvar_t *scr_alpha;
+
 void    SCR_SetCrosshairColor(void);
 void    SCR_AddNetgraph(void);
 void    SCR_DrawStrafeHelper(void);

@@ -77,6 +77,7 @@ ui_src = [
   'src/client/ui/servers.c',
   'src/client/ui/ui.c',
   'src/client/ui/builtin_menu.c',
+  'src/jump/sh_netbar.c',
   'src/jump/strafe_helper.c',
   'src/jump/sh_menus.c',
   'src/jump/sh_nerdstats.c',

@@ -1,27 +1,27 @@
 #include <src/client/client.h>
 #include "sh_netbar.h"
 
-static cvar_t   *scr_netbar;
-static cvar_t   *scr_netbar_y;
-static cvar_t   *scr_netbar_h;
-static cvar_t   *scr_netbar_alpha;
-static cvar_t   *scr_netbar_bad_alpha;
-static cvar_t   *scr_netbar_history;
-static cvar_t   *scr_netbar_ping_mode;
-static cvar_t   *scr_netbar_labels;
-static cvar_t   *scr_netbar_notice;
-static cvar_t   *scr_netbar_notice_y;
-static cvar_t   *scr_netbar_notice_ms;
-static cvar_t   *scr_netbar_notice_alpha;
-static cvar_t   *scr_netwarn_highping;
-static cvar_t   *scr_netwarn_ping_adaptive;
-static cvar_t   *scr_netwarn_spike_ms;
-static cvar_t   *scr_netwarn_spike_pct;
-static cvar_t   *scr_netwarn_jitter_ms;
-static cvar_t   *scr_netwarn_stall_ms;
-static cvar_t   *scr_netwarn_stall_crit_ms;
-static cvar_t   *scr_netwarn_pred_warn;
-static cvar_t   *scr_netwarn_pred_crit;
+cvar_t   *scr_netbar;
+cvar_t   *scr_netbar_y;
+cvar_t   *scr_netbar_h;
+cvar_t   *scr_netbar_alpha;
+cvar_t   *scr_netbar_bad_alpha;
+cvar_t   *scr_netbar_history;
+cvar_t   *scr_netbar_ping_mode;
+cvar_t   *scr_netbar_labels;
+cvar_t   *scr_netbar_notice;
+cvar_t   *scr_netbar_notice_y;
+cvar_t   *scr_netbar_notice_ms;
+cvar_t   *scr_netbar_notice_alpha;
+cvar_t   *scr_netwarn_highping;
+cvar_t   *scr_netwarn_ping_adaptive;
+cvar_t   *scr_netwarn_spike_ms;
+cvar_t   *scr_netwarn_spike_pct;
+cvar_t   *scr_netwarn_jitter_ms;
+cvar_t   *scr_netwarn_stall_ms;
+cvar_t   *scr_netwarn_stall_crit_ms;
+cvar_t   *scr_netwarn_pred_warn;
+cvar_t   *scr_netwarn_pred_crit;
 
 typedef enum {
     NETBAR_SPIKE   = BIT(0),
@@ -66,28 +66,28 @@ static struct {
 
 void SH_NetBar_Init(void)
 {
-    scr_netbar = Cvar_Get("netbar", "0", CVAR_ARCHIVE);
-    scr_netbar_y = Cvar_Get("netbar_y", "-8", CVAR_ARCHIVE);
-    scr_netbar_h = Cvar_Get("netbar_h", "8", CVAR_ARCHIVE);
-    scr_netbar_alpha = Cvar_Get("netbar_alpha", "0.2", CVAR_ARCHIVE);
-    scr_netbar_bad_alpha = Cvar_Get("netbar_bad_alpha", "1.0", CVAR_ARCHIVE);
-    scr_netbar_history = Cvar_Get("netbar_history", "8000", CVAR_ARCHIVE);
-    scr_netbar_ping_mode = Cvar_Get("netbar_ping_mode", "1", CVAR_ARCHIVE);
-    scr_netbar_labels = Cvar_Get("netbar_labels", "2", CVAR_ARCHIVE);
-    scr_netbar_notice = Cvar_Get("netbar_notice", "1", CVAR_ARCHIVE);
-    scr_netbar_notice_y = Cvar_Get("netbar_notice_y", "0", CVAR_ARCHIVE);
-    scr_netbar_notice_ms = Cvar_Get("netbar_notice_ms", "2500", CVAR_ARCHIVE);
-    scr_netbar_notice_alpha = Cvar_Get("netbar_notice_alpha", "1.0", CVAR_ARCHIVE);
+    scr_netbar = Cvar_Get("scr_netbar", "1", CVAR_ARCHIVE);
+    scr_netbar_y = Cvar_Get("scr_netbar_y", "-1", CVAR_ARCHIVE);
+    scr_netbar_h = Cvar_Get("scr_netbar_h", "4", CVAR_ARCHIVE);
+    scr_netbar_alpha = Cvar_Get("scr_netbar_alpha", "0.20", CVAR_ARCHIVE);
+    scr_netbar_bad_alpha = Cvar_Get("scr_netbar_bad_alpha", "0.75", CVAR_ARCHIVE);
+    scr_netbar_history = Cvar_Get("scr_netbar_history_ms", "60000", CVAR_ARCHIVE);
+    scr_netbar_ping_mode = Cvar_Get("scr_netbar_ping_mode", "0", CVAR_ARCHIVE);
+    scr_netbar_labels = Cvar_Get("scr_netbar_labels", "1", CVAR_ARCHIVE);
+    scr_netbar_notice = Cvar_Get("scr_netbar_notice", "2", CVAR_ARCHIVE);
+    scr_netbar_notice_y = Cvar_Get("scr_netbar_notice_y", "48", CVAR_ARCHIVE);
+    scr_netbar_notice_ms = Cvar_Get("scr_netbar_notice_ms", "1200", CVAR_ARCHIVE);
+    scr_netbar_notice_alpha = Cvar_Get("scr_netbar_notice_alpha", "0.85", CVAR_ARCHIVE);
 
-    scr_netwarn_highping = Cvar_Get("netwarn_highping", "0", CVAR_ARCHIVE);
-    scr_netwarn_ping_adaptive = Cvar_Get("netwarn_ping_adaptive", "1", CVAR_ARCHIVE);
-    scr_netwarn_spike_ms = Cvar_Get("netwarn_spike_ms", "25", CVAR_ARCHIVE);
-    scr_netwarn_spike_pct = Cvar_Get("netwarn_spike_pct", "25", CVAR_ARCHIVE);
-    scr_netwarn_jitter_ms = Cvar_Get("netwarn_jitter_ms", "15", CVAR_ARCHIVE);
-    scr_netwarn_stall_ms = Cvar_Get("netwarn_stall_ms", "500", CVAR_ARCHIVE);
-    scr_netwarn_stall_crit_ms = Cvar_Get("netwarn_stall_crit_ms", "1000", CVAR_ARCHIVE);
-    scr_netwarn_pred_warn = Cvar_Get("netwarn_pred_warn", "5", CVAR_ARCHIVE);
-    scr_netwarn_pred_crit = Cvar_Get("netwarn_pred_crit", "20", CVAR_ARCHIVE);
+    scr_netwarn_highping = Cvar_Get("scr_netwarn_highping", "0", CVAR_ARCHIVE);
+    scr_netwarn_ping_adaptive = Cvar_Get("scr_netwarn_ping_adaptive", "1", CVAR_ARCHIVE);
+    scr_netwarn_spike_ms = Cvar_Get("scr_netwarn_spike_ms", "60", CVAR_ARCHIVE);
+    scr_netwarn_spike_pct = Cvar_Get("scr_netwarn_spike_pct", "25", CVAR_ARCHIVE);
+    scr_netwarn_jitter_ms = Cvar_Get("scr_netwarn_jitter_ms", "18", CVAR_ARCHIVE);
+    scr_netwarn_stall_ms = Cvar_Get("scr_netwarn_stall_ms", "500", CVAR_ARCHIVE);
+    scr_netwarn_stall_crit_ms = Cvar_Get("scr_netwarn_stall_crit_ms", "1000", CVAR_ARCHIVE);
+    scr_netwarn_pred_warn = Cvar_Get("scr_netwarn_pred_warn", "24", CVAR_ARCHIVE);
+    scr_netwarn_pred_crit = Cvar_Get("scr_netwarn_pred_crit", "80", CVAR_ARCHIVE);
 }
 
 static void SCR_NetBarPush(unsigned time, unsigned ping,
