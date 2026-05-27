@@ -78,15 +78,12 @@ static uint32_t shc_ApplyHelperAlpha(const uint32_t color) {
 }
 
 uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a) {
-    if (!colorStr) {
-        return MakeColor(255, 255, 255, 255);
-    }
-
     int ri = 255, gi = 255, bi = 255, ai = 255;
-    int components = sscanf(colorStr, "%d %d %d %d", &ri, &gi, &bi, &ai);
 
-    if (components < 3) {
-        return MakeColor(255, 255, 255, 255);
+    if (colorStr) {
+        if (sscanf(colorStr, "%d %d %d %d", &ri, &gi, &bi, &ai) < 3) {
+            ri = gi = bi = ai = 255;
+        }
     }
 
     uint8_t rr = (uint8_t) (ri < 0 ? 0 : (ri > 255 ? 255 : ri));
@@ -104,10 +101,16 @@ uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint
 
 bool shc_ParseColorCvar(const char *cvarValue, uint32_t *outUint32,
                         color_t *outColor) {
-    uint8_t r, g, b, a;
-    if (!shc_ParseColorString(cvarValue, &r, &g, &b, &a)) {
+    int ri, gi, bi, ai = 255;
+
+    if (!cvarValue || sscanf(cvarValue, "%d %d %d %d", &ri, &gi, &bi, &ai) < 3) {
         return false;
     }
+
+    uint8_t r = (uint8_t) (ri < 0 ? 0 : (ri > 255 ? 255 : ri));
+    uint8_t g = (uint8_t) (gi < 0 ? 0 : (gi > 255 ? 255 : gi));
+    uint8_t b = (uint8_t) (bi < 0 ? 0 : (bi > 255 ? 255 : bi));
+    uint8_t a = (uint8_t) (ai < 0 ? 0 : (ai > 255 ? 255 : ai));
 
     if (outUint32) {
         *outUint32 = (r << 24) | (g << 16) | (b << 8) | a;
@@ -119,6 +122,7 @@ bool shc_ParseColorCvar(const char *cvarValue, uint32_t *outUint32,
         outColor->u8[2] = b;
         outColor->u8[3] = a;
     }
+
     return true;
 }
 

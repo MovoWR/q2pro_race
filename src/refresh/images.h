@@ -93,6 +93,7 @@ void IMG_GetPalette(void);
 void IMG_MP4Frame(void);
 void IMG_StopMP4(void);
 #endif
+bool IMG_Recording(void);
 
 image_t *IMG_ForHandle(qhandle_t h);
 

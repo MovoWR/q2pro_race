@@ -241,6 +241,7 @@ bool SCR_ParseColor(const char *s, color_t *color)
     }
 
     if (shc_ParseColorCvar(s, NULL, color)) {
+        return true;
     }
 
 
