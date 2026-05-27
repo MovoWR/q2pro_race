@@ -13,10 +13,9 @@ env:
     --auto-features=enabled
     --fatal-meson-warnings
     -Danticheat-server=true
-    -Davcodec=disabled
+    -Davcodec=enabled
     -Dclient-gtv=true
     -Dpacketdup-hack=true
-    -Dtests=true
     -Dvariable-fps=true
 
 
@@ -32,7 +31,11 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: ["x64", "x86"]
+        include:
+          - arch: x64
+            vcpkg-triplet: x64-windows
+          - arch: x86
+            vcpkg-triplet: x86-windows
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,29 +64,36 @@ jobs:
           }
 
       - name: Install dependencies
-        run: pip3 install --no-input meson ninja
+        run: |
+          pip3 install --no-input meson ninja
+          choco install pkgconfiglite -y --no-progress
+          if (-not $env:VCPKG_INSTALLATION_ROOT) {
+            $env:VCPKG_INSTALLATION_ROOT = Split-Path (Get-Command vcpkg).Source -Parent
+            Add-Content $env:GITHUB_ENV "VCPKG_INSTALLATION_ROOT=$env:VCPKG_INSTALLATION_ROOT"
+          }
+          vcpkg install "ffmpeg[avcodec,avformat,swresample,swscale]:${{ matrix.vcpkg-triplet }}"
 
       - name: Build
         run: |
+          $env:PKG_CONFIG_PATH = Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\${{ matrix.vcpkg-triplet }}\lib\pkgconfig"
           meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release
           meson compile -C builddir-${{ matrix.arch }}
 
-      - name: Compress artifacts to .zip
+      - name: Collect artifacts
         run: |
           mkdir artifacts
           mkdir artifacts/jump
           mkdir artifacts/jump/pics
           cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
+          cp (Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\${{ matrix.vcpkg-triplet }}\bin\*.dll") artifacts/
           cp jump/pics/prochars.png artifacts/jump/pics/
-          cd artifacts
-          7z a -tzip ../q2pro_race-windows-${{ matrix.arch }}.zip q2pro_race.exe jump
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           retention-days: 2
           name: q2pro_race-windows-${{ matrix.arch }}
-          path: q2pro_race-windows-${{ matrix.arch }}.zip
+          path: artifacts
 
   release:
     needs: [windows]
@@ -106,7 +116,12 @@ jobs:
         with:
           pattern: q2pro_race-*
           path: artifacts
-          merge-multiple: true
+
+      - name: Compress release artifacts
+        run: |
+          for dir in artifacts/q2pro_race-*; do
+            (cd "$dir" && zip -r "../$(basename "$dir").zip" .)
+          done
 
       - name: Create or update "latest" release
         env:
@@ -115,10 +130,10 @@ jobs:
           if gh release view latest --json name --jq .name >/dev/null 2>&1; then
             echo "Updating 'latest' release"
             gh release edit latest -t "Latest" -n "Automatically updated latest build" --latest
-            gh release upload latest ./artifacts/* --clobber
+            gh release upload latest ./artifacts/*.zip --clobber
           else
-            echo "Creating 'latest' release"
-            gh release create latest ./artifacts/* --title "Latest" --notes "Automatically updated latest build"
+            echo "Creating latest release"
+            gh release create latest ./artifacts/*.zip --title "Latest" --notes "Automatically updated latest build"
           fi
       - name: Update tag
         uses: actions/github-script@v7
