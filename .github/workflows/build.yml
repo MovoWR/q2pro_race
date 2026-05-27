@@ -9,6 +9,8 @@ on:
       - dev
 
 env:
+  FFMPEG_VERSION: n8.1.1
+  FFMPEG_MINIMAL_CACHE: minimal-v2
   MESON_ARGS: >-
     --auto-features=enabled
     --fatal-meson-warnings
@@ -33,9 +35,14 @@ jobs:
       matrix:
         include:
           - arch: x64
-            vcpkg-triplet: x64-windows
+            msystem: MINGW64
+            package-prefix: mingw-w64-x86_64
           - arch: x86
-            vcpkg-triplet: x86-windows
+            msystem: MINGW32
+            package-prefix: mingw-w64-i686
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,56 +55,75 @@ jobs:
           path: subprojects/packagecache
           key: ${{ hashFiles('subprojects/*.wrap') }}
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: msys2/setup-msys2@v2
         with:
-          arch: ${{ matrix.arch }}
-
-      - name: Set up vcpkg
-        run: |
-          $vcpkgRoot = Split-Path (Get-Command vcpkg).Source -Parent
-          Add-Content $env:GITHUB_ENV "VCPKG_INSTALLATION_ROOT=$vcpkgRoot"
-          Add-Content $env:GITHUB_ENV "VCPKG_ROOT=$vcpkgRoot"
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            make
+            perl
+            ${{ matrix.package-prefix }}-gcc
+            ${{ matrix.package-prefix }}-meson
+            ${{ matrix.package-prefix }}-nasm
+            ${{ matrix.package-prefix }}-ninja
+            ${{ matrix.package-prefix }}-pkgconf
 
       - uses: actions/cache@v4
+        id: ffmpeg-cache
         with:
-          path: |
-            C:\vcpkg\installed\${{ matrix.vcpkg-triplet }}
-            C:\vcpkg\packages
-            C:\vcpkg\downloads
-          key: vcpkg-${{ matrix.vcpkg-triplet }}-${{ hashFiles('.github/workflows/build.yml') }}
-          restore-keys: |
-            vcpkg-${{ matrix.vcpkg-triplet }}-
+          path: ffmpeg-prefix-${{ matrix.arch }}
+          key: ffmpeg-${{ env.FFMPEG_VERSION }}-${{ matrix.arch }}-${{ env.FFMPEG_MINIMAL_CACHE }}
 
-      - name: Install NASM
+      - name: Build minimal FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
         run: |
-          choco install nasm -y --no-progress
-          $nasmPath = Join-Path $env:ProgramFiles "NASM"
-          if (Test-Path (Join-Path $nasmPath "nasm.exe")) {
-            Add-Content $env:GITHUB_PATH $nasmPath
-            & (Join-Path $nasmPath "nasm.exe") -v
-          } else {
-            nasm -v
-          }
-
-      - name: Install dependencies
-        run: |
-          pip3 install --no-input meson ninja
-          choco install pkgconfiglite -y --no-progress
-          vcpkg install "ffmpeg[avcodec,avformat,swresample,swscale]:${{ matrix.vcpkg-triplet }}"
+          curl -L "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VERSION}.tar.gz" -o ffmpeg.tar.gz
+          tar -xf ffmpeg.tar.gz
+          prefix="$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg-prefix-${{ matrix.arch }}"
+          cd "FFmpeg-${FFMPEG_VERSION}"
+          ./configure \
+            --prefix="$prefix" \
+            --disable-everything \
+            --disable-autodetect \
+            --disable-programs \
+            --disable-doc \
+            --disable-debug \
+            --disable-avdevice \
+            --disable-avfilter \
+            --disable-shared \
+            --enable-static \
+            --enable-avcodec \
+            --enable-avformat \
+            --enable-avutil \
+            --enable-swresample \
+            --enable-swscale \
+            --enable-protocol=file \
+            --enable-demuxer=flac,idcin,matroska,mov,mp3,ogg,wav \
+            --enable-muxer=mov,mp4 \
+            --enable-decoder=flac,h264,idcin,mp3,mp3float,opus,pcm_s16le,pcm_s24le,pcm_s32le,pcm_s8,pcm_u8,theora,vorbis \
+            --enable-encoder=mpeg4 \
+            --enable-parser=h264,mpegaudio,opus,vorbis \
+            --enable-bsf=h264_mp4toannexb \
+            --enable-small \
+            --pkg-config-flags=--static
+          make -j"$(nproc)"
+          make install
 
       - name: Build
         run: |
-          $env:PKG_CONFIG_PATH = Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\${{ matrix.vcpkg-triplet }}\lib\pkgconfig"
-          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release
+          export PKG_CONFIG_PATH="$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg-prefix-${{ matrix.arch }}/lib/pkgconfig"
+          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} -Dprefer_static=true -Dc_link_args=-static -Dlibcurl=disabled builddir-${{ matrix.arch }} --buildtype=release
           meson compile -C builddir-${{ matrix.arch }}
+          if ldd builddir-${{ matrix.arch }}/q2pro_race.exe | awk '/\/mingw/ { print }' | grep -q .; then
+            echo "q2pro_race.exe still depends on non-system DLLs:"
+            ldd builddir-${{ matrix.arch }}/q2pro_race.exe
+            exit 1
+          fi
 
       - name: Collect artifacts
         run: |
-          mkdir artifacts
-          mkdir artifacts/jump
-          mkdir artifacts/jump/pics
+          mkdir -p artifacts/jump/pics
           cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
-          cp (Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\${{ matrix.vcpkg-triplet }}\bin\*.dll") artifacts/
           cp jump/pics/prochars.png artifacts/jump/pics/
 
       - name: Upload build artifacts
