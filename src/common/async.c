@@ -61,9 +61,22 @@ static void *work_func(void *arg)
     return NULL;
 }
 
+static void complete_work(asyncwork_t *work)
+{
+    asyncwork_t *next;
+
+    for (; work; work = next) {
+        next = work->next;
+        if (work->done_cb)
+            work->done_cb(work->cb_arg);
+        Z_Free(work);
+    }
+}
+
 void Com_QueueAsyncWork(asyncwork_t *work)
 {
     if (!work_initialized) {
+        work_terminate = false;
         pthread_mutex_init(&work_lock, NULL);
         pthread_cond_init(&work_cond, NULL);
         if (pthread_create(&work_thread, NULL, work_func, NULL))
@@ -80,26 +93,23 @@ void Com_QueueAsyncWork(asyncwork_t *work)
 
 void Com_CompleteAsyncWork(void)
 {
-    asyncwork_t *work, *next;
+    asyncwork_t *work;
 
     if (!work_initialized)
         return;
     if (pthread_mutex_trylock(&work_lock))
         return;
-    if (q_unlikely(done_head)) {
-        for (work = done_head; work; work = next) {
-            next = work->next;
-            if (work->done_cb)
-                work->done_cb(work->cb_arg);
-            Z_Free(work);
-        }
+    work = done_head;
         done_head = NULL;
-    }
     pthread_mutex_unlock(&work_lock);
+
+    complete_work(work);
 }
 
 void Com_ShutdownAsyncWork(void)
 {
+    asyncwork_t *work;
+
     if (!work_initialized)
         return;
 
@@ -110,9 +120,16 @@ void Com_ShutdownAsyncWork(void)
     pthread_cond_signal(&work_cond);
 
     Q_assert(!pthread_join(work_thread, NULL));
-    Com_CompleteAsyncWork();
+
+    pthread_mutex_lock(&work_lock);
+    work = done_head;
+    done_head = NULL;
+    pthread_mutex_unlock(&work_lock);
 
     pthread_mutex_destroy(&work_lock);
     pthread_cond_destroy(&work_cond);
     work_initialized = false;
+    work_terminate = false;
+
+    complete_work(work);
 }

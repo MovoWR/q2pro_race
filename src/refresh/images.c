@@ -32,6 +32,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "format/pcx.h"
 #include "format/wal.h"
 #include "images.h"
+#include "../client/client.h"
 
 #if USE_PNG
 #define PNG_SKIP_SETJMP_CHECK
@@ -40,6 +41,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #if USE_JPG
 #include <jpeglib.h>
+#endif
+
+#if USE_AVCODEC
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libswscale/swscale.h>
 #endif
 
 #include <setjmp.h>
@@ -1325,6 +1334,598 @@ static void make_screenshot(const char *name, const char *ext,
 
 #endif // USE_TGA || USE_JPG || USE_PNG
 
+#if USE_AVCODEC
+
+/*
+==================
+video_template_width
+
+Parses video filename templates using trailing X placeholders, such as demoXX.
+==================
+*/
+static int video_template_width(cvar_t *var, char *buffer, size_t size)
+{
+    if (FS_NormalizePathBuffer(buffer, var->string, size) < size) {
+        FS_CleanupPath(buffer);
+        int start = strlen(buffer);
+        while (start > 0 && buffer[start - 1] == 'X')
+            start--;
+        int width = strlen(buffer) - start;
+        buffer[start] = 0;
+        if (width >= 2 && width <= 9)
+            return width;
+    }
+
+    Com_WPrintf("Bad value '%s' for '%s'. Falling back to '%s'.\n",
+                var->string, var->name, var->default_string);
+    Cvar_Reset(var);
+    Q_strlcpy(buffer, "demo", size);
+    return 2;
+}
+
+/*
+=========================================================
+
+MP4 VIDEO RECORDING
+
+=========================================================
+*/
+
+typedef struct {
+    AVFormatContext *fmt_ctx;
+    AVCodecContext  *codec_ctx;
+    AVStream        *stream;
+    AVFrame         *frame;
+    AVPacket        *packet;
+    struct SwsContext *sws_ctx;
+    char            filename[MAX_OSPATH];
+    int             width;
+    int             height;
+    int             src_width;
+    int             src_height;
+    int             fps;
+    int             bitrate;
+    int             src_bpp;
+    int             error;
+    uint32_t        num_frames;
+    uint64_t        next_frame_usec;
+    bool            finishing;
+} mp4Recorder_t;
+
+static mp4Recorder_t mp4;
+static cvar_t *r_mp4_fps;
+static cvar_t *r_mp4_template;
+static cvar_t *r_mp4_bitrate;
+static cvar_t *r_mp4_encoder;
+static cvar_t *r_mp4_downscale;
+static cvar_t *r_mp4_h264_preset;
+static cvar_t *r_mp4_h264_tune;
+static cvar_t *r_mp4_h264_crf;
+
+static const char *mp4_error_string(int error)
+{
+    static char buffer[AV_ERROR_MAX_STRING_SIZE];
+
+    return av_make_error_string(buffer, sizeof(buffer), error);
+}
+
+static int mp4_create_file(char *buffer, size_t size, const char *name)
+{
+    char temp[MAX_OSPATH];
+    int ret, width, count;
+
+    if (!name || !*name) {
+        if (cl.mapname[0])
+            name = cl.mapname;
+    }
+
+    if (name && *name) {
+        if (FS_NormalizePathBuffer(temp, name, sizeof(temp)) >= sizeof(temp))
+            return Q_ERR(ENAMETOOLONG);
+
+        FS_CleanupPath(temp);
+
+        if (COM_DefaultExtension(temp, ".mp4", sizeof(temp)) >= sizeof(temp))
+            return Q_ERR(ENAMETOOLONG);
+
+        if (Q_snprintf(buffer, size, "%s/video/%s", fs_gamedir, temp) >= size)
+            return Q_ERR(ENAMETOOLONG);
+
+        if ((ret = FS_CreatePath(buffer)) < 0)
+            return ret;
+
+        return Q_ERR_SUCCESS;
+    }
+
+    width = video_template_width(r_mp4_template, temp, sizeof(temp));
+
+    if (Q_snprintf(buffer, size, "%s/video/%s", fs_gamedir, temp) >= size)
+        return Q_ERR(ENAMETOOLONG);
+
+    if ((ret = FS_CreatePath(buffer)) < 0)
+        return ret;
+
+    count = 1;
+    for (int i = 0; i < width; i++)
+        count *= 10;
+
+    for (int i = 0; i < count; i++) {
+        if (Q_snprintf(buffer, size, "%s/video/%s%0*d.mp4", fs_gamedir,
+                       temp, width, i) >= size)
+            return Q_ERR(ENAMETOOLONG);
+
+        FILE *fp = Q_fopen(buffer, "rb");
+        if (!fp) {
+            if (Q_ERRNO == Q_ERR(ENOENT))
+                return Q_ERR_SUCCESS;
+            return Q_ERRNO;
+        }
+        fclose(fp);
+    }
+
+    return Q_ERR_OUT_OF_SLOTS;
+}
+
+static int mp4_try_open_encoder(mp4Recorder_t *rec, const AVCodec *codec, const char *filename)
+{
+    int ret;
+
+    if (rec->codec_ctx)
+        avcodec_free_context(&rec->codec_ctx);
+
+    rec->codec_ctx = avcodec_alloc_context3(codec);
+    if (!rec->codec_ctx)
+        return AVERROR(ENOMEM);
+
+    rec->codec_ctx->codec_id = codec->id;
+    rec->codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
+    rec->codec_ctx->width = rec->width;
+    rec->codec_ctx->height = rec->height;
+    rec->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+    rec->codec_ctx->time_base = (AVRational){ 1, rec->fps };
+    rec->codec_ctx->framerate = (AVRational){ rec->fps, 1 };
+    rec->codec_ctx->bit_rate = (int64_t)rec->bitrate * 1000;
+    rec->codec_ctx->gop_size = rec->fps * 2;
+    rec->codec_ctx->max_b_frames = codec->id == AV_CODEC_ID_H264 ? 0 : 2;
+
+    if (rec->fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        rec->codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+    if (codec->id == AV_CODEC_ID_H264) {
+        if (!strcmp(codec->name, "libx264")) {
+            av_opt_set(rec->codec_ctx->priv_data, "preset", r_mp4_h264_preset->string, 0);
+            av_opt_set(rec->codec_ctx->priv_data, "tune", r_mp4_h264_tune->string, 0);
+            if (r_mp4_h264_crf->integer >= 0)
+                av_opt_set_int(rec->codec_ctx->priv_data, "crf", r_mp4_h264_crf->integer, 0);
+        } else if (!strcmp(codec->name, "h264_nvenc")) {
+            av_opt_set(rec->codec_ctx->priv_data, "preset", "p1", 0);
+            av_opt_set(rec->codec_ctx->priv_data, "tune", "ull", 0);
+        } else if (!strcmp(codec->name, "h264_amf")) {
+            // AMF specific settings if needed
+        }
+    }
+
+    ret = avcodec_open2(rec->codec_ctx, codec, NULL);
+    if (ret < 0) {
+        Com_DPrintf("avcodec_open2 (%s) failed: %s\n", codec->name, mp4_error_string(ret));
+        return ret;
+    }
+
+    return 0;
+}
+
+static void mp4_log_available_encoders(void)
+{
+    const AVCodec *codec = NULL;
+    void *iter = NULL;
+
+    Com_Printf("Available video encoders:\n");
+    while ((codec = av_codec_iterate(&iter))) {
+        if (av_codec_is_encoder(codec) && codec->type == AVMEDIA_TYPE_VIDEO) {
+            Com_Printf("  - %s (%s)\n", codec->name, codec->long_name);
+        }
+    }
+}
+
+static int mp4_open(mp4Recorder_t *rec, const char *filename)
+{
+    const char *h264_encoders[] = {
+        "h264_amf",     // AMD
+        "h264_nvenc",   // NVIDIA
+        "h264_qsv",     // Intel
+        "h264_mf",      // Windows Media Foundation (Very reliable fallback on Win)
+        "libx264",      // Software fallback
+        "h264_vaapi",   // VAAPI (Linux)
+        "h264_videotoolbox" // macOS
+    };
+    const AVCodec *codec = NULL;
+    int ret = -1;
+
+    Com_DPrintf("mp4_open: filename=%s\n", filename);
+
+    ret = avformat_alloc_output_context2(&rec->fmt_ctx, NULL, NULL, filename);
+    if (ret < 0) {
+        Com_EPrintf("avformat_alloc_output_context2 failed: %s\n", mp4_error_string(ret));
+        return ret;
+    }
+
+    // try preferred encoder from cvar
+    if (r_mp4_encoder->string[0] && strcmp(r_mp4_encoder->string, "auto")) {
+        codec = avcodec_find_encoder_by_name(r_mp4_encoder->string);
+        if (codec) {
+            ret = mp4_try_open_encoder(rec, codec, filename);
+        } else {
+            Com_WPrintf("MP4 encoder %s not found, falling back to auto.\n", r_mp4_encoder->string);
+            ret = -1; // ensure we trigger auto logic
+        }
+    }
+
+    // try auto list
+    if (ret < 0) {
+        for (size_t i = 0; i < q_countof(h264_encoders); i++) {
+            codec = avcodec_find_encoder_by_name(h264_encoders[i]);
+            if (!codec)
+                continue;
+
+            ret = mp4_try_open_encoder(rec, codec, filename);
+            if (ret >= 0)
+                break;
+        }
+    }
+
+    // try generic H264 if still nothing
+    if (ret < 0) {
+        codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+        if (codec)
+            ret = mp4_try_open_encoder(rec, codec, filename);
+    }
+
+    // try MPEG4 as absolute last resort
+    if (ret < 0) {
+        codec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
+        if (codec)
+            ret = mp4_try_open_encoder(rec, codec, filename);
+    }
+
+    if (ret < 0 || !codec) {
+        Com_SetLastError("No working H.264/MPEG-4 encoder found");
+        mp4_log_available_encoders();
+        return ret < 0 ? ret : AVERROR_ENCODER_NOT_FOUND;
+    }
+
+   // Com_Printf("Using MP4 encoder: %s\n", codec->name);
+
+    rec->stream = avformat_new_stream(rec->fmt_ctx, NULL);
+    if (!rec->stream)
+        return AVERROR(ENOMEM);
+
+    ret = avcodec_parameters_from_context(rec->stream->codecpar, rec->codec_ctx);
+    if (ret < 0)
+        return ret;
+    rec->stream->time_base = rec->codec_ctx->time_base;
+
+    rec->frame = av_frame_alloc();
+    if (!rec->frame)
+        return AVERROR(ENOMEM);
+    rec->frame->format = rec->codec_ctx->pix_fmt;
+    rec->frame->width = rec->codec_ctx->width;
+    rec->frame->height = rec->codec_ctx->height;
+
+    ret = av_frame_get_buffer(rec->frame, 32);
+    if (ret < 0)
+        return ret;
+
+    rec->packet = av_packet_alloc();
+    if (!rec->packet)
+        return AVERROR(ENOMEM);
+
+    if (!(rec->fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&rec->fmt_ctx->pb, filename, AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            Com_EPrintf("avio_open (%s) failed: %s\n", filename, mp4_error_string(ret));
+            return ret;
+        }
+    }
+
+    // fragmented mp4 for crash recovery
+    AVDictionary *opts = NULL;
+    av_dict_set(&opts, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
+
+    ret = avformat_write_header(rec->fmt_ctx, &opts);
+    av_dict_free(&opts);
+    if (ret < 0) {
+        Com_EPrintf("avformat_write_header failed: %s\n", mp4_error_string(ret));
+    }
+    return ret;
+}
+
+static void mp4_release(mp4Recorder_t *rec)
+{
+    if (rec->fmt_ctx && rec->fmt_ctx->pb &&
+        !(rec->fmt_ctx->oformat->flags & AVFMT_NOFILE))
+        avio_closep(&rec->fmt_ctx->pb);
+
+    sws_freeContext(rec->sws_ctx);
+    av_packet_free(&rec->packet);
+    av_frame_free(&rec->frame);
+    avcodec_free_context(&rec->codec_ctx);
+    avformat_free_context(rec->fmt_ctx);
+    memset(rec, 0, sizeof(*rec));
+}
+
+static int mp4_write_packets(mp4Recorder_t *rec)
+{
+    int ret;
+
+    for (;;) {
+        ret = avcodec_receive_packet(rec->codec_ctx, rec->packet);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return 0;
+        if (ret < 0)
+            return ret;
+
+        av_packet_rescale_ts(rec->packet,
+                             rec->codec_ctx->time_base,
+                             rec->stream->time_base);
+        rec->packet->stream_index = rec->stream->index;
+
+        ret = av_interleaved_write_frame(rec->fmt_ctx, rec->packet);
+        av_packet_unref(rec->packet);
+        if (ret < 0)
+            return ret;
+    }
+}
+
+static int mp4_encode_frame(mp4Recorder_t *rec, const screenshot_t *s)
+{
+    enum AVPixelFormat src_fmt = s->bpp == 4 ? AV_PIX_FMT_RGBA : AV_PIX_FMT_RGB24;
+    const uint8_t *src_data[4];
+    int src_linesize[4];
+    int ret;
+
+    ret = av_frame_make_writable(rec->frame);
+    if (ret < 0)
+        return ret;
+
+    rec->sws_ctx = sws_getCachedContext(rec->sws_ctx,
+                                        s->width, s->height, src_fmt,
+                                        rec->width, rec->height,
+                                        rec->codec_ctx->pix_fmt,
+                                        SWS_BILINEAR, NULL, NULL, NULL);
+    if (!rec->sws_ctx)
+        return AVERROR(EINVAL);
+
+    src_data[0] = s->pixels + (s->height - 1) * s->rowbytes;
+    src_data[1] = src_data[2] = src_data[3] = NULL;
+    src_linesize[0] = -s->rowbytes;
+    src_linesize[1] = src_linesize[2] = src_linesize[3] = 0;
+
+    sws_scale(rec->sws_ctx, src_data, src_linesize, 0, s->height,
+              rec->frame->data, rec->frame->linesize);
+
+    rec->frame->pts = rec->num_frames++;
+
+    ret = avcodec_send_frame(rec->codec_ctx, rec->frame);
+    if (ret < 0)
+        return ret;
+
+    return mp4_write_packets(rec);
+}
+
+static int mp4_finish(mp4Recorder_t *rec)
+{
+    int ret, ret2;
+
+    ret = avcodec_send_frame(rec->codec_ctx, NULL);
+    if (ret >= 0)
+        ret = mp4_write_packets(rec);
+    else if (ret == AVERROR_EOF)
+        ret = 0;
+
+    ret2 = av_write_trailer(rec->fmt_ctx);
+    if (ret >= 0 && ret2 < 0)
+        ret = ret2;
+
+    return ret;
+}
+
+static void mp4_async_encode(void *arg)
+{
+    screenshot_t *s = arg;
+    int ret;
+
+    if (!mp4.fmt_ctx || mp4.error < 0) {
+        Z_Free(s->pixels);
+        Z_Free(s);
+        return;
+    }
+
+    ret = mp4_encode_frame(&mp4, s);
+    if (ret < 0) {
+        if (!mp4.error)
+            mp4.error = ret;
+        Com_EPrintf("MP4 encoding error: %s\n", mp4_error_string(ret));
+    }
+
+    Z_Free(s->pixels);
+    Z_Free(s);
+}
+
+
+void IMG_StopMP4(void)
+{
+    char filename[MAX_OSPATH];
+    int ret;
+
+    if (!mp4.fmt_ctx)
+        return;
+
+    mp4.finishing = true;
+
+    // wait for all pending frames to be encoded
+    Com_ShutdownAsyncWork();
+
+    Q_strlcpy(filename, mp4.filename, sizeof(filename));
+
+    ret = mp4.error < 0 ? mp4.error : mp4_finish(&mp4);
+    mp4_release(&mp4);
+
+    if (ret < 0) {
+        Com_EPrintf("Couldn't finish %s: %s\n", filename, mp4_error_string(ret));
+        remove(filename);
+        return;
+    }
+}
+
+void IMG_MP4Frame(void)
+{
+    screenshot_t s = { 0 };
+    uint64_t now_usec;
+    int ret;
+
+    if (!mp4.fmt_ctx || mp4.finishing)
+        return;
+
+    now_usec = (uint64_t)Sys_Milliseconds() * 1000;
+    if (now_usec < mp4.next_frame_usec)
+        return;
+
+    if (r_config.width != mp4.src_width || r_config.height != mp4.src_height) {
+        Com_WPrintf("Stopping MP4 recording: video mode changed.\n");
+        IMG_StopMP4();
+        return;
+    }
+
+    ret = IMG_ReadPixels(&s);
+    if (ret < 0) {
+        Com_EPrintf("Stopping MP4 recording: couldn't read pixels: %s\n",
+                    Q_ErrorString(ret));
+        IMG_StopMP4();
+        return;
+    }
+
+    asyncwork_t work = {
+        .work_cb = mp4_async_encode,
+        .cb_arg = Z_CopyStruct(&s)
+    };
+    Com_QueueAsyncWork(&work);
+
+    mp4.next_frame_usec += 1000000 / mp4.fps;
+    if (mp4.next_frame_usec <= now_usec)
+        mp4.next_frame_usec = now_usec + 1000000 / mp4.fps;
+}
+
+static void IMG_MP4Record_f(void)
+{
+    mp4Recorder_t rec = { 0 };
+    char buffer[MAX_OSPATH];
+    const char *name = NULL;
+    int ret;
+
+    if (Cmd_Argc() > 4) {
+        Com_Printf("Usage: %s [filename] [fps] [bitrate_kbps]\n", Cmd_Argv(0));
+        return;
+    }
+
+    if (mp4.fmt_ctx) {
+        IMG_StopMP4();
+    }
+
+    if (r_config.width < 1 || r_config.height < 1) {
+        Com_Printf("Can't record MP4: video mode is not initialized.\n");
+        return;
+    }
+
+    float downscale = Cvar_ClampValue(r_mp4_downscale, 1, 10);
+    rec.width = (int)(r_config.width / downscale) & ~1;
+    rec.height = (int)(r_config.height / downscale) & ~1;
+    rec.src_width = r_config.width;
+    rec.src_height = r_config.height;
+
+    if (rec.width < 16 || rec.height < 16) {
+        Com_Printf("Can't record MP4: target resolution too small (%dx%d).\n", rec.width, rec.height);
+        return;
+    }
+
+    rec.fps = Cvar_ClampInteger(r_mp4_fps, 1, 1000);
+    rec.bitrate = Cvar_ClampInteger(r_mp4_bitrate, 1, 1000000);
+
+    if (Cmd_Argc() == 2) {
+        if (COM_IsUint(Cmd_Argv(1)))
+            rec.fps = Q_clip(Q_atoi(Cmd_Argv(1)), 1, 1000);
+        else
+            name = Cmd_Argv(1);
+    } else if (Cmd_Argc() > 2) {
+        name = Cmd_Argv(1);
+        rec.fps = Q_clip(Q_atoi(Cmd_Argv(2)), 1, 1000);
+        if (Cmd_Argc() > 3)
+            rec.bitrate = Q_clip(Q_atoi(Cmd_Argv(3)), 1, 1000000);
+    }
+
+    ret = mp4_create_file(buffer, sizeof(buffer), name);
+    if (ret < 0) {
+        Com_EPrintf("Couldn't create MP4: %s\n", Q_ErrorString(ret));
+        return;
+    }
+
+    Q_strlcpy(rec.filename, buffer, sizeof(rec.filename));
+    rec.next_frame_usec = (uint64_t)Sys_Milliseconds() * 1000;
+
+    ret = mp4_open(&rec, rec.filename);
+    if (ret < 0) {
+        mp4_release(&rec);
+        remove(buffer);
+        Com_EPrintf("Couldn't start MP4 recording: %s\n", mp4_error_string(ret));
+        return;
+    }
+
+    mp4 = rec;
+/*
+    Com_Printf("Recording MP4 to %s (%dx%d, %d fps, %d kb/s, no audio).\n",
+               mp4.filename, mp4.width, mp4.height, mp4.fps, mp4.bitrate);
+*/
+}
+
+static void IMG_MP4Stop_f(void)
+{
+    if (!mp4.fmt_ctx) {
+       // Com_Printf("Not recording an MP4.\n");
+        return;
+    }
+
+    IMG_StopMP4();
+}
+
+static void IMG_MP4Status_f(void)
+{
+    uint32_t seconds, minutes;
+
+    if (!mp4.fmt_ctx) {
+       // Com_Printf("Not recording an MP4.\n");
+        return;
+    }
+
+    seconds = mp4.fps ? mp4.num_frames / mp4.fps : 0;
+    minutes = seconds / 60;
+    seconds %= 60;
+
+    Com_Printf("Recording MP4 to %s (%dx%d, %u frame%s, %u:%02u, %d kb/s).\n",
+               mp4.filename, mp4.width, mp4.height, mp4.num_frames,
+               mp4.num_frames == 1 ? "" : "s",
+               minutes, seconds, mp4.bitrate);
+}
+
+#endif // USE_AVCODEC
+
+bool IMG_Recording(void)
+{
+#if USE_AVCODEC
+    return mp4.fmt_ctx != NULL;
+#else
+    return false;
+#endif
+}
+
 /*
 ==================
 IMG_ScreenShot_f
@@ -2221,6 +2822,11 @@ fail:
 
 static const cmdreg_t img_cmd[] = {
     { "imagelist", IMG_List_f, IMG_List_c },
+#if USE_AVCODEC
+    { "mp4record", IMG_MP4Record_f },
+    { "mp4stop", IMG_MP4Stop_f },
+    { "mp4status", IMG_MP4Status_f },
+#endif
     { "screenshot", IMG_ScreenShot_f },
 #if USE_TGA
     { "screenshottga", IMG_ScreenShotTGA_f },
@@ -2265,6 +2871,17 @@ void IMG_Init(void)
     r_screenshot_template = Cvar_Get("gl_screenshot_template", "quakeXXX", 0);
 #endif // USE_PNG || USE_JPG || USE_TGA
 
+#if USE_AVCODEC
+    r_mp4_fps = Cvar_Get("gl_mp4_fps", "60", 0);
+    r_mp4_template = Cvar_Get("gl_mp4_template", "demoXX", 0);
+    r_mp4_bitrate = Cvar_Get("gl_mp4_bitrate", "15000", 0);
+    r_mp4_encoder = Cvar_Get("gl_mp4_encoder", "h264_amf", 0);
+    r_mp4_downscale = Cvar_Get("gl_mp4_downscale", "1", 0);
+    r_mp4_h264_preset = Cvar_Get("gl_mp4_h264_preset", "faster", 0);
+    r_mp4_h264_tune = Cvar_Get("gl_mp4_h264_tune", "zerolatency", 0);
+    r_mp4_h264_crf = Cvar_Get("gl_mp4_h264_crf", "20", 0);
+#endif
+
     r_glowmaps = Cvar_Get("r_glowmaps", "1", CVAR_FILES);
 
     Cmd_Register(img_cmd);
@@ -2278,6 +2895,9 @@ void IMG_Init(void)
 
 void IMG_Shutdown(void)
 {
+#if USE_AVCODEC
+    IMG_StopMP4();
+#endif
     Cmd_Deregister(img_cmd);
     memset(r_images, 0, R_NUM_AUTO_IMG * sizeof(r_images[0]));   // clear R_NOTEXTURE
     r_numImages = 0;

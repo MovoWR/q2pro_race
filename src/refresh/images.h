@@ -89,6 +89,10 @@ void IMG_FreeAll(void);
 void IMG_Init(void);
 void IMG_Shutdown(void);
 void IMG_GetPalette(void);
+#if USE_AVCODEC
+void IMG_MP4Frame(void);
+void IMG_StopMP4(void);
+#endif
 
 image_t *IMG_ForHandle(qhandle_t h);
 

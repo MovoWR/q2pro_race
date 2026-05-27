@@ -920,6 +920,10 @@ void R_EndFrame(void)
     if (gl_showerrors->integer > 1)
         GL_ShowErrors(__func__);
 
+#if USE_AVCODEC
+    IMG_MP4Frame();
+#endif
+
     vid->swap_buffers();
 }
 
