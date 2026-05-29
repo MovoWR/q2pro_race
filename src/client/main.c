@@ -126,8 +126,8 @@ cvar_t *cl_strafehelperUpsColorGain;
 cvar_t *cl_strafehelperUpsColorLoss;
 cvar_t *cl_strafehelperUpsColorNeutral;
 cvar_t *cl_strafehelperUpsFormat;
+cvar_t *cl_strafehelperUps3D;
 cvar_t *cl_strafehelperAlpha;
-cvar_t *cl_strafehelperFadeInactive;
 cvar_t *cl_strafehelperBarStyle;
 cvar_t *cl_strafehelperSmoothing;
 cvar_t *cl_strafehelperSmoothingMode;
@@ -137,6 +137,7 @@ cvar_t *cl_strafehelperNerdStats;
 // width
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_width;
+cvar_t *cl_strafehelper_optimal_outline;
 // color settings
 cvar_t *cl_strafehelper_color_accelerating;
 cvar_t *cl_strafehelper_color_optimal;
@@ -2831,9 +2832,68 @@ void cl_timeout_changed(cvar_t *self)
     self->integer = 1000 * Cvar_ClampValue(self, 0, 24 * 24 * 60 * 60);
 }
 
+static void CL_FpsDown_f(void)
+{
+    if (Cmd_Argc() < 3) {
+        Com_Printf("usage: +fps <down_fps> <up_fps>\n");
+        return;
+    }
+
+    const char *down_str = Cmd_Argv(1);
+    const char *up_str = Cmd_Argv(2);
+
+    if (!COM_IsUint(down_str) || Q_atoi(down_str) <= 0) {
+        Com_Printf("Error: down_fps must be a positive integer\n");
+        return;
+    }
+    if (!COM_IsUint(up_str) || Q_atoi(up_str) <= 0) {
+        Com_Printf("Error: up_fps must be a positive integer\n");
+        return;
+    }
+
+    Cvar_Set("cl_maxfps", down_str);
+}
+
+static void CL_FpsUp_f(void)
+{
+    if (Cmd_Argc() < 3) {
+        Com_Printf("usage: -fps <down_fps> <up_fps>\n");
+        return;
+    }
+
+    const char *down_str = Cmd_Argv(1);
+    const char *up_str = Cmd_Argv(2);
+
+    if (!COM_IsUint(down_str) || Q_atoi(down_str) <= 0) {
+        Com_Printf("Error: down_fps must be a positive integer\n");
+        return;
+    }
+    if (!COM_IsUint(up_str) || Q_atoi(up_str) <= 0) {
+        Com_Printf("Error: up_fps must be a positive integer\n");
+        return;
+    }
+
+    Cvar_Set("cl_maxfps", up_str);
+}
+
+static void CL_FpsShortcut_f(void)
+{
+    const char *cmd = Cmd_Argv(0);
+    if (cmd && cmd[0] == 'f') {
+        int fps = Q_atoi(cmd + 1);
+        if (fps >= 20 && fps <= 120) {
+            char val[16];
+            Q_snprintf(val, sizeof(val), "%i", fps);
+            Cvar_Set("cl_maxfps", val);
+        }
+    }
+}
+
 static const cmdreg_t c_client[] = {
     { "cmd", CL_ForwardToServer_f },
     { "pause", CL_Pause_f },
+    { "+fps", CL_FpsDown_f },
+    { "-fps", CL_FpsUp_f },
     { "pingservers", CL_PingServers_f },
     { "skins", CL_Skins_f },
     { "userinfo", CL_Userinfo_f },
@@ -3058,6 +3118,17 @@ static void CL_InitLocal(void)
     Cmd_AddCommand("sh", SH_Cmd_f);
     Cmd_AddCommand("debugnow", SH_DebugNow_f);
 
+    for (i = 20; i <= 120; i++) {
+        char cmd_name[16];
+        Q_snprintf(cmd_name, sizeof(cmd_name), "f%i", i);
+        if (Cmd_Exists(cmd_name)) {
+            Com_WPrintf("Command %s already exists, not registering shortcut.\n", cmd_name);
+        } else {
+            char *persistent_name = Z_TagCopyString(cmd_name, TAG_CMD);
+            Cmd_AddCommand(persistent_name, CL_FpsShortcut_f);
+        }
+    }
+
     //
     // register our variables
     //
@@ -3211,14 +3282,15 @@ static void CL_InitLocal(void)
     cl_strafehelperUpsColorLoss = Cvar_Get("sh_ups_color_loss", "255 0 0 255", CVAR_ARCHIVE);
     cl_strafehelperUpsColorNeutral = Cvar_Get("sh_ups_color_neutral", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelperUpsFormat = Cvar_Get("sh_ups_format", "plain", CVAR_ARCHIVE);
+    cl_strafehelperUps3D = Cvar_Get("sh_ups_3d", "0", CVAR_ARCHIVE);
     cl_strafehelperAlpha = Cvar_Get("sh_alpha", "1", CVAR_ARCHIVE);
-    cl_strafehelperFadeInactive = Cvar_Get("sh_fade_inactive", "0", CVAR_ARCHIVE);
     cl_strafehelperBarStyle = Cvar_Get("sh_bar_style", "gradient", CVAR_ARCHIVE);
     cl_strafehelperSmoothing = Cvar_Get("sh_smoothing", "0", CVAR_ARCHIVE);
     cl_strafehelperSmoothingMode = Cvar_Get("sh_smoothing_mode", "1", CVAR_ARCHIVE);
     // width
     cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
     cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
+    cl_strafehelper_optimal_outline = Cvar_Get("sh_optimal_outline", "0", CVAR_ARCHIVE);
     // color settings
     cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 255 80", CVAR_ARCHIVE);
     cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);
