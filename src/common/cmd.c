@@ -984,6 +984,21 @@ void Cmd_Shift(void)
     cmd_argv[i] = NULL;
 }
 
+void Cmd_RemoveArg(int index)
+{
+    int i;
+    if (index < 0 || index >= cmd_argc) {
+        return;
+    }
+    cmd_argc--;
+    for (i = index; i < cmd_argc; i++) {
+        cmd_offsets[i] = cmd_offsets[i + 1];
+        cmd_argv[i] = cmd_argv[i + 1];
+    }
+    cmd_offsets[i] = 0;
+    cmd_argv[i] = NULL;
+}
+
 int Cmd_ParseOptions(const cmd_option_t *opt)
 {
     const cmd_option_t *o;
