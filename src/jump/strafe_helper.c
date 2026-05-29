@@ -18,6 +18,7 @@ static bool sh_smoothing_initialized;
 bool isOptimal;
 bool insideAccelerationZone;
 bool speedIncreased;
+bool sh_drawing_preview = false;
 
 
 static float sign(const float value) {
@@ -326,7 +327,9 @@ static bool SH_Ups_GetSpeed(float *out_speed) {
         VectorScale(cl.frame.ps.pmove.velocity, 0.125f, vel);
     }
 
+    if (!cl_strafehelperUps3D || !cl_strafehelperUps3D->integer) {
     vel[2] = 0.0f;
+    }
     *out_speed = VectorLength(vel);
     return true;
 }
@@ -346,8 +349,30 @@ static uint32_t SH_Ups_RainbowColor(void) {
     return MakeColor(r, g, b, 255);
 }
 
+static uint32_t SH_Ups_LerpColor(uint8_t r1, uint8_t g1, uint8_t b1, uint8_t a1,
+                                 uint8_t r2, uint8_t g2, uint8_t b2, uint8_t a2,
+                                 float t)
+{
+    uint8_t r = Q_rint(r1 + t * (r2 - r1));
+    uint8_t g = Q_rint(g1 + t * (g2 - g1));
+    uint8_t b = Q_rint(b1 + t * (b2 - b1));
+    uint8_t a = Q_rint(a1 + t * (a2 - a1));
+    return MakeColor(r, g, b, a);
+}
+
 static uint32_t SH_Ups_ColorForSpeed(const float speed) {
-    static float previous_speed = 0.0f;
+    static float previous_speed = -1.0f;
+    static float smoothed_accel = 0.0f;
+
+    if (previous_speed < 0.0f) {
+        previous_speed = speed;
+    }
+
+    if (speed < 10.0f || fabsf(speed - previous_speed) > 500.0f) {
+        previous_speed = speed;
+        smoothed_accel = 0.0f;
+    }
+
     const char *mode = cl_strafehelperUpsColorMode ? cl_strafehelperUpsColorMode->string : "dynamic";
     uint32_t color;
 
@@ -362,6 +387,55 @@ static uint32_t SH_Ups_ColorForSpeed(const float speed) {
             color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);
         } else {
             color = SH_Ups_ParseColor(cl_strafehelperUpsColorLoss, U32_RED);
+        }
+    } else if (stringEquals(mode, "gradient")) {
+        float current_accel = 0.0f;
+        float frametime = cls.frametime;
+        if (frametime < 0.001f) {
+            frametime = 0.001f;
+        }
+        current_accel = (speed - previous_speed) / frametime;
+        smoothed_accel = smoothed_accel + 0.15f * (current_accel - smoothed_accel);
+
+        float factor = smoothed_accel / 1000.0f;
+        if (factor < -1.0f) factor = -1.0f;
+        else if (factor > 1.0f) factor = 1.0f;
+
+        uint8_t nr, ng, nb, na;
+        uint8_t gr, gg, gb, ga;
+        uint8_t lr, lg, lb, la;
+        shc_ParseColorString(cl_strafehelperUpsColorNeutral->string, &nr, &ng, &nb, &na);
+        shc_ParseColorString(cl_strafehelperUpsColorGain->string, &gr, &gg, &gb, &ga);
+        shc_ParseColorString(cl_strafehelperUpsColorLoss->string, &lr, &lg, &lb, &la);
+
+        if (factor > 0.0f) {
+            color = SH_Ups_LerpColor(nr, ng, nb, na, gr, gg, gb, ga, factor);
+        } else {
+            color = SH_Ups_LerpColor(nr, ng, nb, na, lr, lg, lb, la, -factor);
+        }
+    } else if (stringEquals(mode, "strafing")) {
+        if (sh.velocity_norm < 10.0f) {
+            color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);
+        } else {
+            float diff = fabsf(sh.angle_diff);
+            uint8_t nr, ng, nb, na;
+            uint8_t gr, gg, gb, ga;
+            uint8_t lr, lg, lb, la;
+            shc_ParseColorString(cl_strafehelperUpsColorNeutral->string, &nr, &ng, &nb, &na);
+            shc_ParseColorString(cl_strafehelperUpsColorGain->string, &gr, &gg, &gb, &ga);
+            shc_ParseColorString(cl_strafehelperUpsColorLoss->string, &lr, &lg, &lb, &la);
+
+            if (diff <= 0.01f) {
+                color = MakeColor(gr, gg, gb, ga);
+            } else if (diff <= 0.08f) {
+                float t = (diff - 0.01f) / 0.07f;
+                color = SH_Ups_LerpColor(gr, gg, gb, ga, nr, ng, nb, na, t);
+            } else if (diff <= 0.20f) {
+                float t = (diff - 0.08f) / 0.12f;
+                color = SH_Ups_LerpColor(nr, ng, nb, na, lr, lg, lb, la, t);
+            } else {
+                color = MakeColor(lr, lg, lb, la);
+            }
         }
     } else {
         if (speed > previous_speed + SH_UPS_DYNAMIC_EPSILON) {
@@ -474,14 +548,18 @@ static void drawRectangleOutline(float x, const float y, float w, const float h,
     shc_drawFilledRectangle(x + w - t, y, t, h, element_id);
 }
 
-static void drawGradientAccelerationZone(const float accel_start, const float accel_end,
+static void drawAccelerationZone(const float accel_start, const float accel_end,
                                          const float upper_y, const float height,
                                          const float optimal_x,
                                          const float optimal_width) {
-    const float marker_gap_half_width = optimal_width * 0.5f + 1.0f;
+    const float marker_gap_half_width = (cl_strafehelper_optimal_outline && cl_strafehelper_optimal_outline->integer)
+                                        ? (optimal_width * 0.5f + 1.0f)
+                                        : (optimal_width * 0.5f);
     const float gap_start = CLAMP(optimal_x - marker_gap_half_width, accel_start, accel_end);
     const float gap_end = CLAMP(optimal_x + marker_gap_half_width, accel_start, accel_end);
+    const SH_BarStyle style = SH_GetBarStyle();
 
+    if (style == SH_BarStyle_Gradient) {
     if (gap_start > accel_start) {
         shc_drawGradientRectangle(
             accel_start,
@@ -502,39 +580,49 @@ static void drawGradientAccelerationZone(const float accel_start, const float ac
             shc_ElementId_AcceleratingAngles,
             shc_ElementId_OptimalAngle);
     }
+        return;
 }
 
-static void drawAccelerationZone(const float accel_start, const float accel_end,
-                                 const float upper_y, const float height,
-                                 const float optimal_x,
-                                 const float optimal_width) {
-    const float accel_width = accel_end - accel_start;
-
-    switch (SH_GetBarStyle()) {
-        case SH_BarStyle_Solid:
+    if (style == SH_BarStyle_Solid) {
+        if (gap_start > accel_start) {
             shc_drawFilledRectangle(
                 accel_start,
                 upper_y,
-                accel_width,
+                gap_start - accel_start,
                 height,
                 shc_ElementId_AcceleratingAngles);
-            break;
-        case SH_BarStyle_Outline:
+        }
+        if (gap_end < accel_end) {
+            shc_drawFilledRectangle(
+                gap_end,
+                upper_y,
+                accel_end - gap_end,
+                height,
+                shc_ElementId_AcceleratingAngles);
+        }
+        return;
+    }
+
+    if (style == SH_BarStyle_Outline) {
+        if (gap_start > accel_start) {
             drawRectangleOutline(
                 accel_start,
                 upper_y,
-                accel_width,
+                gap_start - accel_start,
                 height,
                 1.0f,
                 shc_ElementId_AcceleratingAngles);
-            break;
-        case SH_BarStyle_Minimal:
-            break;
-        case SH_BarStyle_Gradient:
-        default:
-            drawGradientAccelerationZone(accel_start, accel_end, upper_y, height,
-                                         optimal_x, optimal_width);
-            break;
+        }
+        if (gap_end < accel_end) {
+            drawRectangleOutline(
+                gap_end,
+                upper_y,
+                accel_end - gap_end,
+                height,
+                1.0f,
+                shc_ElementId_AcceleratingAngles);
+        }
+        return;
     }
 }
 
@@ -547,6 +635,8 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     if (params->height <= 0.0f) {
         return;
     }
+
+    sh_drawing_preview = true;
 
     const float upper_y = (hud_height - params->height) / 2.0f + params->y;
     const float center_width = CLAMP(cl_strafehelper_center_width->value, 0.1f, 5.0f);
@@ -562,12 +652,22 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     drawAccelerationZone(accel_start, accel_end, upper_y, params->height,
                          optimal_x, optimal_width);
 
+    if (cl_strafehelper_optimal_outline && cl_strafehelper_optimal_outline->integer) {
+        drawRectangleOutline(
+            optimal_x - optimal_width / 2.0f,
+            upper_y,
+            optimal_width,
+            params->height,
+            1.0f,
+            shc_ElementId_OptimalAngle);
+    } else {
     shc_drawFilledRectangle(
         optimal_x - optimal_width / 2.0f,
         upper_y,
         optimal_width,
         params->height,
         shc_ElementId_OptimalAngle);
+    }
 
     if (params->center_marker) {
         shc_drawFilledRectangle(
@@ -577,6 +677,8 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
             params->height / 2.0f,
             shc_ElementId_CenterMarker);
     }
+
+    sh_drawing_preview = false;
 }
 
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
@@ -614,7 +716,16 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     drawAccelerationZone(accel_start, accel_end, upper_y, params->height,
                          optimal_x, optimal_width);
 
-    // Draw optimal angle as the original full-color marker.
+    if (cl_strafehelper_optimal_outline && cl_strafehelper_optimal_outline->integer) {
+        drawRectangleOutline(
+            optimal_x - (optimal_width / 2.0f),
+            upper_y,
+            optimal_width,
+            params->height,
+            1.0f,
+            shc_ElementId_OptimalAngle
+        );
+    } else {
     shc_drawFilledRectangle(
         optimal_x - (optimal_width / 2.0f),
         upper_y,
@@ -622,6 +733,7 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
         params->height,
         shc_ElementId_OptimalAngle
     );
+    }
 
     if (params->center_marker) {
         shc_drawFilledRectangle(

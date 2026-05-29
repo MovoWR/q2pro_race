@@ -1,4 +1,5 @@
 #include "strafe_helper_customization.h"
+#include "strafe_helper.h"
 #include "shared/shared.h"
 #include "refresh/refresh.h"
 #include "src/client/client.h"
@@ -59,7 +60,7 @@ static float shc_HelperAlphaMultiplier(void) {
                        ? Cvar_ClampValue(cl_strafehelperAlpha, 0.0f, 1.0f)
                        : 1.0f;
 
-    if (cl_strafehelperFadeInactive && cl_strafehelperFadeInactive->integer) {
+    if (!sh_drawing_preview) {
         const float move =
             fabsf(cl.localmove[0]) + fabsf(cl.localmove[1]) + fabsf(cl.localmove[2]);
         if (move < 0.1f || cl.frame.ps.pmove.pm_type != PM_NORMAL) {

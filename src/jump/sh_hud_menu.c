@@ -267,22 +267,6 @@ void SH_Alpha_f(void) {
     }
 }
 
-void SH_FadeInactive_f(void) {
-    const char *value = Cmd_Argv(3);
-
-    if (Cmd_Argc() < 4) {
-        Com_Printf("- Fade inactive: %d\n", cl_strafehelperFadeInactive->integer);
-        return;
-    }
-
-    if (SH_IsOnOffValue(value)) {
-        Cvar_Set("sh_fade_inactive", value);
-        Com_Printf("Fade inactive %s.\n", cl_strafehelperFadeInactive->integer ? "enabled" : "disabled");
-    } else {
-        Com_Printf("Invalid value. Usage: 'sh hud fade_inactive <0|1>'\n");
-    }
-}
-
 void SH_BarStyle_f(void) {
     const char *style = Cmd_Argv(3);
 
@@ -450,11 +434,12 @@ void SH_Ups_ColorMode_f(void) {
     }
 
     if (!Q_stricmp(mode, "dynamic") || !Q_stricmp(mode, "static") ||
-        !Q_stricmp(mode, "threshold") || !Q_stricmp(mode, "rainbow")) {
+        !Q_stricmp(mode, "threshold") || !Q_stricmp(mode, "rainbow") ||
+        !Q_stricmp(mode, "gradient") || !Q_stricmp(mode, "strafing")) {
         Cvar_Set("sh_ups_color_mode", mode);
         Com_Printf("Center UPS color mode set to: %s\n", mode);
     } else {
-        Com_Printf("Invalid color mode. Usage: 'sh ups color_mode <dynamic|static|threshold|rainbow>'\n");
+        Com_Printf("Invalid color mode. Usage: 'sh ups color_mode <dynamic|static|threshold|rainbow|gradient|strafing>'\n");
     }
 }
 
@@ -507,7 +492,7 @@ void SH_Ups_Help_f(void) {
     Com_Printf("  %-32s %s\n", "format <plain|suffix|prefix>", "Use 742, 742 ups, or UPS: 742.");
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Color\n");
-    Com_Printf("  %-32s %s\n", "color_mode <mode>", "dynamic, static, threshold, or rainbow.");
+    Com_Printf("  %-32s %s\n", "color_mode <mode>", "dynamic, static, threshold, rainbow, gradient, or strafing.");
     Com_Printf("  %-32s %s\n", "color_gain R G B A", "Gain/high-speed color.");
     Com_Printf("  %-32s %s\n", "color_loss R G B A", "Loss/low-speed color.");
     Com_Printf("  %-32s %s\n", "color_neutral R G B A", "Neutral/static color.");
@@ -599,7 +584,6 @@ void SH_Hud_Help_f(void) {
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Style\n");
     Com_Printf("  %-34s %s\n", "alpha <0.0-1.0>", "Set helper opacity.");
-    Com_Printf("  %-34s %s\n", "fade_inactive <0|1>", "Fade when there is no movement input.");
     Com_Printf("  %-34s %s\n", "bar_style <style>", "solid, gradient, outline, or minimal.");
     Com_Printf("  %-34s %s\n", "smoothing <0.0-10.0>", "Smooth visual angle movement; 0 disables it.");
     Com_Printf("  %-34s %s\n", "smoothing_mode <mode>", "linear, quadratic, cubic, sine, or exponential.");

@@ -106,6 +106,8 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
                 Prompt_AddMatch(ctx, "static");
                 Prompt_AddMatch(ctx, "threshold");
                 Prompt_AddMatch(ctx, "rainbow");
+                Prompt_AddMatch(ctx, "gradient");
+                Prompt_AddMatch(ctx, "strafing");
             } else if (!strcmp(cmd, "format")) {
                 Prompt_AddMatch(ctx, "plain");
                 Prompt_AddMatch(ctx, "suffix");
@@ -143,8 +145,6 @@ void SH_Cmd_f(void) {
             SH_Height_f();
         else if (!strcmp(cmd, "alpha"))
             SH_Alpha_f();
-        else if (!strcmp(cmd, "fade_inactive"))
-            SH_FadeInactive_f();
         else if (!strcmp(cmd, "bar_style"))
             SH_BarStyle_f();
         else if (!strcmp(cmd, "smoothing"))
@@ -225,12 +225,12 @@ void SH_Status_f(void) {
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Scale", cl_strafeHelperScale->value, 1.5f);
     Com_Printf("  %-20s : %-20d : def: %d\n", "Height", cl_strafeHelperHeight->integer, 25);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Alpha", cl_strafehelperAlpha->value, 1.0f);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Fade inactive", cl_strafehelperFadeInactive->integer, 0);
     Com_Printf("  %-20s : %-20s : def: %s\n", "Bar style", cl_strafehelperBarStyle->string, "gradient");
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Smoothing", cl_strafehelperSmoothing->value, 0.0f);
     Com_Printf("  %-20s : %-20d : def: %d\n", "Smoothing mode", cl_strafehelperSmoothingMode->integer, 1);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Center width", cl_strafehelper_center_width->value, 1.5f);
     Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Optimal width", cl_strafehelper_optimal_width->value, 1.5f);
+    Com_Printf("  %-20s : %-20d : def: %d\n", "Optimal outline", cl_strafehelper_optimal_outline->integer, 0);
     Com_Printf("  %-20s : %-20s : def: %s\n", "Accelerating color", cl_strafehelper_color_accelerating->string,
                "115 170 255 120");
     Com_Printf("  %-20s : %-20s : def: %s\n", "Optimal color", cl_strafehelper_color_optimal->string, "0 255 64 192");

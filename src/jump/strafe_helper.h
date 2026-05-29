@@ -83,6 +83,8 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 
 bool StrafeHelper_HasData(void);
 
+extern bool sh_drawing_preview;
+
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
                               float hud_width, float hud_height);
 

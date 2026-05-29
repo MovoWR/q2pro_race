@@ -25,8 +25,6 @@ void SH_OptimalWidth_f(void);
 
 void SH_Alpha_f(void);
 
-void SH_FadeInactive_f(void);
-
 void SH_BarStyle_f(void);
 
 void SH_Smoothing_f(void);
