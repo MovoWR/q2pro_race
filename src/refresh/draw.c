@@ -343,7 +343,9 @@ void R_DrawFill8(int x, int y, int w, int h, int c)
 {
     if (!w || !h)
         return;
-    GL_StretchPic_(x, y, w, h, 0, 0, 1, 1, d_8to24table[c & 0xff], TEXNUM_WHITE, 0);
+    uint32_t color = d_8to24table[c & 0xff];
+    color = (color & 0x00ffffff) | ((uint32_t)draw.colors[0].u8[3] << 24);
+    GL_StretchPic_(x, y, w, h, 0, 0, 1, 1, color, TEXNUM_WHITE, 0);
 }
 
 void R_DrawFill32(int x, int y, int w, int h, uint32_t color)
