@@ -20,6 +20,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client.h"
 #include "src/jump/strafe_helper.h"
 #include "src/jump/strafe_helper_customization.h"
+#include "src/jump/sh_netmeter.h"
+#include "src/refresh/images.h"
 
 #define STAT_PICS       11
 #define STAT_MINUS      (STAT_PICS - 1)  // num frame for '-' stats digit
@@ -44,20 +46,14 @@ static cvar_t   *scr_showpmove;
 static cvar_t   *scr_showturtle;
 
 static cvar_t   *scr_netgraph;
-static cvar_t   *scr_netgraph_alpha;
 static cvar_t   *scr_timegraph;
 static cvar_t   *scr_debuggraph;
-static cvar_t   *scr_graphheight;
 static cvar_t   *scr_graphscale;
 static cvar_t   *scr_graphshift;
 static cvar_t   *scr_graphcolor;
 
 static cvar_t   *scr_draw2d;
-static cvar_t   *scr_lag_x;
-static cvar_t   *scr_lag_y;
 static cvar_t   *scr_lag_draw;
-static cvar_t   *scr_lag_min;
-static cvar_t   *scr_lag_max;
 
 cvar_t   *scr_alpha;
 
@@ -303,11 +299,40 @@ void SCR_AddNetgraph(void)
     if (scr_debuggraph->integer || scr_timegraph->integer)
         return;
 
+    if (scr_netgraph->integer == 2) {
+        // Calculate raw ping in ms
+        i = cls.netchan.incoming_acknowledged & CMD_MASK;
+        ping = cls.realtime - cl.history[i].sent;
+        if ((int)ping < 0) {
+            ping = 0;
+        }
+
+        // Check if this incoming packet had dropped packets before it
+        for (int d = 0; d < cls.netchan.dropped; d++) {
+            SCR_DebugGraph(0.0f, 3); // Loss
+        }
+
+        // Check if suppressed
+        for (int s = 0; s < cl.suppress_count; s++) {
+            SCR_DebugGraph((float)ping, 2); // Choke
+        }
+
+        int sample_color = 1; // Normal
+        if (cl.frameflags & FF_CLIENTDROP) {
+            sample_color = 4; // Prediction loss
+        }
+
+        SCR_DebugGraph((float)ping, sample_color);
+        return;
+    }
+
+    if (scr_netgraph->integer != 2 && sh_netmeter->integer != 2) {
     for (i = 0; i < cls.netchan.dropped; i++)
         SCR_DebugGraph(30, 0x40);
 
     for (i = 0; i < cl.suppress_count; i++)
         SCR_DebugGraph(30, 0xdf);
+    }
 
     if (scr_netgraph->integer > 1) {
         ping = msg_read.cursize;
@@ -332,14 +357,7 @@ void SCR_AddNetgraph(void)
     SCR_DebugGraph(min(ping, 30), color);
 }
 
-#define GRAPH_SAMPLES   4096
-#define GRAPH_MASK      (GRAPH_SAMPLES - 1)
-
-static struct {
-    float       values[GRAPH_SAMPLES];
-    byte        colors[GRAPH_SAMPLES];
-    unsigned    current;
-} graph;
+debuggraph_t graph;
 
 /*
 ==============
@@ -365,7 +383,7 @@ static void SCR_DrawDebugGraph(void)
 
     scale = scr_graphscale->value;
     shift = scr_graphshift->value;
-    height = scr_graphheight->integer;
+    height = sh_netgraph_height->integer;
     if (height < 1)
         return;
 
@@ -610,17 +628,12 @@ LAGOMETER
 ===============================================================================
 */
 
-#define LAG_WIDTH   48
-#define LAG_HEIGHT  48
-
-static struct {
-    unsigned samples[LAG_WIDTH];
-    unsigned head;
-} lag;
+lagometer_t lag;
 
 void SCR_LagClear(void)
 {
     lag.head = 0;
+    SH_NetMeter_Clear();
 }
 
 void SCR_LagSample(void)
@@ -646,19 +659,33 @@ void SCR_LagSample(void)
     lag.samples[lag.head % LAG_WIDTH] = ping;
     lag.head++;
 
-    SH_NetBar_Sample(ping & ~(LAG_WARN_BIT | LAG_CRIT_BIT));
+    SH_NetMeter_Sample(ping & ~(LAG_WARN_BIT | LAG_CRIT_BIT));
 }
 
 static void SCR_LagDraw(int x, int y)
 {
     int i, j, v, c, v_min, v_max, v_range;
+    int min_val = sh_netmeter_min_ms->integer;
+    int max_val = sh_netmeter_max_ms->integer;
 
-    v_min = Cvar_ClampInteger(scr_lag_min, 0, LAG_HEIGHT * 10);
-    v_max = Cvar_ClampInteger(scr_lag_max, 0, LAG_HEIGHT * 10);
+    if (min_val < 0) {
+        min_val = 0;
+    }
+    if (max_val < min_val) {
+        max_val = min_val;
+    }
+
+    if (sh_netmeter_adaptive->integer) {
+        v_min = 0;
+        v_max = max((int)SH_NetMeter_GetAvgPing() * 2, 150);
+    } else {
+        v_min = min_val;
+        v_max = max_val;
+    }
 
     v_range = v_max - v_min;
     if (v_range < 1)
-        return;
+        v_range = 1;
 
     for (i = 0; i < LAG_WIDTH; i++) {
         j = lag.head - i - 1;
@@ -685,8 +712,8 @@ static void SCR_LagDraw(int x, int y)
 
 static void SCR_DrawNet(void)
 {
-    int x = scr_lag_x->integer;
-    int y = scr_lag_y->integer;
+    int x = sh_lagometer_x->integer;
+    int y = sh_lagometer_y->integer;
 
     if (x < 0) {
         x += scr.hud_width - LAG_WIDTH + 1;
@@ -1450,10 +1477,8 @@ void SCR_Init(void)
     scr_crosshair->changed = scr_crosshair_changed;
 
     scr_netgraph = Cvar_Get("netgraph", "0", 0);
-    scr_netgraph_alpha = Cvar_Get("netgraph_alpha", "0", 0);
     scr_timegraph = Cvar_Get("timegraph", "0", 0);
     scr_debuggraph = Cvar_Get("debuggraph", "0", 0);
-    scr_graphheight = Cvar_Get("graphheight", "32", 0);
     scr_graphscale = Cvar_Get("graphscale", "1", 0);
     scr_graphshift = Cvar_Get("graphshift", "0", 0);
     scr_graphcolor = Cvar_Get("graphcolor", "208", 0);
@@ -1484,11 +1509,7 @@ void SCR_Init(void)
 
     scr_draw2d = Cvar_Get("scr_draw2d", "2", 0);
     scr_showturtle = Cvar_Get("scr_showturtle", "1", 0);
-    scr_lag_x = Cvar_Get("scr_lag_x", "-1", 0);
-    scr_lag_y = Cvar_Get("scr_lag_y", "-1", 0);
     scr_lag_draw = Cvar_Get("scr_lag_draw", "0", 0);
-    scr_lag_min = Cvar_Get("scr_lag_min", "0", 0);
-    scr_lag_max = Cvar_Get("scr_lag_max", "200", 0);
     scr_alpha = Cvar_Get("scr_alpha", "1", 0);
 
 #if USE_DEBUG
@@ -1498,7 +1519,7 @@ void SCR_Init(void)
 
     scr_hit_marker_time = Cvar_Get("scr_hit_marker_time", "500", 0);
 
-    SH_NetBar_Init();
+    SH_NetMeter_Init();
 
     Cmd_Register(scr_cmds);
 
@@ -2283,6 +2304,19 @@ draw:
 //
 void SCR_DrawStrafeHelper(void) {
     const bool preview = UI_IsMenuActive("strafehelper");
+
+    if (preview) {
+        if (!cl_drawStrafeHelper->integer) {
+            return;
+        }
+        sh.angle_optimal = 0.6f;
+        sh.angle_minimum = 0.4f;
+        sh.angle_maximum = 0.8f;
+        sh.angle_current = 0.65f;
+        sh.angle_diff = 0.05f;
+        sh.velocity_norm = 320.0f;
+    }
+
     const struct StrafeHelperParams params = {
         .center = cl_strafeHelperCenter->integer,
         .center_marker = cl_strafeHelperCenterMarker->integer,
@@ -2304,6 +2338,72 @@ void SCR_DrawStrafeHelper(void) {
 
 
 
+/*
+==============
+SCR_DrawDetailedNetgraph
+==============
+*/
+static void SCR_DrawDetailedNetgraph(void)
+{
+    int a, y, w, i, h, height, max_height, color_index;
+    float v, max_ping = 0.0f;
+    float global_alpha = Cvar_ClampValue(scr_alpha, 0, 1);
+    float graph_alpha = Cvar_ClampValue(sh_netgraph_alpha, 0, 1);
+
+    if (graph_alpha <= 0.0f) graph_alpha = 0.35f;
+
+    height = Cvar_ClampInteger(sh_netgraph_height, 10, 200);
+    w = scr.hud_width;
+    y = scr.hud_height;
+    max_height = height;
+
+    // First pass: find maximum visible ping
+    for (a = 0; a < w; a++) {
+        i = (graph.current - 1 - a) & GRAPH_MASK;
+        if (graph.values[i] > max_ping) {
+            max_ping = graph.values[i];
+        }
+    }
+
+    if (max_ping < 110.0f) {
+        max_ping = 110.0f; // Minimum compression scale
+    }
+
+    R_SetAlpha(graph_alpha * 0.5f * global_alpha);
+
+    // Second pass: draw
+    for (a = 0; a < w; a++) {
+        i = (graph.current - 1 - a) & GRAPH_MASK;
+        v = graph.values[i];
+        color_index = graph.colors[i];
+
+        if (v == 0 && color_index == 0) continue; // Uninitialized
+
+        // Hybrid Scaling Math
+        if (v <= 100.0f) {
+            h = (int)((v / 100.0f) * (max_height / 2.0f));
+        } else {
+            h = (max_height / 2) + (int)(((v - 100.0f) / (max_ping - 100.0f)) * (max_height / 2.0f));
+        }
+
+        h = Q_clip(h, 1, max_height);
+
+        // Apply colors based on event flag
+        if (color_index == 3 || color_index == 4) { // Loss or Prediction loss
+            R_SetAlpha(1.0f * global_alpha);
+            R_DrawFill8(w - 1 - a, y - max_height, 1, max_height, Cvar_ClampInteger(sh_netgraph_color_loss_s2c, 0, 255));
+        } else if (color_index == 2) { // Choke
+            R_SetAlpha(min(graph_alpha * 1.5f, 1.0f) * global_alpha);
+            R_DrawFill8(w - 1 - a, y - h, 1, h, Cvar_ClampInteger(sh_netgraph_color_normal, 0, 255));
+        } else { // Normal
+            int c = Cvar_ClampInteger(sh_netgraph_color_normal, 0, 255);
+            R_SetAlpha(graph_alpha * global_alpha);
+            R_DrawFill8(w - 1 - a, y - h, 1, h, c);
+        }
+    }
+
+    R_SetAlpha(global_alpha);
+}
 
 static void SCR_Draw2D(void)
 {
@@ -2336,10 +2436,13 @@ static void SCR_Draw2D(void)
     if (scr_timegraph->integer)
         SCR_DebugGraph(cls.frametime * 300, 0xdc);
 
-    if (scr_debuggraph->integer || scr_timegraph->integer || scr_netgraph->integer)
+    if (scr_netgraph->integer == 2) {
+        SCR_DrawDetailedNetgraph();
+    } else if (scr_debuggraph->integer || scr_timegraph->integer || scr_netgraph->integer) {
         SCR_DrawDebugGraph();
+    }
 
-    SH_NetBar_Draw();
+    SH_NetMeter_Draw();
 
     SCR_DrawStats();
 

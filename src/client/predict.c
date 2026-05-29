@@ -96,7 +96,7 @@ void CL_CheckPredictionError(void)
     SHOWMISS("prediction miss on %i: %i (%d %d %d)\n",
              cl.frame.number, len, delta[0], delta[1], delta[2]);
 
-    SH_NetBar_PredictionError(len);
+    SH_NetMeter_PredictionError(len);
 
     // don't predict steps against server returned data
     if (cl.predicted_step_frame <= cmd)

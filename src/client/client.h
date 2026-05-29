@@ -618,8 +618,8 @@ extern cvar_t    *cl_strafehelperUpsColorGain;
 extern cvar_t    *cl_strafehelperUpsColorLoss;
 extern cvar_t    *cl_strafehelperUpsColorNeutral;
 extern cvar_t    *cl_strafehelperUpsFormat;
+extern cvar_t    *cl_strafehelperUps3D;
 extern cvar_t    *cl_strafehelperAlpha;
-extern cvar_t    *cl_strafehelperFadeInactive;
 extern cvar_t    *cl_strafehelperBarStyle;
 extern cvar_t    *cl_strafehelperSmoothing;
 extern cvar_t    *cl_strafehelperSmoothingMode;
@@ -632,6 +632,7 @@ extern cvar_t    *cl_race_life;
 extern cvar_t    *cl_race_alpha;
 extern cvar_t    *cl_strafehelper_center_width;
 extern cvar_t    *cl_strafehelper_optimal_width;
+extern cvar_t    *cl_strafehelper_optimal_outline;
 extern cvar_t    *cl_strafehelperNerdStats;
 extern cvar_t    *cl_strafehelper_color_nerdstats;
 
@@ -1097,43 +1098,98 @@ void    SCR_BeginLoadingPlaque(void);
 void    SCR_EndLoadingPlaque(void);
 void    SCR_RegisterMedia(void);
 void    SCR_ModeChanged(void);
+#define LAG_WARN_BIT    BIT(30)
+#define LAG_CRIT_BIT    BIT(31)
+
+#define LAG_BASE    0xD5
+#define LAG_WARN    0xDC
+#define LAG_CRIT    0xF2
+
+#define LAG_WIDTH   48
+#define LAG_HEIGHT  48
+
+typedef struct {
+    unsigned samples[LAG_WIDTH];
+    unsigned head;
+} lagometer_t;
+
+extern lagometer_t lag;
+
+#define GRAPH_SAMPLES   4096
+#define GRAPH_MASK      (GRAPH_SAMPLES - 1)
+
+typedef struct {
+    float       values[GRAPH_SAMPLES];
+    byte        colors[GRAPH_SAMPLES];
+    unsigned    current;
+} debuggraph_t;
+
+extern debuggraph_t graph;
+
 void    SCR_LagSample(void);
 void    SCR_LagClear(void);
-void    SH_NetBar_PredictionError(int len);
+void    SH_NetMeter_PredictionError(int len);
 
-void    SH_NetBar_Init(void);
-void    SH_NetBar_Sample(unsigned ping);
-void    SH_NetBar_Draw(void);
+void    SH_NetMeter_Init(void);
+void    SH_NetMeter_Clear(void);
+void    SH_NetMeter_Sample(unsigned ping);
+void    SH_NetMeter_Draw(void);
 
-extern cvar_t *scr_netbar;
-extern cvar_t *scr_netbar_y;
-extern cvar_t *scr_netbar_h;
-extern cvar_t *scr_netbar_alpha;
-extern cvar_t *scr_netbar_bad_alpha;
-extern cvar_t *scr_netbar_history;
-extern cvar_t *scr_netbar_ping_mode;
-extern cvar_t *scr_netbar_labels;
-extern cvar_t *scr_netbar_notice;
-extern cvar_t *scr_netbar_notice_y;
-extern cvar_t *scr_netbar_notice_ms;
-extern cvar_t *scr_netbar_notice_alpha;
-extern cvar_t *scr_netbar_notice_stall;
-extern cvar_t *scr_netbar_notice_loss;
-extern cvar_t *scr_netbar_notice_pred;
-extern cvar_t *scr_netbar_notice_choke;
-extern cvar_t *scr_netbar_notice_frame;
-extern cvar_t *scr_netbar_notice_jitter;
-extern cvar_t *scr_netbar_notice_spike;
-extern cvar_t *scr_netbar_notice_ping;
-extern cvar_t *scr_netwarn_highping;
-extern cvar_t *scr_netwarn_ping_adaptive;
-extern cvar_t *scr_netwarn_spike_ms;
-extern cvar_t *scr_netwarn_spike_pct;
-extern cvar_t *scr_netwarn_jitter_ms;
-extern cvar_t *scr_netwarn_stall_ms;
-extern cvar_t *scr_netwarn_stall_crit_ms;
-extern cvar_t *scr_netwarn_pred_warn;
-extern cvar_t *scr_netwarn_pred_crit;
+extern cvar_t *sh_netmeter;
+extern cvar_t *sh_netalert;
+extern cvar_t *sh_netalert_x;
+extern cvar_t *sh_netalert_y;
+extern cvar_t *sh_netalert_color;
+extern cvar_t *sh_netalert_alpha;
+extern cvar_t *sh_netalert_duration_ms;
+extern cvar_t *sh_netalert_loss;
+extern cvar_t *sh_netalert_jitter;
+extern cvar_t *sh_netalert_spike;
+
+/* Mode 1 - Lagometer specific */
+extern cvar_t *sh_lagometer_x;
+extern cvar_t *sh_lagometer_y;
+extern cvar_t *sh_netmeter_min_ms;
+extern cvar_t *sh_netmeter_max_ms;
+extern cvar_t *sh_netmeter_adaptive;
+extern cvar_t *sh_lagometer_color_normal;
+extern cvar_t *sh_lagometer_color_spike;
+extern cvar_t *sh_lagometer_color_jitter;
+extern cvar_t *sh_lagometer_color_loss_s2c;
+extern cvar_t *sh_lagometer_color_loss_c2s;
+extern cvar_t *sh_lagometer_alpha;
+extern cvar_t *sh_lagometer_bad_alpha;
+
+/* Mode 2 - Netgraph specific */
+extern cvar_t *sh_netgraph_y;
+extern cvar_t *sh_netgraph_height;
+extern cvar_t *sh_netgraph_alpha;
+extern cvar_t *sh_netgraph_color_normal;
+extern cvar_t *sh_netgraph_color_spike;
+extern cvar_t *sh_netgraph_color_jitter;
+extern cvar_t *sh_netgraph_color_loss_s2c;
+extern cvar_t *sh_netgraph_color_loss_c2s;
+
+/* Mode 3 - Histogram specific */
+extern cvar_t *sh_histogram_x;
+extern cvar_t *sh_histogram_y;
+extern cvar_t *sh_histogram_width;
+extern cvar_t *sh_histogram_height;
+extern cvar_t *sh_histogram_bg_alpha;
+extern cvar_t *sh_histogram_color_bg;
+extern cvar_t *sh_histogram_color_normal;
+extern cvar_t *sh_histogram_color_spike;
+extern cvar_t *sh_histogram_color_jitter;
+extern cvar_t *sh_histogram_color_loss_s2c;
+extern cvar_t *sh_histogram_color_loss_c2s;
+extern cvar_t *sh_histogram_alpha;
+extern cvar_t *sh_histogram_bad_alpha;
+extern cvar_t *sh_histogram_history;
+
+extern cvar_t *sh_netwarn_ping_adaptive;
+extern cvar_t *sh_netwarn_spike_ms;
+extern cvar_t *sh_netwarn_spike_pct;
+extern cvar_t *sh_netwarn_jitter_ms;
 extern cvar_t *scr_alpha;
 
 void    SCR_SetCrosshairColor(void);
