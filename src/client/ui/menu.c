@@ -19,6 +19,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "ui.h"
 #include "server/server.h"
 
+extern cvar_t *cl_drawStrafeHelper;
+
 static void Menu_SetColor(uint32_t color)
 {
     R_SetColor(color);
@@ -822,6 +824,14 @@ static void ColorPicker_Open(menuField_t *field)
         colorPicker.originalValid = true;
     }
     colorPicker.original = color;
+
+    if (colorPicker.target && Q_strncasecmp(colorPicker.target->name, "sh_color_", 9) == 0) {
+        colorPicker.menu.halign = MENU_HALIGN_CENTER;
+        colorPicker.menu.color.u32 = MakeColor(63, 109, 160, 112); // #3f6da070
+    } else {
+        colorPicker.menu.halign = MENU_HALIGN_LEFT;
+        colorPicker.menu.color.u32 = MakeColor(0, 0, 0, 0); // default transparent
+    }
 
     Q_snprintf(colorPicker.title, sizeof(colorPicker.title), "%s color", name);
     ColorPicker_SetFromColor(&color, false);
@@ -2267,6 +2277,19 @@ static void Slider_Draw(menuSlider_t *s)
         UI_DrawString(s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH,
                       s->generic.y, flags | UI_LEFT, value);
     }
+
+    if (s->cvar &&
+        (strncmp(s->cvar->name, "sh_histogram_color_", 19) == 0 ||
+         strncmp(s->cvar->name, "sh_lagometer_color_", 19) == 0 ||
+         strncmp(s->cvar->name, "sh_netgraph_color_", 18) == 0)) {
+        int box_x = s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH + 5 * CHAR_WIDTH;
+        int box_y = s->generic.y + 1;
+        int box_w = CHAR_WIDTH * 2;
+        int box_h = CHAR_HEIGHT - 2;
+        int col = Cvar_ClampInteger(s->cvar, 0, 255);
+        R_DrawFill8(box_x - 1, box_y - 1, box_w + 2, box_h + 2, 7); // border
+        R_DrawFill8(box_x, box_y, box_w, box_h, col);               // color swatch
+    }
 }
 
 /*
@@ -2451,14 +2474,10 @@ static void Menu_ClampHorizontal(menuFrameWork_t *menu)
     Menu_TranslateHorizontal(menu, dx);
 }
 
-void Menu_Init(menuFrameWork_t *menu)
+static void Menu_Layout(menuFrameWork_t *menu)
 {
     void *item;
     int i;
-    int focus = 0;
-
-    menu->y1 = 0;
-    menu->y2 = uis.height;
 
     if (!menu->size) {
         menu->size = Menu_Size;
@@ -2467,8 +2486,6 @@ void Menu_Init(menuFrameWork_t *menu)
 
     for (i = 0; i < menu->nitems; i++) {
         item = menu->items[i];
-
-        focus |= ((menuCommon_t *)item)->flags & QMF_HASFOCUS;
         switch (((menuCommon_t *)item)->type) {
         case MTYPE_FIELD:
             Field_Init(item);
@@ -2505,20 +2522,11 @@ void Menu_Init(menuFrameWork_t *menu)
             Bitmap_Init(item);
             break;
         default:
-            Q_assert(!"unknown item type");
+            break;
         }
     }
 
     Menu_ClampHorizontal(menu);
-
-    // set focus to the first item by default
-    if (!focus && menu->nitems) {
-        item = menu->items[0];
-        ((menuCommon_t *)item)->flags |= QMF_HASFOCUS;
-        if (((menuCommon_t *)item)->status) {
-            menu->status = ((menuCommon_t *)item)->status;
-        }
-    }
 
     // calc menu bounding box
     Menu_CalcItemBounds(menu, menu->mins, menu->maxs);
@@ -2536,10 +2544,132 @@ void Menu_Init(menuFrameWork_t *menu)
     if (menu->maxs[1] > uis.height) menu->maxs[1] = uis.height;
 }
 
+void Menu_UpdateShowIf(menuFrameWork_t *menu)
+{
+    int i;
+    bool layout_changed = false;
+
+    if (!menu) {
+        return;
+    }
+
+    if (menu->name && strcmp(menu->name, "strafehelper") == 0 && menu->compact && cl_drawStrafeHelper) {
+        bool should_shift = (cl_drawStrafeHelper->integer != 0);
+        bool is_shifted = (menu->y1 == 16 - MENU_SPACING);
+        if (should_shift != is_shifted) {
+            layout_changed = true;
+        }
+    } else if (menu->name && strcmp(menu->name, "colorpicker") == 0 && menu->compact &&
+               colorPicker.target && Q_strncasecmp(colorPicker.target->name, "sh_color_", 9) == 0 &&
+               cl_drawStrafeHelper) {
+        bool should_shift = (cl_drawStrafeHelper->integer != 0);
+        bool is_shifted = (menu->y1 == 16 - MENU_SPACING);
+        if (should_shift != is_shifted) {
+            layout_changed = true;
+        }
+    }
+
+    for (i = 0; i < menu->nitems; i++) {
+        menuCommon_t *item = menu->items[i];
+        if (item->show_if_cvar && item->show_if_value) {
+            cvar_t *var = Cvar_FindVar(item->show_if_cvar);
+            const char *val_str = var ? var->string : "";
+            bool cond_met;
+            if (item->show_if_value[0] == '!') {
+                cond_met = (strcmp(val_str, item->show_if_value + 1) != 0);
+            } else {
+                cond_met = (strcmp(val_str, item->show_if_value) == 0);
+            }
+            int old_flags = item->flags;
+
+            if (cond_met) {
+                item->flags &= ~QMF_HIDDEN;
+            } else {
+                item->flags |= QMF_HIDDEN;
+            }
+
+            if ((old_flags & QMF_HIDDEN) != (item->flags & QMF_HIDDEN)) {
+                layout_changed = true;
+            }
+        }
+    }
+
+    if (layout_changed) {
+        Menu_Layout(menu);
+    }
+
+    // Ensure focused item is not hidden
+    menuCommon_t *focused_item = NULL;
+    int pos = -1;
+    for (i = 0; i < menu->nitems; i++) {
+        menuCommon_t *item = menu->items[i];
+        if (item->flags & QMF_HASFOCUS) {
+            focused_item = item;
+            pos = i;
+            break;
+        }
+    }
+
+    if (focused_item && (focused_item->flags & QMF_HIDDEN)) {
+        menuCommon_t *new_focus = NULL;
+        int cursor = pos;
+        do {
+            cursor++;
+            if (cursor >= menu->nitems) {
+                cursor = 0;
+            }
+            menuCommon_t *item = menu->items[cursor];
+            if (UI_IsItemSelectable(item)) {
+                new_focus = item;
+                break;
+            }
+        } while (cursor != pos);
+
+        if (new_focus) {
+            Menu_SetFocus(new_focus);
+            focused_item->flags &= ~QMF_HASFOCUS;
+        } else {
+            focused_item->flags &= ~QMF_HASFOCUS;
+            if (menu->status == focused_item->status) {
+                menu->status = NULL;
+            }
+        }
+    }
+}
+
+void Menu_Init(menuFrameWork_t *menu)
+{
+    void *item;
+    int i;
+    int focus = 0;
+
+    menu->y1 = 0;
+    menu->y2 = uis.height;
+    menu->scrollOffset = 0;
+    menu->maxVisible = 0;
+    Menu_Layout(menu);
+
+    for (i = 0; i < menu->nitems; i++) {
+        item = menu->items[i];
+        focus |= ((menuCommon_t *)item)->flags & QMF_HASFOCUS;
+    }
+
+    // set focus to the first item by default
+    if (!focus && menu->nitems) {
+        item = menu->items[0];
+        ((menuCommon_t *)item)->flags |= QMF_HASFOCUS;
+        if (((menuCommon_t *)item)->status) {
+            menu->status = ((menuCommon_t *)item)->status;
+        }
+    }
+
+    Menu_UpdateShowIf(menu);
+}
+
 void Menu_Size(menuFrameWork_t *menu)
 {
     menuCommon_t *item;
-    int x, y, w, h;
+    int x, y, w, h, totalHeight;
     int i, widest = -1;
 
     // count visible items
@@ -2564,9 +2694,23 @@ void Menu_Size(menuFrameWork_t *menu)
     }
 
     // set menu top/bottom
+    bool shift_top = false;
+    if (menu->name && strcmp(menu->name, "strafehelper") == 0 && cl_drawStrafeHelper && cl_drawStrafeHelper->integer) {
+        shift_top = true;
+    } else if (menu->name && strcmp(menu->name, "colorpicker") == 0 &&
+               colorPicker.target && Q_strncasecmp(colorPicker.target->name, "sh_color_", 9) == 0 &&
+               cl_drawStrafeHelper && cl_drawStrafeHelper->integer) {
+        shift_top = true;
+    }
+
     if (menu->compact) {
+        if (shift_top) {
+            menu->y1 = 16 - MENU_SPACING;
+            menu->y2 = 16 + h + MENU_SPACING;
+        } else {
         menu->y1 = (uis.height - h) / 2 - MENU_SPACING;
         menu->y2 = (uis.height + h) / 2 + MENU_SPACING;
+        }
     } else {
         menu->y1 = 0;
         menu->y2 = uis.height;
@@ -2594,7 +2738,11 @@ void Menu_Size(menuFrameWork_t *menu)
     }
 
     // set menu vertical base
+    if (shift_top) {
+        y = 16;
+    } else {
     y = (uis.height - h) / 2;
+    }
 
     // banner is horizontally centered and
     // positioned on top of all menu items
@@ -2603,6 +2751,8 @@ void Menu_Size(menuFrameWork_t *menu)
         menu->banner_rc.y = y;
         y += GENERIC_SPACING(menu->banner_rc.height);
     }
+    // save for scroll overflow check
+    totalHeight = h;
 
     // plaque and logo are vertically centered and
     // positioned to the left of bitmaps and cursor
@@ -2639,6 +2789,80 @@ void Menu_Size(menuFrameWork_t *menu)
         }
     }
 
+
+    // scroll handling - reposition items when they don't fit
+    {
+        int availHeight = uis.height - MENU_SPACING * 2;
+        if (menu->banner && menu->banner_rc.height > 0)
+            availHeight -= GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
+
+        if (totalHeight > availHeight) {
+            // validate scrollOffset
+            if (menu->scrollOffset < 0)
+                menu->scrollOffset = 0;
+            if (menu->scrollOffset >= menu->nitems)
+                menu->scrollOffset = 0;
+
+            // compute pre-scroll height (items above scrollOffset)
+            int preHeight = 0;
+            for (i = 0; i < menu->scrollOffset && i < menu->nitems; i++) {
+                item = menu->items[i];
+                if (item->flags & QMF_HIDDEN) continue;
+                if (item->type == MTYPE_BITMAP)
+                    preHeight += GENERIC_SPACING(item->height);
+                else
+                    preHeight += MENU_SPACING;
+            }
+
+            // reposition banner at top for scrollable menu
+            if (menu->banner) {
+                menu->banner_rc.x = (uis.width - menu->banner_rc.width) / 2;
+                menu->banner_rc.y = MENU_SPACING;
+            }
+
+            // base Y: top of items area minus scroll pre-height
+            y = MENU_SPACING;
+            if (menu->banner && menu->banner_rc.height > 0)
+                y += GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
+            y -= preHeight;
+
+            // reposition all items with scroll offset
+            for (i = 0; i < menu->nitems; i++) {
+                item = menu->items[i];
+                if (item->flags & QMF_HIDDEN) continue;
+                item->x = x;
+                item->y = y;
+                item->rect.y = y;
+                if (item->type == MTYPE_BITMAP)
+                    y += GENERIC_SPACING(item->height);
+                else
+                    y += MENU_SPACING;
+            }
+
+            // compute maxVisible
+            menu->maxVisible = 0;
+            int visibleY = y;
+            if (menu->banner && menu->banner_rc.height > 0)
+                visibleY = MENU_SPACING + GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
+            else
+                visibleY = MENU_SPACING;
+            for (i = menu->scrollOffset; i < menu->nitems; i++) {
+                item = menu->items[i];
+                if (item->flags & QMF_HIDDEN) continue;
+                int itemH = (item->type == MTYPE_BITMAP)
+                    ? GENERIC_SPACING(item->height) : MENU_SPACING;
+                if (visibleY + itemH > uis.height - MENU_SPACING)
+                    break;
+                menu->maxVisible++;
+                visibleY += itemH;
+            }
+            if (menu->maxVisible < 1)
+                menu->maxVisible = 1;
+        } else {
+            menu->scrollOffset = 0;
+            menu->maxVisible = menu->nitems;
+        }
+    }
 }
 
 menuCommon_t *Menu_ItemAtCursor(menuFrameWork_t *m)
@@ -2754,6 +2978,20 @@ menuSound_t Menu_AdjustCursor(menuFrameWork_t *m, int dir)
     }
 
     Menu_SetFocus(item);
+    // scroll to keep cursor visible
+    if (m->maxVisible && m->maxVisible < m->nitems) {
+        if (cursor < m->scrollOffset) {
+            m->scrollOffset = cursor;
+            if (m->size)
+                m->size(m);
+        } else if (cursor >= m->scrollOffset + m->maxVisible) {
+            m->scrollOffset = cursor - m->maxVisible + 1;
+            if (m->scrollOffset < 0)
+                m->scrollOffset = 0;
+            if (m->size)
+                m->size(m);
+        }
+    }
 
     return QMS_MOVE;
 }
@@ -2822,6 +3060,8 @@ void Menu_Draw(menuFrameWork_t *menu)
     void *item;
     int i;
 
+    Menu_UpdateShowIf(menu);
+
 //
 // draw background
 //
@@ -2865,6 +3105,11 @@ void Menu_Draw(menuFrameWork_t *menu)
         if (((menuCommon_t *)item)->flags & QMF_HIDDEN) {
             continue;
         }
+        // skip items scrolled off screen
+        if (menu->maxVisible && i < menu->scrollOffset)
+            continue;
+        if (menu->maxVisible && i >= menu->scrollOffset + menu->maxVisible)
+            break;
 
         switch (((menuCommon_t *)item)->type) {
         case MTYPE_FIELD:
@@ -2910,6 +3155,22 @@ void Menu_Draw(menuFrameWork_t *menu)
         }
     }
 
+    // draw scroll indicators for scrollable menus
+    if (menu->maxVisible && menu->maxVisible < menu->nitems) {
+        if (menu->scrollOffset > 0) {
+            int y = menu->banner_rc.y;
+            if (menu->banner)
+                y += GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
+            else
+                y = MENU_SPACING;
+            UI_DrawString(uis.width / 2, y - CHAR_HEIGHT,
+                          UI_CENTER | UI_ALTCOLOR, "...");
+        }
+        if (menu->scrollOffset + menu->maxVisible < menu->nitems) {
+            UI_DrawString(uis.width / 2, uis.height - MENU_SPACING - CHAR_HEIGHT,
+                          UI_CENTER | UI_ALTCOLOR, "...");
+        }
+    }
 //
 // draw status bar
 //
@@ -3038,16 +3299,35 @@ static menuSound_t Menu_DefaultKey(menuFrameWork_t *m, int key)
     case K_TAB:
     case 'j':
         return Menu_AdjustCursor(m, 1);
+    case K_MWHEELDOWN:
+        if (m->maxVisible && m->maxVisible < m->nitems) {
+            m->scrollOffset++;
+            if (m->scrollOffset + m->maxVisible > m->nitems)
+                m->scrollOffset = m->nitems - m->maxVisible;
+            if (m->size) m->size(m);
+            return QMS_SILENT;
+        }
+        return Menu_SlideItem(m, -1);
+
+    case K_MWHEELUP:
+        if (m->maxVisible && m->maxVisible < m->nitems) {
+            m->scrollOffset--;
+            if (m->scrollOffset < 0)
+                m->scrollOffset = 0;
+            if (m->size) m->size(m);
+            return QMS_SILENT;
+        }
+        return Menu_SlideItem(m, 1);
 
     case K_KP_LEFTARROW:
     case K_LEFTARROW:
-    case K_MWHEELDOWN:
+
     case 'h':
         return Menu_SlideItem(m, -1);
 
     case K_KP_RIGHTARROW:
     case K_RIGHTARROW:
-    case K_MWHEELUP:
+
     case 'l':
         return Menu_SlideItem(m, 1);
 
@@ -3077,12 +3357,15 @@ menuSound_t Menu_Keydown(menuFrameWork_t *menu, int key)
     menuCommon_t *item;
     menuSound_t sound;
 
+    Menu_UpdateShowIf(menu);
+
     if (menu->keywait) {
     }
 
     if (menu->keydown) {
         sound = menu->keydown(menu, key);
         if (sound != QMS_NOTHANDLED) {
+            Menu_UpdateShowIf(menu);
             return sound;
         }
     }
@@ -3091,11 +3374,13 @@ menuSound_t Menu_Keydown(menuFrameWork_t *menu, int key)
     if (item) {
         sound = Menu_KeyEvent(item, key);
         if (sound != QMS_NOTHANDLED) {
+            Menu_UpdateShowIf(menu);
             return sound;
         }
     }
 
     sound = Menu_DefaultKey(menu, key);
+    Menu_UpdateShowIf(menu);
     return sound;
 }
 
@@ -3201,6 +3486,9 @@ void Menu_Free(menuFrameWork_t *menu)
 
     for (i = 0; i < menu->nitems; i++) {
         item = menu->items[i];
+
+        Z_Free(((menuCommon_t *)item)->show_if_cvar);
+        Z_Free(((menuCommon_t *)item)->show_if_value);
 
         switch (((menuCommon_t *)item)->type) {
         case MTYPE_ACTION:

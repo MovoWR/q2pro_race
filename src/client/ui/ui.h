@@ -116,7 +116,8 @@ typedef struct menuFrameWork_s {
 
     int mins[2];
     int maxs[2];
-
+    int scrollOffset;
+    int maxVisible;
     qhandle_t banner;
     vrect_t banner_rc;
 
@@ -143,6 +144,8 @@ typedef struct menuCommon_s {
     color_t color;
     vrect_t rect;
     char *status;
+    char *show_if_cvar;
+    char *show_if_value;
 
     int x, y;
     int width, height;
@@ -346,6 +349,7 @@ menuFrameWork_t *UI_FindMenu(const char *name);
 void        Menu_Init(menuFrameWork_t *menu);
 void        Menu_Size(menuFrameWork_t *menu);
 void        Menu_Draw(menuFrameWork_t *menu);
+void        Menu_UpdateShowIf(menuFrameWork_t *menu);
 void        Menu_AddItem(menuFrameWork_t *menu, void *item);
 menuSound_t Menu_SelectItem(menuFrameWork_t *menu);
 menuSound_t Menu_SlideItem(menuFrameWork_t *menu, int dir);

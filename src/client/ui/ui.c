@@ -399,6 +399,8 @@ bool UI_DoHitTest(void)
         return false;
     }
 
+    Menu_UpdateShowIf(uis.activeMenu);
+
     if (uis.mouseTracker) {
         item = uis.mouseTracker;
     } else {
@@ -560,12 +562,16 @@ void UI_CharEvent(int key)
         return;
     }
 
+    Menu_UpdateShowIf(uis.activeMenu);
+
     if ((item = Menu_ItemAtCursor(uis.activeMenu)) == NULL ||
         (sound = Menu_CharEvent(item, key)) == QMS_NOTHANDLED) {
+        Menu_UpdateShowIf(uis.activeMenu);
         return;
     }
 
     UI_StartSound(sound);
+    Menu_UpdateShowIf(uis.activeMenu);
 }
 
 static void UI_Menu_g(genctx_t *ctx)

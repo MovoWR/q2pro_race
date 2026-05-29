@@ -49,6 +49,36 @@ static const cmd_option_t o_common[] = {
     { NULL }
 };
 
+static void SetShowIf(menuCommon_t *item, const char *cvar, const char *val)
+{
+    if (cvar && val) {
+        item->show_if_cvar = UI_CopyString(cvar);
+        item->show_if_value = UI_CopyString(val);
+    }
+}
+
+static void ParseShowIf(char **show_if_cvar, char **show_if_value)
+{
+    int i;
+    *show_if_cvar = NULL;
+    *show_if_value = NULL;
+    for (i = 1; i < Cmd_Argc(); i++) {
+        if (strcmp(Cmd_Argv(i), "--show-if") == 0 || strcmp(Cmd_Argv(i), "-I") == 0) {
+            if (i + 2 < Cmd_Argc()) {
+                *show_if_cvar = Cmd_Argv(i + 1);
+                *show_if_value = Cmd_Argv(i + 2);
+                Cmd_RemoveArg(i);
+                Cmd_RemoveArg(i);
+                Cmd_RemoveArg(i);
+                return;
+            } else {
+                Com_Printf("Missing arguments for --show-if option.\n");
+                return;
+            }
+        }
+    }
+}
+
 static void add_string(menuSpinControl_t *s, const char *tok)
 {
     if (s->numItems < MAX_MENU_ITEMS) {
@@ -120,6 +150,10 @@ static void Parse_Spin(menuFrameWork_t *menu, menuType_t type)
     int c, i, numItems;
     int flags = 0;
     char *status = NULL;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
@@ -158,6 +192,7 @@ static void Parse_Spin(menuFrameWork_t *menu, menuType_t type)
         s->numItems = numItems;
     }
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
@@ -167,6 +202,10 @@ static void Parse_Pairs(menuFrameWork_t *menu)
     int c, i, numItems;
     int flags = 0;
     char *status = NULL;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
@@ -202,6 +241,7 @@ static void Parse_Pairs(menuFrameWork_t *menu)
     }
     s->numItems = numItems;
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
@@ -211,6 +251,10 @@ static void Parse_Range(menuFrameWork_t *menu)
     char *status = NULL;
     int flags = 0;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
@@ -244,6 +288,7 @@ static void Parse_Range(menuFrameWork_t *menu)
         s->step = (s->maxvalue - s->minvalue) / SLIDER_RANGE;
     }
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
@@ -258,6 +303,10 @@ static void Parse_Action(menuFrameWork_t *menu)
     int uiFlags = UI_CENTER;
     char *status = NULL;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_action)) != -1) {
         switch (c) {
@@ -285,6 +334,7 @@ static void Parse_Action(menuFrameWork_t *menu)
     a->generic.status = UI_CopyString(status);
     a->cmd = UI_CopyString(Cmd_ArgsFrom(cmd_optind + 1));
 
+    SetShowIf(&a->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, a);
 }
 
@@ -298,6 +348,10 @@ static void Parse_Bitmap(menuFrameWork_t *menu)
     menuBitmap_t *b;
     char *status = NULL, *altname = NULL;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_bitmap)) != -1) {
         switch (c) {
@@ -328,6 +382,7 @@ static void Parse_Bitmap(menuFrameWork_t *menu)
     b->pics[1] = R_RegisterPic(altname);
     R_GetPicSize(&b->generic.width, &b->generic.height, b->pics[0]);
 
+    SetShowIf(&b->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, b);
 }
 
@@ -342,6 +397,10 @@ static void Parse_Bind(menuFrameWork_t *menu)
     const char *status = "Press Enter to change, Backspace to clear";
     const char *altstatus = "Press the desired key, Escape to cancel";
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_bind)) != -1) {
         switch (c) {
@@ -369,6 +428,7 @@ static void Parse_Bind(menuFrameWork_t *menu)
     k->cmd = UI_CopyString(Cmd_ArgsFrom(cmd_optind + 1));
     k->altstatus = UI_CopyString(altstatus);
 
+    SetShowIf(&k->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, k);
 }
 
@@ -377,6 +437,10 @@ static void Parse_Savegame(menuFrameWork_t *menu, menuType_t type)
     menuAction_t *a;
     char *status = NULL;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
@@ -404,6 +468,7 @@ static void Parse_Savegame(menuFrameWork_t *menu, menuType_t type)
     if (type == MTYPE_LOADGAME)
         a->generic.flags |= QMF_GRAYED;
 
+    SetShowIf(&a->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, a);
 }
 
@@ -415,6 +480,10 @@ static void Parse_Toggle(menuFrameWork_t *menu)
     menuType_t type = MTYPE_TOGGLE;
     int c, bit = 0, flags = 0;
     char *b, *status = NULL;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_common)) != -1) {
         switch (c) {
@@ -459,6 +528,7 @@ static void Parse_Toggle(menuFrameWork_t *menu)
     s->negate = negate;
     s->mask = 1U << bit;
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
@@ -482,6 +552,10 @@ static void Parse_Field(menuFrameWork_t *menu)
     char *status = NULL;
     int width = 16;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_field)) != -1) {
         switch (c) {
@@ -524,16 +598,22 @@ static void Parse_Field(menuFrameWork_t *menu)
     f->colorPreview = colorPreview;
     f->colorPickerOnly = colorPickerOnly;
 
+    SetShowIf(&f->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, f);
 }
 
 static void Parse_Blank(menuFrameWork_t *menu)
 {
     menuSeparator_t *s;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     s = UI_Mallocz(sizeof(*s));
     s->generic.type = MTYPE_SEPARATOR;
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
@@ -548,6 +628,10 @@ static void Parse_Static(menuFrameWork_t *menu)
     int uiFlags = UI_CENTER | UI_ALTCOLOR;
     char *status = NULL;
     int c;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
 
     while ((c = Cmd_ParseOptions(o_static)) != -1) {
         switch (c) {
@@ -573,6 +657,7 @@ static void Parse_Static(menuFrameWork_t *menu)
     s->generic.uiFlags = uiFlags;
     s->generic.status = UI_CopyString(status);
 
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
     Menu_AddItem(menu, s);
 }
 
