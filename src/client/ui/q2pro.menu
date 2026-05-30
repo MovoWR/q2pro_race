@@ -74,7 +74,7 @@ begin video
     background #3f6da080
     style --compact --center --transparent --live
     values --status "Switch between fullscreen and windowed modes." "video mode" vid_fullscreen windowed $$vid_modelist
-    toggle --status "Keep fullscreen visible and release the mouse while console is open on multi-monitor setups." "multi-monitor" vid_fullscreen_multimonitor --show-if vid_fullscreen !windowed
+    toggle --status "Configure borderless window and focus settings for multi-display setups (requires video restart)." "multi-monitor mode" vid_multimonitor
     values --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
     toggle --status "Synchronize frame rate with monitor refresh to prevent tearing." "vertical sync" gl_swapinterval
     pairs --status "Smooth jagged edges of geometry (requires video restart)." "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8
@@ -88,10 +88,29 @@ begin video
         trilinear GL_LINEAR_MIPMAP_LINEAR
     pairs --status "Improve texture clarity on surfaces viewed at an angle." "anisotropic filter" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16
     range --show-value --status "Adjust the color intensity of game world textures." "texture saturation" gl_saturation 0 1
-    pairs --status "Boost the overall brightness of textures." "texture intensity" intensity 1x 1 2x 2 3x 3
+    range --show-value --status "Boost the overall brightness of textures." "texture intensity" intensity 1 3 0.1
     range --show-value --status "Adjust the color intensity of static lightmaps." "lightmap saturation" gl_coloredlightmaps 0 1
     range --show-value --status "Fine-tune the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
     values --status "Legacy GL1.x vs Modern GL3.x shaders (requires video restart)." "rendering backend" gl_shaders legacy shaders
+    blank
+    action --status "Configure advanced and modern rendering options." --align "advanced settings..." pushmenu video_advanced
+    action --status "Restart the video renderer to apply changes." --align "apply changes (vid_restart)" vid_restart
+end
+
+begin video_advanced
+    title "Advanced Video"
+    background #3f6da080
+    style --compact --center --transparent
+    toggle --status "Draw skybox textures (disable to draw black sky)." "draw skybox" gl_drawsky
+    toggle --status "Bilinear filtering of skybox textures." "sky filtering" gl_bilerp_skies
+    pairs --status "HQ upscale filter for PCX images (improves scaled HUD elements)." "HUD image upscale" gl_upscale_pcx no 0 2x 1 4x 2
+    pairs --status "Bilinear filtering level for HUD pictures." "HUD image filter" gl_bilerp_pics off 0 "large only" 1 all 2
+    pairs --status "Draw drop-shadow under text to improve readability." "text shadow" gl_fontshadow no 0 1px 1 2px 2
+    toggle --status "Bilinear filtering of console and menu text." "text filtering" gl_bilerp_chars
+    pairs --status "Search for truecolor replacements (PNG/JPG/TGA) for game textures (requires video restart)." "texture override" r_override_textures off 0 "palettized only" 1 all 2
+    values --status "File format used when taking screenshots." "screenshot format" gl_screenshot_format jpg png tga
+    blank
+    action --status "Restart the video renderer to apply changes." --align "apply changes (vid_restart)" vid_restart
 end
 
 begin options
@@ -126,6 +145,7 @@ begin sound
     toggle --status "Apply a muffled audio filter when submerged." "underwater effect" s_underwater --show-if s_enable !0
     values --status "Ambient map sounds like wind or humming machinery." "ambient sounds" s_ambient "no" "yes" "only player's own" --show-if s_enable !0
     values --status "Sound notification when receiving a chat message." "chat beep" cl_chat_sound "disabled" "default" "alternative" --show-if s_enable !0
+
 end
 
 begin railtrail
@@ -155,6 +175,7 @@ begin effects
     toggle --status "Visual distortion effect when underwater." "screen warping" gl_waterwarp
     toggle --status "Show or hide grenade explosion effects." "grenade explosions" cl_disable_explosions ~0
     toggle --status "Show or hide rocket explosion effects." "rocket explosions" cl_disable_explosions ~1
+
     blank
     action --status "Customize railgun beam colors and style." --align "railgun trail setup..." pushmenu railtrail
 end
@@ -552,11 +573,22 @@ begin game
     blank
     action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
     action --status "Quick access to your saved servers." "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
-    action --status "Watch recorded match and jump replays." "browse demos" pushmenu demos
+    blank
+    action --status "Quickly tweak brightness, modulation, and texture intensity." "quick video settings..." pushmenu video_quick
+    blank
     action --status "Engine and gameplay configuration." "options" pushmenu options
     blank
     action --status "Leave the current server." "disconnect" disconnect
     action --status "Exit the game." "quit" quit
+end
+
+begin video_quick
+    title "Quick Video"
+    background #3f6da080
+    style --compact --center --transparent
+    range --show-value --status "Texture lightmap multiplier (higher values make world textures brighter)." "world modulation" gl_modulate 1 4
+    range --show-value --status "Adjust the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
+    range --show-value --status "Boost the overall brightness of textures." "texture intensity" intensity 1 3 0.1
 end
 
 begin addressbook

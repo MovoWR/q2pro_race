@@ -111,6 +111,30 @@ static void UI_Resize(void)
 }
 
 
+static void UI_CheckVideoRestart(void)
+{
+    const char *cvars[] = {
+        "vid_multimonitor",
+        "win_noborder",
+        "gl_multisamples",
+        "gl_picmip",
+        "gl_shaders",
+        "r_override_textures",
+        NULL
+    };
+    bool need_restart = false;
+    for (int i = 0; cvars[i]; i++) {
+        cvar_t *cv = Cvar_WeakGet(cvars[i]);
+        if (cv && cv->modified) {
+            need_restart = true;
+            break;
+        }
+    }
+
+    if (need_restart) {
+        Cbuf_AddText(&cmd_buffer, "vid_restart\n");
+    }
+}
 
 /*
 =================
@@ -121,14 +145,24 @@ void UI_ForceMenuOff(void)
 {
     menuFrameWork_t *menu;
     int i;
+    bool had_video = false;
 
     for (i = 0; i < uis.menuDepth; i++) {
         menu = uis.layers[i];
+        if (menu && menu->name &&
+            (Q_strcasecmp(menu->name, "video") == 0 ||
+             Q_strcasecmp(menu->name, "video_advanced") == 0 ||
+             Q_strcasecmp(menu->name, "video_quick") == 0)) {
+            had_video = true;
+        }
         if (menu->pop) {
             menu->pop(menu);
         }
     }
 
+    if (had_video) {
+        UI_CheckVideoRestart();
+    }
 
     Key_SetDest(Key_GetDest() & ~KEY_MENU);
     uis.menuDepth = 0;
@@ -149,6 +183,19 @@ void UI_PopMenu(void)
     Q_assert(uis.menuDepth > 0);
 
     menu = uis.layers[--uis.menuDepth];
+
+    if (menu->name &&
+        (Q_strcasecmp(menu->name, "video") == 0 ||
+         Q_strcasecmp(menu->name, "video_advanced") == 0 ||
+         Q_strcasecmp(menu->name, "video_quick") == 0)) {
+        menuFrameWork_t *next_menu = (uis.menuDepth > 0) ? uis.layers[uis.menuDepth - 1] : NULL;
+        if (!next_menu || !next_menu->name ||
+            (Q_strcasecmp(next_menu->name, "video") != 0 &&
+             Q_strcasecmp(next_menu->name, "video_advanced") != 0 &&
+             Q_strcasecmp(next_menu->name, "video_quick") != 0)) {
+            UI_CheckVideoRestart();
+        }
+    }
 
     if (menu->pop) {
         menu->pop(menu);
