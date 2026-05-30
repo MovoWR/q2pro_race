@@ -299,33 +299,6 @@ void SCR_AddNetgraph(void)
     if (scr_debuggraph->integer || scr_timegraph->integer)
         return;
 
-    if (scr_netgraph->integer == 2) {
-        // Calculate raw ping in ms
-        i = cls.netchan.incoming_acknowledged & CMD_MASK;
-        ping = cls.realtime - cl.history[i].sent;
-        if ((int)ping < 0) {
-            ping = 0;
-        }
-
-        // Check if this incoming packet had dropped packets before it
-        for (int d = 0; d < cls.netchan.dropped; d++) {
-            SCR_DebugGraph(0.0f, 3); // Loss
-        }
-
-        // Check if suppressed
-        for (int s = 0; s < cl.suppress_count; s++) {
-            SCR_DebugGraph((float)ping, 2); // Choke
-        }
-
-        int sample_color = 1; // Normal
-        if (cl.frameflags & FF_CLIENTDROP) {
-            sample_color = 4; // Prediction loss
-        }
-
-        SCR_DebugGraph((float)ping, sample_color);
-        return;
-    }
-
     if (scr_netgraph->integer != 2 && sh_netmeter->integer != 2) {
     for (i = 0; i < cls.netchan.dropped; i++)
         SCR_DebugGraph(30, 0x40);
