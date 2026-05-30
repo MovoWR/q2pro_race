@@ -829,6 +829,9 @@ gl_beamstyle::
     Specifies drawing style of laser beams. Default value is 0.
       - 0 — textured billboard-type beam (Q2PRO style, very fast to draw)
       - 1 — flat color polygonal beam (original Quake 2 style)
+      - 2 — billboard-type beam with proximity heatmap (color changes with distance)
+      - 3 — lead-arrow head style (tapered towards the direction of travel)
+      - 4 — combined proximity heatmap and lead-arrow head style
 
 gl_celshading::
     Enables drawing black contour lines around 3D models (aka ‘celshading’).
