@@ -707,6 +707,11 @@ win_disablewinkey::
 win_noborder::
     Hides the main window bar (borderless). Default is 0 (show window bar).
 
+win_menu_cursor::
+    Specifies the Windows system cursor style to display when the in-game menu is
+    active. Valid values are `arrow`, `cross`, `hand`, `ibeam`, `wait`, `no`,
+    `size`. Default value is `arrow`.
+
 win_noresize::
     Prevents the main window from resizing by dragging the border. Default is 0
     (allow resizing).
@@ -1198,6 +1203,11 @@ cl_chat_filter::
     Specifies if unprintable characters are filtered from incoming chat
     messages, to prevent common exploits like hiding player names. Default
     value is 0 (don't filter).
+
+cl_menu_cursor::
+    Specifies the texture/image to use for the in-game menu cursor. Valid values
+    are `none` (no cursor), `cross` (or `ch1`), `dot` (or `ch2`), `angle` (or `ch3`),
+    `ch4`, `ch5`. Default value is `ch5`.
 
 cl_input_keys::
     Read-only cvar that tracks and displays the currently pressed movement and

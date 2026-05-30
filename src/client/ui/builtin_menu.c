@@ -480,6 +480,8 @@ const char *ui_builtin_menu =
 "    toggle --status \"Smooth out erratic mouse movement.\" \"mouse filter\" m_filter\n"
 "    toggle --status \"Use the mouse to aim around (recommended).\" \"free look\" freelook\n"
 "    toggle --status \"Player always moves at running speed.\" \"always run\" cl_run\n"
+"    values --status \"Change OS cursor style for game window.\" \"system cursor\" win_menu_cursor arrow cross hand ibeam wait no size\n"
+"    values --status \"Change texture for in-game menu cursor.\" \"menu cursor texture\" cl_menu_cursor none cross dot angle\n"
 "end\n"
 "\n"
 "begin keys\n"

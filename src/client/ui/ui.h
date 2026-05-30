@@ -328,6 +328,10 @@ extern uiStatic_t   uis;
 extern list_t       ui_menus;
 
 extern cvar_t       *ui_debug;
+extern cvar_t       *cl_menu_cursor;
+
+void        UI_SetCursor(const char *name);
+const char *UI_GetCursorTextureName(const char *name);
 
 void        UI_PushMenu(menuFrameWork_t *menu);
 void        UI_ForceMenuOff(void);

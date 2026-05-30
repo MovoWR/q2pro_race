@@ -25,6 +25,7 @@ uiStatic_t    uis;
 LIST_DECL(ui_menus);
 
 cvar_t    *ui_debug;
+cvar_t    *cl_menu_cursor;
 static cvar_t    *ui_open;
 static cvar_t    *ui_scale;
 
@@ -110,6 +111,7 @@ static void UI_Resize(void)
 }
 
 
+
 /*
 =================
 UI_ForceMenuOff
@@ -126,6 +128,7 @@ void UI_ForceMenuOff(void)
             menu->pop(menu);
         }
     }
+
 
     Key_SetDest(Key_GetDest() & ~KEY_MENU);
     uis.menuDepth = 0;
@@ -146,6 +149,7 @@ void UI_PopMenu(void)
     Q_assert(uis.menuDepth > 0);
 
     menu = uis.layers[--uis.menuDepth];
+
     if (menu->pop) {
         menu->pop(menu);
     }
@@ -481,7 +485,7 @@ void UI_Draw(unsigned realtime)
     }
 
     // draw custom cursor in fullscreen mode
-    if (r_config.flags & QVF_FULLSCREEN) {
+    if ((r_config.flags & QVF_FULLSCREEN) && uis.cursorHandle) {
         R_DrawPic(uis.mouseCoords[0] - uis.cursorWidth / 2,
                   uis.mouseCoords[1] - uis.cursorHeight / 2, uis.cursorHandle);
     }
@@ -648,6 +652,67 @@ static void UI_FreeMenus(void)
 }
 
 
+const char *UI_GetCursorTextureName(const char *name)
+{
+    if (!name || !*name || Q_strcasecmp(name, "none") == 0 || strcmp(name, "0") == 0) {
+        return NULL;
+    }
+    if (Q_strcasecmp(name, "cross") == 0 || strcmp(name, "1") == 0 || Q_strcasecmp(name, "ch1") == 0) {
+        return "ch1";
+    }
+    if (Q_strcasecmp(name, "dot") == 0 || strcmp(name, "2") == 0 || Q_strcasecmp(name, "ch2") == 0) {
+        return "ch2";
+    }
+    if (Q_strcasecmp(name, "angle") == 0 || strcmp(name, "3") == 0 || Q_strcasecmp(name, "ch3") == 0) {
+        return "ch3";
+    }
+    if (strcmp(name, "4") == 0 || Q_strcasecmp(name, "ch4") == 0) {
+        return "ch4";
+    }
+    if (strcmp(name, "5") == 0 || Q_strcasecmp(name, "ch5") == 0) {
+        return "ch5";
+    }
+    return name;
+}
+
+void UI_SetCursor(const char *name)
+{
+    const char *tex_name = UI_GetCursorTextureName(name);
+    if (!tex_name) {
+        uis.cursorHandle = 0;
+        uis.cursorWidth = 0;
+        uis.cursorHeight = 0;
+        return;
+    }
+
+    qhandle_t handle = R_RegisterPic(tex_name);
+    if (handle) {
+        uis.cursorHandle = handle;
+        R_GetPicSize(&uis.cursorWidth, &uis.cursorHeight, uis.cursorHandle);
+    } else {
+        uis.cursorHandle = 0;
+        uis.cursorWidth = 0;
+        uis.cursorHeight = 0;
+    }
+}
+
+static void cl_menu_cursor_changed(cvar_t *self)
+{
+    if (Q_strcasecmp(self->string, "none") == 0 || strcmp(self->string, "0") == 0) {
+        self->integer = 0;
+    } else if (Q_strcasecmp(self->string, "cross") == 0 || strcmp(self->string, "1") == 0 || Q_strcasecmp(self->string, "ch1") == 0) {
+        self->integer = 1;
+    } else if (Q_strcasecmp(self->string, "dot") == 0 || strcmp(self->string, "2") == 0 || Q_strcasecmp(self->string, "ch2") == 0) {
+        self->integer = 2;
+    } else if (Q_strcasecmp(self->string, "angle") == 0 || strcmp(self->string, "3") == 0 || Q_strcasecmp(self->string, "ch3") == 0) {
+        self->integer = 3;
+    } else {
+        self->integer = -1;
+    }
+
+    UI_SetCursor(self->string);
+}
+
 /*
 =================
 UI_Init
@@ -659,12 +724,13 @@ void UI_Init(void)
 
     ui_debug = Cvar_Get("ui_debug", "0", 0);
     ui_open = Cvar_Get("ui_open", "0", 0);
+    cl_menu_cursor = Cvar_Get("cl_menu_cursor", "ch5", CVAR_ARCHIVE);
+    cl_menu_cursor->changed = cl_menu_cursor_changed;
 
     UI_ModeChanged();
 
     uis.fontHandle = R_RegisterFont("conchars");
-    uis.cursorHandle = R_RegisterPic("ch1");
-    R_GetPicSize(&uis.cursorWidth, &uis.cursorHeight, uis.cursorHandle);
+    cl_menu_cursor_changed(cl_menu_cursor);
 
     for (int i = 0; i < NUM_CURSOR_FRAMES; i++) {
         uis.bitmapCursors[i] = R_RegisterPic(va("m_cursor%d", i));

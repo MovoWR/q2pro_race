@@ -940,9 +940,8 @@ static bool Parse_Buffer(const char *path, char *data, int depth)
                 } else if (!strcmp(cmd, "font")) {
                     uis.fontHandle = R_RegisterFont(Cmd_Argv(1));
                 } else if (!strcmp(cmd, "cursor")) {
-                    uis.cursorHandle = R_RegisterPic(Cmd_Argv(1));
-                    R_GetPicSize(&uis.cursorWidth,
-                                 &uis.cursorHeight, uis.cursorHandle);
+                    const char *cursor_name = (cl_menu_cursor && cl_menu_cursor->string && *cl_menu_cursor->string) ? cl_menu_cursor->string : Cmd_Argv(1);
+                    UI_SetCursor(cursor_name);
                 } else if (!strcmp(cmd, "weapon")) {
                     Cmd_ArgvBuffer(1, uis.weaponModel, sizeof(uis.weaponModel));
                 } else {

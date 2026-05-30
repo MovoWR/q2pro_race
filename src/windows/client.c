@@ -31,6 +31,8 @@ static cvar_t   *win_notitle;
 static cvar_t   *win_alwaysontop;
 static cvar_t   *win_noborder;
 static cvar_t   *vid_multimonitor;
+static cvar_t   *win_menu_cursor;
+static HCURSOR  win_menu_cursor_handle;
 
 
 
@@ -847,7 +849,14 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
             UI_MouseEvent((short)LOWORD(lParam), (short)HIWORD(lParam));
         break;
 
-
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) == HTCLIENT) {
+            if (win_menu_cursor_handle) {
+                SetCursor(win_menu_cursor_handle);
+                return TRUE;
+            }
+        }
+        break;
 
     case WM_HOTKEY:
         return FALSE;
@@ -981,7 +990,41 @@ static void vid_fullscreen_multimonitor_changed(cvar_t *self)
     sync_multimonitor_preset();
 }
 
+static void win_menu_cursor_changed(cvar_t *self)
+{
+    HCURSOR hNew = NULL;
 
+    if (!_stricmp(self->string, "arrow")) {
+        hNew = LoadCursor(NULL, IDC_ARROW);
+    } else if (!_stricmp(self->string, "cross")) {
+        hNew = LoadCursor(NULL, IDC_CROSS);
+    } else if (!_stricmp(self->string, "hand")) {
+        hNew = LoadCursor(NULL, IDC_HAND);
+    } else if (!_stricmp(self->string, "ibeam")) {
+        hNew = LoadCursor(NULL, IDC_IBEAM);
+    } else if (!_stricmp(self->string, "wait")) {
+        hNew = LoadCursor(NULL, IDC_WAIT);
+    } else if (!_stricmp(self->string, "no")) {
+        hNew = LoadCursor(NULL, IDC_NO);
+    } else if (!_stricmp(self->string, "size")) {
+        hNew = LoadCursor(NULL, IDC_SIZEALL);
+    } else {
+        hNew = LoadCursor(NULL, IDC_ARROW);
+    }
+
+    win_menu_cursor_handle = hNew;
+
+    if (win.wnd) {
+        POINT pt;
+        GetCursorPos(&pt);
+        ScreenToClient(win.wnd, &pt);
+        RECT rc;
+        GetClientRect(win.wnd, &rc);
+        if (PtInRect(&rc, pt)) {
+            PostMessage(win.wnd, WM_SETCURSOR, (WPARAM)win.wnd, MAKELONG(HTCLIENT, WM_MOUSEMOVE));
+        }
+    }
+}
 
 static void win_style_changed(cvar_t *self)
 {
@@ -1021,7 +1064,9 @@ void Win_Init(void)
     win_noborder->changed = win_style_changed;
     vid_multimonitor = Cvar_Get("vid_multimonitor", "0", CVAR_ARCHIVE);
     vid_multimonitor->changed = vid_multimonitor_changed;
-
+    win_menu_cursor = Cvar_Get("win_menu_cursor", "arrow", CVAR_ARCHIVE);
+    win_menu_cursor->changed = win_menu_cursor_changed;
+    win_menu_cursor_changed(win_menu_cursor);
 
     sync_multimonitor_preset();
 
