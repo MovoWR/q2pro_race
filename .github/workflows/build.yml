@@ -78,7 +78,7 @@ jobs:
 
       - name: Set version env
         run: |
-          $ver = python version.py
+          $ver = (python version.py).Split('~')[0]
           Add-Content $env:GITHUB_ENV "VERSION=$ver"
 
       - name: Upload build artifacts
