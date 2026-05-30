@@ -148,6 +148,7 @@ cvar_t *cl_race_color;
 cvar_t *cl_race_life;
 cvar_t *cl_race_width;
 cvar_t *cl_race_alpha;
+cvar_t *cl_input_keys;
 
 
 
@@ -3304,6 +3305,8 @@ static void CL_InitLocal(void)
     cl_race_color = Cvar_Get("race_color", "0 255 0", CVAR_ARCHIVE);
     cl_race_alpha = Cvar_Get("race_alpha", "0.5", CVAR_ARCHIVE);
     cl_race_life = Cvar_Get("race_life", "500", CVAR_ARCHIVE);
+
+    cl_input_keys = Cvar_Get("cl_input_keys", "", 0);
 }
 
 static const cmdreg_t c_ignores[] = {
