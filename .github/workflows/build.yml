@@ -107,8 +107,9 @@ jobs:
 
       - name: Compress release artifacts
         run: |
+          VERSION=$(python3 version.py)
           for dir in artifacts/q2pro_race-*; do
-            (cd "$dir" && zip -r "../$(basename "$dir").zip" .)
+            (cd "$dir" && zip -r "../$(basename "$dir")-${VERSION}.zip" .)
           done
 
       - name: Create or update "latest" release
