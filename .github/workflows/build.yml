@@ -9,6 +9,7 @@ on:
       - dev
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   MESON_ARGS: >-
     --auto-features=enabled
     --fatal-meson-warnings
