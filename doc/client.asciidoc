@@ -661,6 +661,11 @@ vid_fullscreen_multimonitor::
     mouse is released while the in-game console is open, and the window remains
     visible when focus moves to another screen. Default value is 1.
 
+vid_multimonitor::
+    On Windows, configures borderless window and focus settings for multi-display
+    setups. Enabling this automatically configures both `win_noborder` and
+    `vid_fullscreen_multimonitor` accordingly. Default value is 0.
+
 vid_hwgamma::
     Instructs the video driver to use hardware gamma correction for
     implementing ‘vid_gamma’.  Default value is 0 (use software gamma).

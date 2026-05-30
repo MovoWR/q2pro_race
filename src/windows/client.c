@@ -30,6 +30,9 @@ static cvar_t   *win_noresize;
 static cvar_t   *win_notitle;
 static cvar_t   *win_alwaysontop;
 static cvar_t   *win_noborder;
+static cvar_t   *vid_multimonitor;
+
+
 
 static void     Win_ClipCursor(void);
 
@@ -44,17 +47,21 @@ COMMON WIN32 VIDEO RELATED ROUTINES
 static void Win_SetPosition(void)
 {
     RECT            r;
-    LONG            style;
+    LONG_PTR        style;
     int             x, y, w, h;
     HWND            after;
 
     // get previous window style
-    style = GetWindowLong(win.wnd, GWL_STYLE);
+    style = GetWindowLongPtr(win.wnd, GWL_STYLE);
     style &= ~(WS_OVERLAPPEDWINDOW | WS_POPUP | WS_DLGFRAME);
 
     // set new style bits
     if (win.flags & QVF_FULLSCREEN) {
+        if (win_noborder->integer) {
+            after = win_alwaysontop->integer ? HWND_TOPMOST : HWND_NOTOPMOST;
+        } else {
         after = HWND_TOPMOST;
+        }
         style |= WS_POPUP;
     } else {
         if (win_alwaysontop->integer) {
@@ -85,7 +92,7 @@ static void Win_SetPosition(void)
     r.right = win.rc.width;
     r.bottom = win.rc.height;
 
-    AdjustWindowRect(&r, style, FALSE);
+    AdjustWindowRect(&r, (DWORD)style, FALSE);
 
     // figure out position
     x = win.rc.x;
@@ -94,7 +101,20 @@ static void Win_SetPosition(void)
     h = r.bottom - r.top;
 
     // clip to monitor work area
-    if (!(win.flags & QVF_FULLSCREEN)) {
+    if (win.flags & QVF_FULLSCREEN) {
+        if (win_noborder->integer) {
+            MONITORINFO mi = { .cbSize = sizeof(mi) };
+            if (GetMonitorInfoA(MonitorFromWindow(win.wnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+                x = mi.rcMonitor.left;
+                y = mi.rcMonitor.top;
+                w = mi.rcMonitor.right - mi.rcMonitor.left;
+                h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+            }
+        } else {
+            x = 0;
+            y = 0;
+        }
+    } else {
         OffsetRect(&r, x, y);
         MONITORINFO mi = { .cbSize = sizeof(mi) };
         if (GetMonitorInfoA(MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST), &mi)) {
@@ -104,7 +124,7 @@ static void Win_SetPosition(void)
     }
 
     // set new window style and position
-    SetWindowLong(win.wnd, GWL_STYLE, style);
+    SetWindowLongPtr(win.wnd, GWL_STYLE, style);
     SetWindowPos(win.wnd, after, x, y, w, h, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     UpdateWindow(win.wnd);
     SetForegroundWindow(win.wnd);
@@ -282,6 +302,21 @@ static LONG set_fullscreen_mode(void)
 
     EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &desktop);
 
+    if (win_noborder->integer) {
+        // Borderless windowed fullscreen:
+        // Use the dimensions of the monitor the window is currently on
+        MONITORINFO mi = { .cbSize = sizeof(mi) };
+        if (GetMonitorInfoA(MonitorFromWindow(win.wnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+            win.rc.width = mi.rcMonitor.right - mi.rcMonitor.left;
+            win.rc.height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+        } else if (mode_is_sane(&desktop)) {
+            win.rc.width = desktop.dmPelsWidth;
+            win.rc.height = desktop.dmPelsHeight;
+        }
+        Com_DPrintf("...setting borderless fullscreen mode: %dx%d\n",
+                    win.rc.width, win.rc.height);
+        ret = DISP_CHANGE_SUCCESSFUL;
+    } else {
     // parse vid_modelist specification
     if (VID_GetFullscreen(&win.rc, &freq, &depth)) {
         Com_DPrintf("...setting fullscreen mode: %dx%d\n",
@@ -336,6 +371,8 @@ static LONG set_fullscreen_mode(void)
     }
 
     win.dm = dm;
+    }
+
     win.flags |= QVF_FULLSCREEN;
     Win_SetPosition();
     Win_ModeChanged();
@@ -739,7 +776,7 @@ static int get_window_dpi(void)
 
 static void pos_changing_event(HWND wnd, WINDOWPOS *pos)
 {
-    LONG style;
+    LONG_PTR style;
     RECT rc;
     int dpi;
 
@@ -749,7 +786,7 @@ static void pos_changing_event(HWND wnd, WINDOWPOS *pos)
     if (pos->flags & SWP_NOSIZE)
         return;
 
-    style = GetWindowLong(wnd, GWL_STYLE);
+    style = GetWindowLongPtr(wnd, GWL_STYLE);
     dpi = get_window_dpi();
 
     // calculate size of non-client area
@@ -758,7 +795,7 @@ static void pos_changing_event(HWND wnd, WINDOWPOS *pos)
     rc.right = MulDiv(320, dpi, USER_DEFAULT_SCREEN_DPI);
     rc.bottom = MulDiv(240, dpi, USER_DEFAULT_SCREEN_DPI);
 
-    AdjustWindowRect(&rc, style, FALSE);
+    AdjustWindowRect(&rc, (DWORD)style, FALSE);
 
     // don't allow too small size
     pos->cx = max(pos->cx, rc.right - rc.left);
@@ -809,6 +846,8 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
         if (win.mouse.initialized)
             UI_MouseEvent((short)LOWORD(lParam), (short)HIWORD(lParam));
         break;
+
+
 
     case WM_HOTKEY:
         return FALSE;
@@ -919,8 +958,36 @@ void Win_PumpEvents(void)
     }
 }
 
+static void sync_multimonitor_preset(void)
+{
+    if (win_noborder && vid_fullscreen_multimonitor && vid_multimonitor) {
+        if (win_noborder->integer == vid_fullscreen_multimonitor->integer) {
+            if (vid_multimonitor->integer != win_noborder->integer) {
+                Cvar_SetInteger(vid_multimonitor, win_noborder->integer, FROM_CODE);
+            }
+        }
+    }
+}
+
+static void vid_multimonitor_changed(cvar_t *self)
+{
+    int val = self->integer ? 1 : 0;
+    Cvar_SetInteger(win_noborder, val, FROM_CODE);
+    Cvar_SetInteger(vid_fullscreen_multimonitor, val, FROM_CODE);
+}
+
+static void vid_fullscreen_multimonitor_changed(cvar_t *self)
+{
+    sync_multimonitor_preset();
+}
+
+
+
 static void win_style_changed(cvar_t *self)
 {
+    if (self == win_noborder) {
+        sync_multimonitor_preset();
+    }
     if (win.wnd && !(win.flags & QVF_FULLSCREEN)) {
         win.mode_changed |= MODE_REPOSITION;
     }
@@ -938,6 +1005,7 @@ void Win_Init(void)
     // register variables
     vid_flip_on_switch = Cvar_Get("vid_flip_on_switch", "0", 0);
     vid_fullscreen_multimonitor = Cvar_Get("vid_fullscreen_multimonitor", "1", CVAR_ARCHIVE);
+    vid_fullscreen_multimonitor->changed = vid_fullscreen_multimonitor_changed;
     vid_hwgamma = Cvar_Get("vid_hwgamma", "0", CVAR_REFRESH);
     win_noalttab = Cvar_Get("win_noalttab", "0", CVAR_ARCHIVE);
     win_noalttab->changed = win_noalttab_changed;
@@ -949,8 +1017,13 @@ void Win_Init(void)
     win_notitle->changed = win_style_changed;
     win_alwaysontop = Cvar_Get("win_alwaysontop", "0", 0);
     win_alwaysontop->changed = win_style_changed;
-    win_noborder = Cvar_Get("win_noborder", "0", 0);
+    win_noborder = Cvar_Get("win_noborder", "0", CVAR_ARCHIVE);
     win_noborder->changed = win_style_changed;
+    vid_multimonitor = Cvar_Get("vid_multimonitor", "0", CVAR_ARCHIVE);
+    vid_multimonitor->changed = vid_multimonitor_changed;
+
+
+    sync_multimonitor_preset();
 
     win_disablewinkey_changed(win_disablewinkey);
 
