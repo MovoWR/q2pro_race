@@ -635,6 +635,10 @@ extern cvar_t    *cl_strafehelper_optimal_width;
 extern cvar_t    *cl_strafehelper_optimal_outline;
 extern cvar_t    *cl_strafehelperNerdStats;
 extern cvar_t    *cl_strafehelper_color_nerdstats;
+extern cvar_t    *cl_input_keys;
+
+void CL_UpdateInputKeys(void);
+
 
 
 size_t CL_Mfps_m(char *buffer, size_t size);

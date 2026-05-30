@@ -1194,6 +1194,11 @@ cl_chat_filter::
     messages, to prevent common exploits like hiding player names. Default
     value is 0 (don't filter).
 
+cl_input_keys::
+    Read-only cvar that tracks and displays the currently pressed movement and
+    jump/crouch keys as a string (e.g. `[W][A][S][D] [J][C]`). Empty when not in an
+    active game or spectating.
+
 cl_noskins::
     Restricts which models and skins players can use. Default value is 0.
       - 0 — no restrictions, if skins exists, it will be loaded

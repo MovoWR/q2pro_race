@@ -735,6 +735,85 @@ void CL_UpdateCmd(int msec)
     cl.cmd.angles[2] = ANGLE2SHORT(cl.viewangles[2]);
 }
 
+/*
+==================
+CL_UpdateInputKeys
+
+Updates cl_input_keys cvar with a string representing currently held down movement keys.
+==================
+*/
+void CL_UpdateInputKeys(void)
+{
+    char buf[64];
+    char *p = buf;
+    bool has_move = false;
+
+    if (!cl_input_keys) {
+        return;
+    }
+
+    if (cls.state != ca_active) {
+        Cvar_SetByVar(cl_input_keys, "", FROM_CODE);
+        return;
+    }
+
+    // Movement keys: Forward (W), Left (A), Back (S), Right (D)
+    bool fwd = false;
+    bool back = false;
+    bool left = false;
+    bool right = false;
+    bool jump = false;
+    bool crouch = false;
+
+    if (cls.demo.playback || cl.frame.ps.pmove.pm_type == PM_SPECTATOR) {
+        // During demo playback or spectating, we only have jump/crouch from pm_flags
+        jump = (cl.frame.ps.pmove.pm_flags & PMF_JUMP_HELD) != 0;
+        crouch = (cl.frame.ps.pmove.pm_flags & PMF_DUCKED) != 0;
+    } else {
+        // Live play: check keyboard state
+        fwd = (in_forward.state & KB_DOWN) != 0;
+        back = (in_back.state & KB_DOWN) != 0;
+        left = (in_moveleft.state & KB_DOWN) != 0 || ((in_strafe.state & KB_DOWN) && (in_left.state & KB_DOWN));
+        right = (in_moveright.state & KB_DOWN) != 0 || ((in_strafe.state & KB_DOWN) && (in_right.state & KB_DOWN));
+        jump = (in_up.state & KB_DOWN) != 0;
+        crouch = (in_down.state & KB_DOWN) != 0;
+    }
+
+    if (fwd) {
+        *p++ = '['; *p++ = 'W'; *p++ = ']';
+        has_move = true;
+    }
+    if (left) {
+        *p++ = '['; *p++ = 'A'; *p++ = ']';
+        has_move = true;
+    }
+    if (back) {
+        *p++ = '['; *p++ = 'S'; *p++ = ']';
+        has_move = true;
+    }
+    if (right) {
+        *p++ = '['; *p++ = 'D'; *p++ = ']';
+        has_move = true;
+    }
+
+    if (jump || crouch) {
+        if (has_move) {
+            *p++ = ' ';
+        }
+        if (jump) {
+            *p++ = '['; *p++ = 'J'; *p++ = ']';
+        }
+        if (crouch) {
+            *p++ = '['; *p++ = 'C'; *p++ = ']';
+        }
+    }
+
+    *p = '\0';
+
+    Cvar_SetByVar(cl_input_keys, buf, FROM_CODE);
+}
+
+
 static void m_autosens_changed(cvar_t *self)
 {
     float fov;

@@ -3769,6 +3769,8 @@ unsigned CL_Frame(unsigned msec)
     // read user intentions
     CL_UpdateCmd(main_extra);
 
+    CL_UpdateInputKeys();
+
     // finalize pending cmd
     phys_frame |= cl.sendPacketNow;
     if (phys_frame) {
