@@ -26,8 +26,10 @@ LIST_DECL(ui_menus);
 
 cvar_t    *ui_debug;
 cvar_t    *cl_menu_cursor;
+cvar_t    *ui_menu_style;
 static cvar_t    *ui_open;
 static cvar_t    *ui_scale;
+static cvar_t    *ui_draw_layers;
 
 // ===========================================================================
 
@@ -38,7 +40,7 @@ UI_PushMenu
 */
 void UI_PushMenu(menuFrameWork_t *menu)
 {
-    int i, j;
+    int i;
 
     if (!menu) {
         return;
@@ -59,7 +61,7 @@ void UI_PushMenu(menuFrameWork_t *menu)
         }
         uis.layers[uis.menuDepth++] = menu;
     } else {
-        for (j = i; j < uis.menuDepth; j++) {
+        while (uis.menuDepth > i + 1) {
             UI_PopMenu();
         }
         uis.menuDepth = i + 1;
@@ -111,31 +113,6 @@ static void UI_Resize(void)
 }
 
 
-static void UI_CheckVideoRestart(void)
-{
-    const char *cvars[] = {
-        "vid_multimonitor",
-        "win_noborder",
-        "gl_multisamples",
-        "gl_picmip",
-        "gl_shaders",
-        "r_override_textures",
-        NULL
-    };
-    bool need_restart = false;
-    for (int i = 0; cvars[i]; i++) {
-        cvar_t *cv = Cvar_WeakGet(cvars[i]);
-        if (cv && cv->modified) {
-            need_restart = true;
-            break;
-        }
-    }
-
-    if (need_restart) {
-        Cbuf_AddText(&cmd_buffer, "vid_restart\n");
-    }
-}
-
 /*
 =================
 UI_ForceMenuOff
@@ -145,23 +122,12 @@ void UI_ForceMenuOff(void)
 {
     menuFrameWork_t *menu;
     int i;
-    bool had_video = false;
 
-    for (i = 0; i < uis.menuDepth; i++) {
-        menu = uis.layers[i];
-        if (menu && menu->name &&
-            (Q_strcasecmp(menu->name, "video") == 0 ||
-             Q_strcasecmp(menu->name, "video_advanced") == 0 ||
-             Q_strcasecmp(menu->name, "video_quick") == 0)) {
-            had_video = true;
-        }
+    for (i = uis.menuDepth; i > 0; i--) {
+        menu = uis.layers[i - 1];
         if (menu->pop) {
             menu->pop(menu);
         }
-    }
-
-    if (had_video) {
-        UI_CheckVideoRestart();
     }
 
     Key_SetDest(Key_GetDest() & ~KEY_MENU);
@@ -183,19 +149,6 @@ void UI_PopMenu(void)
     Q_assert(uis.menuDepth > 0);
 
     menu = uis.layers[--uis.menuDepth];
-
-    if (menu->name &&
-        (Q_strcasecmp(menu->name, "video") == 0 ||
-         Q_strcasecmp(menu->name, "video_advanced") == 0 ||
-         Q_strcasecmp(menu->name, "video_quick") == 0)) {
-        menuFrameWork_t *next_menu = (uis.menuDepth > 0) ? uis.layers[uis.menuDepth - 1] : NULL;
-        if (!next_menu || !next_menu->name ||
-            (Q_strcasecmp(next_menu->name, "video") != 0 &&
-             Q_strcasecmp(next_menu->name, "video_advanced") != 0 &&
-             Q_strcasecmp(next_menu->name, "video_quick") != 0)) {
-            UI_CheckVideoRestart();
-        }
-    }
 
     if (menu->pop) {
         menu->pop(menu);
@@ -491,6 +444,42 @@ void UI_MouseEvent(int x, int y)
     UI_DoHitTest();
 }
 
+static bool UI_ShouldDrawCursor(void)
+{
+    cvar_t *vid_noborder;
+
+    if (!(r_config.flags & QVF_FULLSCREEN) || !uis.cursorHandle) {
+        return false;
+    }
+
+    vid_noborder = Cvar_WeakGet("vid_noborder");
+    if (vid_noborder && vid_noborder->integer) {
+        return false;
+    }
+
+    return true;
+}
+
+static void UI_ApplyMenuStyle(void)
+{
+    uis.color = uis.baseColor;
+
+    if (!ui_menu_style || !ui_menu_style->integer) {
+        return;
+    }
+
+    uis.color.background.u32    = MakeColor(28,  31,  34, 210);
+    uis.color.title.u32         = MakeColor(214, 218, 224, 255);
+    uis.color.normal.u32        = MakeColor(232, 235, 240, 255);
+    uis.color.selectable.u32    = MakeColor(232, 235, 240, 255);
+    uis.color.alternate.u32     = MakeColor(255, 255, 255, 255);
+    uis.color.active.u32        = MakeColor(139, 150, 163, 255);
+    uis.color.selection.u32     = MakeColor(95,  102, 112, 220);
+    uis.color.focus.u32         = MakeColor(80,  84,  90,  150);
+    uis.color.focus_border.u32  = MakeColor(180, 184, 190, 220);
+    uis.color.disabled.u32      = MakeColor(112, 116, 122, 255);
+}
+
 /*
 =================
 UI_Draw
@@ -510,10 +499,12 @@ void UI_Draw(unsigned realtime)
         return;
     }
 
+    UI_ApplyMenuStyle();
+
     R_ClearColor();
     R_SetScale(uis.scale);
 
-    if (1) {
+    if (!ui_draw_layers->integer) {
         // draw top menu
         if (uis.activeMenu->draw) {
             uis.activeMenu->draw(uis.activeMenu);
@@ -531,8 +522,8 @@ void UI_Draw(unsigned realtime)
         }
     }
 
-    // draw custom cursor in fullscreen mode
-    if ((r_config.flags & QVF_FULLSCREEN) && uis.cursorHandle) {
+    // draw custom cursor only in exclusive fullscreen when the OS cursor is disabled
+    if (UI_ShouldDrawCursor()) {
         R_DrawPic(uis.mouseCoords[0] - uis.cursorWidth / 2,
                   uis.mouseCoords[1] - uis.cursorHeight / 2, uis.cursorHandle);
     }
@@ -753,6 +744,10 @@ static void cl_menu_cursor_changed(cvar_t *self)
         self->integer = 2;
     } else if (Q_strcasecmp(self->string, "angle") == 0 || strcmp(self->string, "3") == 0 || Q_strcasecmp(self->string, "ch3") == 0) {
         self->integer = 3;
+    } else if (strcmp(self->string, "4") == 0 || Q_strcasecmp(self->string, "ch4") == 0) {
+        self->integer = 4;
+    } else if (strcmp(self->string, "5") == 0 || Q_strcasecmp(self->string, "ch5") == 0) {
+        self->integer = 5;
     } else {
         self->integer = -1;
     }
@@ -771,6 +766,8 @@ void UI_Init(void)
 
     ui_debug = Cvar_Get("ui_debug", "0", 0);
     ui_open = Cvar_Get("ui_open", "0", 0);
+    ui_draw_layers = Cvar_Get("ui_draw_layers", "0", 0);
+    ui_menu_style = Cvar_Get("ui_menu_style", "0", CVAR_ARCHIVE);
     cl_menu_cursor = Cvar_Get("cl_menu_cursor", "ch5", CVAR_ARCHIVE);
     cl_menu_cursor->changed = cl_menu_cursor_changed;
 
@@ -790,12 +787,15 @@ void UI_Init(void)
     uis.color.alternate.u32     = MakeColor(255, 255, 255, 255);
     uis.color.active.u32        = MakeColor(15, 128, 235, 255);
     uis.color.selection.u32     = MakeColor(15, 128, 235, 255);
+    uis.color.focus.u32         = MakeColor(80, 80, 80, 110);
+    uis.color.focus_border.u32  = MakeColor(180, 180, 180, 160);
     uis.color.disabled.u32      = MakeColor(127, 127, 127, 255);
 
     strcpy(uis.weaponModel, "w_railgun.md2");
 
     // load custom menus
     UI_LoadScript();
+    uis.baseColor = uis.color;
 
     // load built-in menus
     M_Menu_PlayerConfig();

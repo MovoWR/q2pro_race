@@ -36,7 +36,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define UI_CopyString(s)    Z_TagCopyString(s, TAG_UI)
 
 #define MIN_MENU_ITEMS  64
-#define MAX_MENU_ITEMS  250000000
+#define MAX_MENU_ITEMS  4096
 
 typedef enum {
     MTYPE_BAD,
@@ -103,6 +103,7 @@ typedef struct menuFrameWork_s {
 
     void    **items;
     int     nitems;
+    int     itemCapacity;
 
     bool compact;
     bool transparent;
@@ -118,6 +119,11 @@ typedef struct menuFrameWork_s {
     int maxs[2];
     int scrollOffset;
     int maxVisible;
+    bool focusStyleSet;
+    bool focusMenuWidth;
+    int focusBorderWidth;
+    int focusInset;
+    int focusHeight;
     qhandle_t banner;
     vrect_t banner_rc;
 
@@ -311,7 +317,7 @@ typedef struct {
 
     qhandle_t bitmapCursors[NUM_CURSOR_FRAMES];
 
-    struct {
+    struct uiColorStyle_s {
         color_t background;
         color_t title;
         color_t normal;
@@ -319,8 +325,10 @@ typedef struct {
         color_t alternate;
         color_t active;
         color_t selection;
+        color_t focus;
+        color_t focus_border;
         color_t disabled;
-    } color;
+    } color, baseColor;
 } uiStatic_t;
 
 extern uiStatic_t   uis;
@@ -328,6 +336,7 @@ extern uiStatic_t   uis;
 extern list_t       ui_menus;
 
 extern cvar_t       *ui_debug;
+extern cvar_t       *ui_menu_style;
 extern cvar_t       *cl_menu_cursor;
 
 void        UI_SetCursor(const char *name);

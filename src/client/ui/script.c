@@ -725,6 +725,51 @@ static void Parse_Style(menuFrameWork_t *menu)
     }
 }
 
+static void Parse_Focus(menuFrameWork_t *menu)
+{
+    int i;
+
+    if (!menu->focusStyleSet) {
+        menu->focusBorderWidth = 2;
+        menu->focusInset = 0;
+        menu->focusHeight = 0;
+        menu->focusMenuWidth = false;
+        menu->focusStyleSet = true;
+    }
+
+    for (i = 1; i < Cmd_Argc(); i++) {
+        char *arg = Cmd_Argv(i);
+
+        if (!strcmp(arg, "--fullwidth") || !strcmp(arg, "--full-width")) {
+            menu->focusMenuWidth = false;
+        } else if (!strcmp(arg, "--menuwidth") || !strcmp(arg, "--menu-width")) {
+            menu->focusMenuWidth = true;
+        } else if (!strcmp(arg, "--no-border")) {
+            menu->focusBorderWidth = 0;
+        } else if (!strcmp(arg, "--border")) {
+            if (++i >= Cmd_Argc()) {
+                Com_Printf("Missing value for --border option.\n");
+                return;
+            }
+            menu->focusBorderWidth = Q_clip(Q_atoi(Cmd_Argv(i)), 0, 64);
+        } else if (!strcmp(arg, "--inset")) {
+            if (++i >= Cmd_Argc()) {
+                Com_Printf("Missing value for --inset option.\n");
+                return;
+            }
+            menu->focusInset = Q_clip(Q_atoi(Cmd_Argv(i)), 0, 256);
+        } else if (!strcmp(arg, "--height")) {
+            if (++i >= Cmd_Argc()) {
+                Com_Printf("Missing value for --height option.\n");
+                return;
+            }
+            menu->focusHeight = Q_clip(Q_atoi(Cmd_Argv(i)), 0, 256);
+        } else {
+            Com_Printf("Unknown focus option '%s'\n", arg);
+        }
+    }
+}
+
 static void Parse_Color(void)
 {
     char *s, *c;
@@ -751,6 +796,10 @@ static void Parse_Color(void)
         SCR_ParseColor(c, &uis.color.active);
     } else if (!strcmp(s, "selection")) {
         SCR_ParseColor(c, &uis.color.selection);
+    } else if (!strcmp(s, "focus")) {
+        SCR_ParseColor(c, &uis.color.focus);
+    } else if (!strcmp(s, "focus_border") || !strcmp(s, "focus-border")) {
+        SCR_ParseColor(c, &uis.color.focus_border);
     } else if (!strcmp(s, "disabled")) {
         SCR_ParseColor(c, &uis.color.disabled);
     } else {
@@ -859,6 +908,8 @@ static bool Parse_Buffer(const char *path, char *data, int depth)
                     Parse_Background(menu);
                 } else if (!strcmp(cmd, "style")) {
                     Parse_Style(menu);
+                } else if (!strcmp(cmd, "focus")) {
+                    Parse_Focus(menu);
                 } else if (!strcmp(cmd, "values")) {
                     Parse_Spin(menu, MTYPE_SPINCONTROL);
                 } else if (!strcmp(cmd, "strings")) {
