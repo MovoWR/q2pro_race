@@ -55,6 +55,21 @@ static const char *const handedness[] = {
     NULL
 };
 
+static uint32_t OpaqueBackgroundColor(color_t color)
+{
+    int alpha = color.u8[3];
+
+    if (alpha == 255) {
+        return color.u32;
+    }
+
+    color.u8[0] = color.u8[0] * alpha / 255;
+    color.u8[1] = color.u8[1] * alpha / 255;
+    color.u8[2] = color.u8[2] * alpha / 255;
+    color.u8[3] = 255;
+    return color.u32;
+}
+
 static void ReloadMedia(void)
 {
     char scratch[MAX_QPATH];
@@ -308,8 +323,8 @@ void M_Menu_PlayerConfig(void)
     m_player.menu.draw = Draw;
     m_player.menu.free = Free;
     m_player.menu.image = uis.backgroundHandle;
-    m_player.menu.color.u32 = uis.color.background.u32;
-    m_player.menu.transparent = uis.transparent;
+    m_player.menu.color.u32 = OpaqueBackgroundColor(uis.color.background);
+    m_player.menu.transparent = false;
 
     m_player.entities[0].flags = RF_FULLBRIGHT;
     VectorCopy(angles, m_player.entities[0].angles);

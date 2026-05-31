@@ -886,13 +886,23 @@ static void Field_Init(menuField_t *f)
 Field_Draw
 =================
 */
+static bool Field_DrawFocusFill(const menuField_t *f)
+{
+    menuFrameWork_t *menu = f->generic.parent;
+
+    return menu && !menu->compact &&
+        (menu->focusStyleSet || (ui_menu_style && ui_menu_style->integer));
+}
+
 static void Field_Draw(menuField_t *f)
 {
     int flags = f->generic.uiFlags;
     int inputWidth = Field_TextInputWidth(f);
     uint32_t color = uis.color.normal.u32;
+    bool hasFocus = f->generic.flags & QMF_HASFOCUS;
+    bool drawFocusFill = hasFocus && Field_DrawFocusFill(f);
 
-    if (f->generic.flags & QMF_HASFOCUS) {
+    if (hasFocus) {
         flags |= UI_DRAWCURSOR;
         color = uis.color.active.u32;
         Menu_SetColor(color);
@@ -903,11 +913,13 @@ static void Field_Draw(menuField_t *f)
                       f->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR, f->generic.name);
 
         if (!f->colorPickerOnly) {
-        R_DrawFill32(f->generic.x + RCOLUMN_OFFSET, f->generic.y - 1,
-                     f->field.visibleChars * CHAR_WIDTH, CHAR_HEIGHT + 2, color);
+            if (drawFocusFill) {
+                R_DrawFill32(f->generic.x + RCOLUMN_OFFSET, f->generic.y - 1,
+                             f->field.visibleChars * CHAR_WIDTH, CHAR_HEIGHT + 2, color);
+            }
 
-        IF_Draw(&f->field, f->generic.x + RCOLUMN_OFFSET, f->generic.y,
-                flags, uis.fontHandle);
+            IF_Draw(&f->field, f->generic.x + RCOLUMN_OFFSET, f->generic.y,
+                    flags, uis.fontHandle);
         }
 
         if (f->colorPreview) {
@@ -918,14 +930,16 @@ static void Field_Draw(menuField_t *f)
                 f->generic.y - 1);
         }
     } else {
-        R_DrawFill32(f->generic.rect.x, f->generic.rect.y - 1,
-                     f->generic.rect.width, CHAR_HEIGHT + 2, color);
+        if (drawFocusFill) {
+            R_DrawFill32(f->generic.rect.x, f->generic.rect.y - 1,
+                         f->generic.rect.width, CHAR_HEIGHT + 2, color);
+        }
 
         IF_Draw(&f->field, f->generic.rect.x, f->generic.rect.y,
                 flags, uis.fontHandle);
     }
 
-    if (f->generic.flags & QMF_HASFOCUS) {
+    if (hasFocus) {
         Menu_SetNormalColor();
     }
 }
@@ -3259,6 +3273,10 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
     int markerWidth;
 
     if (!(item->flags & QMF_HASFOCUS) || !UI_IsItemSelectable(item)) {
+        return;
+    }
+    if (!menu->focusStyleSet && !menu->compact &&
+        (!ui_menu_style || !ui_menu_style->integer)) {
         return;
     }
 
