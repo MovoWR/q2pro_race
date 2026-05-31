@@ -101,6 +101,8 @@ typedef struct {
     int     center_x, center_y;
 
     bool    alttab_disabled;
+    // True only when this window owns an exclusive ChangeDisplaySettings mode.
+    bool    cds_fullscreen;
 
     enum {
         MODE_SIZE       = BIT(0),

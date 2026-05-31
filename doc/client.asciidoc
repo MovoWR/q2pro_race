@@ -552,28 +552,15 @@ scr_netbar_notice_spike, scr_netbar_notice_ping::
     every notice type. These only affect the large incident notice; the network
     bar history and small bar label keep using all detected incidents.
 
-scr_netwarn_highping::
-    Optional absolute high ping warning threshold, in milliseconds. Default
-    value is 0, which disables absolute high ping warnings. This keeps stable
-    high-latency servers from constantly drawing warnings.
-
-scr_netwarn_ping_adaptive::
+sh_netwarn_ping_adaptive::
     Enables adaptive ping spike and jitter detection relative to the current
     rolling ping baseline. Default value is 1.
 
-scr_netwarn_spike_ms, scr_netwarn_spike_pct, scr_netwarn_jitter_ms::
+sh_netwarn_spike_ms, sh_netwarn_spike_pct, sh_netwarn_jitter_ms::
     Thresholds for ping spike and jitter warnings. Spike detection uses the
     larger of the millisecond threshold and the percentage of the rolling ping
-    baseline when adaptive detection is enabled. Default values are 60, 25 and
-    18.
-
-scr_netwarn_stall_ms, scr_netwarn_stall_crit_ms::
-    Time since last received server packet, in milliseconds, before drawing a
-    connection stall warning and critical stall warning. Default values are 500
-    and 1000.
-
-scr_netwarn_pred_warn, scr_netwarn_pred_crit::
-    Client prediction correction thresholds. Default values are 24 and 80.
+    baseline when adaptive detection is enabled. Default values are 80, 50 and
+    40.
 
 scr_chathud::
     Toggles drawing of the last chat lines on the screen. Default value is 0.
@@ -646,6 +633,8 @@ vid_fullscreen::
     If set to non zero _value_, run in the specified fullscreen mode. This way,
     _value_ acts as index into the list of video modes specified by
     ‘vid_modelist’. Default value is 0, which means to run in windowed mode.
+    On Windows, `vid_fullscreen` with `vid_noborder` set selects borderless
+    fullscreen on the nearest monitor instead of exclusive fullscreen.
 
 vid_geometry::
     Size and optional position of the main window on virtual desktop.
@@ -656,15 +645,10 @@ vid_flip_on_switch::
     switching from fullscreen Q2PRO to another application or desktop.  Default
     value is 0 (don't switch video modes).
 
-vid_fullscreen_multimonitor::
-    On Windows, enables modern multi-monitor behavior in fullscreen mode: the
-    mouse is released while the in-game console is open, and the window remains
-    visible when focus moves to another screen. Default value is 1.
-
-vid_multimonitor::
-    On Windows, configures borderless window and focus settings for multi-display
-    setups. Enabling this automatically configures both `win_noborder` and
-    `vid_fullscreen_multimonitor` accordingly. Default value is 0.
+vid_noborder::
+    On Windows, hides the main window border. If combined with non-zero
+    `vid_fullscreen`, the Windows port uses borderless fullscreen instead of
+    changing the desktop display mode. Default value is 0.
 
 vid_hwgamma::
     Instructs the video driver to use hardware gamma correction for
@@ -704,13 +688,12 @@ win_disablewinkey::
     Disables the default Windows key action to prevent it from interfering with
     game when pressed. Default is 0 (don't disable).
 
-win_noborder::
-    Hides the main window bar (borderless). Default is 0 (show window bar).
-
 win_menu_cursor::
     Specifies the Windows system cursor style to display when the in-game menu is
     active. Valid values are `arrow`, `cross`, `hand`, `ibeam`, `wait`, `no`,
-    `size`. Default value is `arrow`.
+    `size`. Values `1`, `on`, and `true` are aliases for `arrow`; values `0`,
+    `off`, and `none` disable the system cursor override. Default value is
+    `arrow`.
 
 win_noresize::
     Prevents the main window from resizing by dragging the border. Default is 0

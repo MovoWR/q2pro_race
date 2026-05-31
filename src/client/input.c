@@ -71,17 +71,12 @@ static in_state_t   input;
 
 static cvar_t    *in_enable;
 static cvar_t    *in_grab;
-static cvar_t    *vid_fullscreen_multimonitor;
 
-static bool IN_FullscreenMultimonitor(void)
+static bool IN_BorderlessFullscreen(void)
 {
-    cvar_t *var = vid_fullscreen_multimonitor;
+    cvar_t *vid_noborder = Cvar_WeakGet("vid_noborder");
 
-    if (!var) {
-        var = Cvar_FindVar("vid_fullscreen_multimonitor");
-    }
-
-    return !var || var->integer;
+    return vid_noborder && vid_noborder->integer;
 }
 
 static bool IN_GetCurrentGrab(void)
@@ -90,8 +85,8 @@ static bool IN_GetCurrentGrab(void)
         return false;   // main window doesn't have focus
 
     if (r_config.flags & QVF_FULLSCREEN) {
-        if (IN_FullscreenMultimonitor() && (cls.key_dest & KEY_CONSOLE))
-            return false;   // let cursor leave fullscreen while console is up
+        if ((cls.key_dest & (KEY_MENU | KEY_CONSOLE)) && IN_BorderlessFullscreen())
+            return false;   // let cursor leave borderless fullscreen while UI is up
         return true;    // full screen
     }
 
@@ -175,9 +170,6 @@ void IN_Shutdown(void)
     if (in_grab) {
         in_grab->changed = NULL;
     }
-    if (vid_fullscreen_multimonitor) {
-        vid_fullscreen_multimonitor->changed = NULL;
-    }
 
     if (vid && vid->shutdown_mouse) {
         vid->shutdown_mouse();
@@ -217,8 +209,6 @@ void IN_Init(void)
 
     in_grab = Cvar_Get("in_grab", "1", 0);
     in_grab->changed = in_changed_soft;
-    vid_fullscreen_multimonitor = Cvar_Get("vid_fullscreen_multimonitor", "1", CVAR_ARCHIVE);
-    vid_fullscreen_multimonitor->changed = in_changed_soft;
 
     IN_Activate();
 }
