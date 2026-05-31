@@ -789,7 +789,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
 
     if (sh_histogram_ping && sh_histogram_ping->integer && netmeter.ping_samples > 0) {
         char ping_str[16];
-        Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.last_ping);
+        Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.avg_ping);
         R_SetAlpha(global_alpha);
         SCR_DrawString(draw_x + draw_w, draw_y, UI_RIGHT, ping_str);
     }
