@@ -674,20 +674,110 @@ static void Parse_Background(menuFrameWork_t *menu)
     }
 }
 
+static const cmd_option_t o_style[] = {
+    { "c", "compact" },
+    { "x", "left" },
+    { "m", "center" },
+    { "r", "right" },
+    { "C", "no-compact" },
+    { "l", "live" },
+    { "L", "no-live" },
+    { "t", "transparent" },
+    { "T", "no-transparent" },
+    { NULL }
+};
+
+typedef struct {
+    bool compactSet;
+    bool compact;
+    bool halignSet;
+    menuHAlign_t halign;
+    bool liveSet;
+    bool live;
+    bool transparentSet;
+    bool transparent;
+    bool focusSet;
+    bool focusMenuWidth;
+    int focusBorderWidth;
+    int focusInset;
+    int focusHeight;
+} menuDefaultStyle_t;
+
+static menuDefaultStyle_t ui_menu_defaults;
+
+static void Apply_DefaultStyle(menuFrameWork_t *menu)
+{
+    if (ui_menu_defaults.compactSet) {
+        menu->compact = ui_menu_defaults.compact;
+    }
+    if (ui_menu_defaults.halignSet) {
+        menu->halign = ui_menu_defaults.halign;
+    }
+    if (ui_menu_defaults.liveSet) {
+        menu->live = ui_menu_defaults.live;
+    }
+    if (ui_menu_defaults.transparentSet) {
+        menu->transparent = ui_menu_defaults.transparent;
+    }
+    if (ui_menu_defaults.focusSet) {
+        menu->focusStyleSet = true;
+        menu->focusMenuWidth = ui_menu_defaults.focusMenuWidth;
+        menu->focusBorderWidth = ui_menu_defaults.focusBorderWidth;
+        menu->focusInset = ui_menu_defaults.focusInset;
+        menu->focusHeight = ui_menu_defaults.focusHeight;
+    }
+}
+
+static void Parse_GlobalStyle(void)
+{
+    int c;
+
+    while ((c = Cmd_ParseOptions(o_style)) != -1) {
+        switch (c) {
+        case 'c':
+            ui_menu_defaults.compactSet = true;
+            ui_menu_defaults.compact = true;
+            break;
+        case 'x':
+            ui_menu_defaults.halignSet = true;
+            ui_menu_defaults.halign = MENU_HALIGN_LEFT;
+            break;
+        case 'm':
+            ui_menu_defaults.halignSet = true;
+            ui_menu_defaults.halign = MENU_HALIGN_CENTER;
+            break;
+        case 'r':
+            ui_menu_defaults.halignSet = true;
+            ui_menu_defaults.halign = MENU_HALIGN_RIGHT;
+            break;
+        case 'C':
+            ui_menu_defaults.compactSet = true;
+            ui_menu_defaults.compact = false;
+            break;
+        case 'l':
+            ui_menu_defaults.liveSet = true;
+            ui_menu_defaults.live = true;
+            break;
+        case 'L':
+            ui_menu_defaults.liveSet = true;
+            ui_menu_defaults.live = false;
+            break;
+        case 't':
+            ui_menu_defaults.transparentSet = true;
+            ui_menu_defaults.transparent = true;
+            break;
+        case 'T':
+            ui_menu_defaults.transparentSet = true;
+            ui_menu_defaults.transparent = false;
+            break;
+        default:
+            return;
+        }
+    }
+}
+
 static void Parse_Style(menuFrameWork_t *menu)
 {
-    static const cmd_option_t o_style[] = {
-        { "c", "compact" },
-        { "x", "left" },
-        { "m", "center" },
-        { "r", "right" },
-        { "C", "no-compact" },
-        { "l", "live" },
-        { "L", "no-live" },
-        { "t", "transparent" },
-        { "T", "no-transparent" },
-        { NULL }
-    };
     int c;
 
     while ((c = Cmd_ParseOptions(o_style)) != -1) {
@@ -767,6 +857,20 @@ static void Parse_Focus(menuFrameWork_t *menu)
         } else {
             Com_Printf("Unknown focus option '%s'\n", arg);
         }
+    }
+}
+
+static void Parse_GlobalFocus(void)
+{
+    menuFrameWork_t defaults = { 0 };
+
+    Parse_Focus(&defaults);
+    if (defaults.focusStyleSet) {
+        ui_menu_defaults.focusSet = true;
+        ui_menu_defaults.focusMenuWidth = defaults.focusMenuWidth;
+        ui_menu_defaults.focusBorderWidth = defaults.focusBorderWidth;
+        ui_menu_defaults.focusInset = defaults.focusInset;
+        ui_menu_defaults.focusHeight = defaults.focusHeight;
     }
 }
 
@@ -963,6 +1067,7 @@ static bool Parse_Buffer(const char *path, char *data, int depth)
                     menu->image = uis.backgroundHandle;
                     menu->color.u32 = uis.color.background.u32;
                     menu->transparent = uis.transparent;
+                    Apply_DefaultStyle(menu);
                 } else if (!strcmp(cmd, "include")) {
                     char *s = Cmd_Argv(1);
                     if (!*s) {
@@ -995,6 +1100,10 @@ static bool Parse_Buffer(const char *path, char *data, int depth)
                     UI_SetCursor(cursor_name);
                 } else if (!strcmp(cmd, "weapon")) {
                     Cmd_ArgvBuffer(1, uis.weaponModel, sizeof(uis.weaponModel));
+                } else if (!strcmp(cmd, "style")) {
+                    Parse_GlobalStyle();
+                } else if (!strcmp(cmd, "focus")) {
+                    Parse_GlobalFocus();
                 } else {
                     Com_WPrintf("%s:%d: Unknown keyword '%s'\n",
                                 path, line, cmd);
@@ -1067,6 +1176,8 @@ static bool UI_ShouldUseBuiltinMenu(cvar_t *ui_external_menu)
 void UI_LoadScript(void)
 {
     cvar_t *ui_external_menu = Cvar_Get("ui_external_menu", "0", CVAR_ARCHIVE);
+
+    memset(&ui_menu_defaults, 0, sizeof(ui_menu_defaults));
 
     if (UI_ShouldUseBuiltinMenu(ui_external_menu)) {
         Parse_BuiltinMenu();
