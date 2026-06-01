@@ -215,39 +215,60 @@ void SH_Cmd_f(void) {
     }
 }
 
+static const char *SH_DefaultString(cvar_t *var)
+{
+    return var && var->default_string ? var->default_string : "?";
+}
+
+static void SH_PrintStatusInt(const char *label, cvar_t *var)
+{
+    Com_Printf("  %-20s : %-20d : def: %s\n",
+               label, var ? var->integer : 0, SH_DefaultString(var));
+}
+
+static void SH_PrintStatusFloat(const char *label, cvar_t *var)
+{
+    Com_Printf("  %-20s : %-20.2f : def: %s\n",
+               label, var ? var->value : 0.0f, SH_DefaultString(var));
+}
+
+static void SH_PrintStatusString(const char *label, cvar_t *var)
+{
+    Com_Printf("  %-20s : %-20s : def: %s\n",
+               label, var ? var->string : "?", SH_DefaultString(var));
+}
+
 void SH_Status_f(void) {
     Com_Printf("------------------------------------------------------------------\n");
     Com_LPrintf(PRINT_WARNING, "                        Strafe Helper Status:\n");
     Com_Printf("------------------------------------------------------------------\n");
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Enabled", cl_drawStrafeHelper->integer, 1);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Center marker", cl_strafeHelperCenterMarker->integer, 1);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Y pos", cl_strafeHelperY->value, 100.0f);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Scale", cl_strafeHelperScale->value, 1.5f);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Height", cl_strafeHelperHeight->integer, 25);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Alpha", cl_strafehelperAlpha->value, 1.0f);
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Bar style", cl_strafehelperBarStyle->string, "gradient");
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Smoothing", cl_strafehelperSmoothing->value, 0.0f);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Smoothing mode", cl_strafehelperSmoothingMode->integer, 1);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Center width", cl_strafehelper_center_width->value, 1.5f);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Optimal width", cl_strafehelper_optimal_width->value, 1.5f);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Optimal outline", cl_strafehelper_optimal_outline->integer, 0);
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Accelerating color", cl_strafehelper_color_accelerating->string,
-               "115 170 255 120");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Optimal color", cl_strafehelper_color_optimal->string, "0 255 64 192");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Center marker color", cl_strafehelper_color_centermarker->string,
-               "255 255 255 192");
+    SH_PrintStatusInt("Enabled", cl_drawStrafeHelper);
+    SH_PrintStatusInt("Center marker", cl_strafeHelperCenterMarker);
+    SH_PrintStatusFloat("Y pos", cl_strafeHelperY);
+    SH_PrintStatusFloat("Scale", cl_strafeHelperScale);
+    SH_PrintStatusInt("Height", cl_strafeHelperHeight);
+    SH_PrintStatusFloat("Alpha", cl_strafehelperAlpha);
+    SH_PrintStatusString("Bar style", cl_strafehelperBarStyle);
+    SH_PrintStatusFloat("Smoothing", cl_strafehelperSmoothing);
+    SH_PrintStatusInt("Smoothing mode", cl_strafehelperSmoothingMode);
+    SH_PrintStatusFloat("Center width", cl_strafehelper_center_width);
+    SH_PrintStatusFloat("Optimal width", cl_strafehelper_optimal_width);
+    SH_PrintStatusInt("Optimal outline", cl_strafehelper_optimal_outline);
+    SH_PrintStatusString("Accelerating color", cl_strafehelper_color_accelerating);
+    SH_PrintStatusString("Optimal color", cl_strafehelper_color_optimal);
+    SH_PrintStatusString("Center marker color", cl_strafehelper_color_centermarker);
     Com_Printf("------------------------------------------------------------------\n");
     Com_LPrintf(PRINT_WARNING, "                        Center UPS Status:\n");
     Com_Printf("------------------------------------------------------------------\n");
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Enabled", cl_strafehelperUps->integer, 0);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Scale", cl_strafehelperUpsScale->value, 1.0f);
-    Com_Printf("  %-20s : %-20.2f : def: %.2f\n", "Y pos", cl_strafehelperUpsY->value, 0.0f);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Shadow", cl_strafehelperUpsShadow->integer, 1);
-    Com_Printf("  %-20s : %-20d : def: %d\n", "Hide zero", cl_strafehelperUpsHideZero->integer, 0);
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Color mode", cl_strafehelperUpsColorMode->string, "dynamic");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Format", cl_strafehelperUpsFormat->string, "plain");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Gain color", cl_strafehelperUpsColorGain->string, "0 255 0 255");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Loss color", cl_strafehelperUpsColorLoss->string, "255 0 0 255");
-    Com_Printf("  %-20s : %-20s : def: %s\n", "Neutral color", cl_strafehelperUpsColorNeutral->string, "255 255 255 255");
+    SH_PrintStatusInt("Enabled", cl_strafehelperUps);
+    SH_PrintStatusFloat("Scale", cl_strafehelperUpsScale);
+    SH_PrintStatusFloat("Y pos", cl_strafehelperUpsY);
+    SH_PrintStatusInt("Shadow", cl_strafehelperUpsShadow);
+    SH_PrintStatusInt("Hide zero", cl_strafehelperUpsHideZero);
+    SH_PrintStatusString("Color mode", cl_strafehelperUpsColorMode);
+    SH_PrintStatusString("Format", cl_strafehelperUpsFormat);
+    SH_PrintStatusString("Gain color", cl_strafehelperUpsColorGain);
+    SH_PrintStatusString("Loss color", cl_strafehelperUpsColorLoss);
+    SH_PrintStatusString("Neutral color", cl_strafehelperUpsColorNeutral);
     Com_Printf("------------------------------------------------------------------\n");
 }

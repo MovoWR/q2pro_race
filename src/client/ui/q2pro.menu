@@ -47,8 +47,8 @@ begin <menuname>
    strings [--show-value] [--status <text>] <name> <cvar> <value1> [...]
    toggle [--show-value] [--status <text>] <name> <cvar> [~][bit]
 
-   bind <name> <command>
-   action <name> <command>
+   bind [--align] [--status <text>] [--altstatus <text>] <name> <command>
+   action [--align] [--status <text>] <name> <command>
    bitmap <image> <command>
    savegame <slot>
    loadgame <slot>

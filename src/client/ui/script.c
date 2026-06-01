@@ -389,6 +389,7 @@ static void Parse_Bitmap(menuFrameWork_t *menu)
 static void Parse_Bind(menuFrameWork_t *menu)
 {
     static const cmd_option_t o_bind[] = {
+        { "a", "align" },
         { "s:", "status" },
         { "S:", "altstatus" },
         { NULL }
@@ -404,6 +405,8 @@ static void Parse_Bind(menuFrameWork_t *menu)
 
     while ((c = Cmd_ParseOptions(o_bind)) != -1) {
         switch (c) {
+        case 'a':
+            break;
         case 's':
             status = cmd_optarg;
             break;
