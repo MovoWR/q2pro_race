@@ -47,8 +47,11 @@ cvar_t *sh_netgraph_color_loss_c2s;// C2S loss sample color
 /* Mode 3 - Histogram: compact network-quality history display. */
 cvar_t *sh_histogram_x;             // Histogram X position
 cvar_t *sh_histogram_y;             // Histogram Y position
+cvar_t *sh_histogram_width_mode;    // 0 custom, 1 half screen, 2 full screen
 cvar_t *sh_histogram_width;         // Histogram width
 cvar_t *sh_histogram_height;        // Histogram height
+cvar_t *sh_histogram_fill_mode;     // 0 bars, 1 spans
+cvar_t *sh_histogram_spacing_mode;  // 0 time, 1 even
 cvar_t *sh_histogram_bg_alpha;      // Background alpha/transparency
 cvar_t *sh_histogram_color_bg;      // Background color
 cvar_t *sh_histogram_color_normal;  // Normal sample color
@@ -122,64 +125,67 @@ void SH_NetMeter_Init(void)
      *   2 = netgraph
      *   3 = histogram
      */
-    sh_netmeter = Cvar_Get("sh_netmeter", "0", CVAR_ARCHIVE);
+    sh_netmeter = Cvar_Get("sh_netmeter", "3", CVAR_ARCHIVE);
 
     /* Network warning thresholds. */
     sh_netwarn_ping_adaptive = Cvar_Get("sh_netwarn_ping_adaptive", "1", CVAR_ARCHIVE);
-    sh_netwarn_spike_ms = Cvar_Get("sh_netwarn_spike_ms", "80", CVAR_ARCHIVE);
-    sh_netwarn_spike_pct = Cvar_Get("sh_netwarn_spike_pct", "50", CVAR_ARCHIVE);
-    sh_netwarn_jitter_ms = Cvar_Get("sh_netwarn_jitter_ms", "40", CVAR_ARCHIVE);
+    sh_netwarn_spike_ms = Cvar_Get("sh_netwarn_spike_ms", "300", CVAR_ARCHIVE);
+    sh_netwarn_spike_pct = Cvar_Get("sh_netwarn_spike_pct", "100", CVAR_ARCHIVE);
+    sh_netwarn_jitter_ms = Cvar_Get("sh_netwarn_jitter_ms", "100", CVAR_ARCHIVE);
 
     /* Net Alert - on-screen network warning text. */
-    sh_netalert = Cvar_Get("sh_netalert", "0", CVAR_ARCHIVE);
+    sh_netalert = Cvar_Get("sh_netalert", "1", CVAR_ARCHIVE);
     sh_netalert_x = Cvar_Get("sh_netalert_x", "0", CVAR_ARCHIVE);
-    sh_netalert_y = Cvar_Get("sh_netalert_y", "48", CVAR_ARCHIVE);
-    sh_netalert_color = Cvar_Get("sh_netalert_color", "7", CVAR_ARCHIVE);
-    sh_netalert_alpha = Cvar_Get("sh_netalert_alpha", "0.85", CVAR_ARCHIVE);
-    sh_netalert_duration_ms = Cvar_Get("sh_netalert_duration_ms", "1200", CVAR_ARCHIVE);
+    sh_netalert_y = Cvar_Get("sh_netalert_y", "353", CVAR_ARCHIVE);
+    sh_netalert_color = Cvar_Get("sh_netalert_color", "1", CVAR_ARCHIVE);
+    sh_netalert_alpha = Cvar_Get("sh_netalert_alpha", "1", CVAR_ARCHIVE);
+    sh_netalert_duration_ms = Cvar_Get("sh_netalert_duration_ms", "2000", CVAR_ARCHIVE);
     sh_netalert_loss = Cvar_Get("sh_netalert_loss", "1", CVAR_ARCHIVE);
     sh_netalert_jitter = Cvar_Get("sh_netalert_jitter", "1", CVAR_ARCHIVE);
     sh_netalert_spike = Cvar_Get("sh_netalert_spike", "1", CVAR_ARCHIVE);
 
     /* Mode 1 - Lagometer: compact bar history of recent network quality. */
-    sh_lagometer_x = Cvar_Get("sh_lagometer_x", "0", CVAR_ARCHIVE);
+    sh_lagometer_x = Cvar_Get("sh_lagometer_x", "166", CVAR_ARCHIVE);
     sh_lagometer_y = Cvar_Get("sh_lagometer_y", "-1", CVAR_ARCHIVE);
     sh_netmeter_min_ms = Cvar_Get("sh_netmeter_min_ms", "0", CVAR_ARCHIVE);
     sh_netmeter_max_ms = Cvar_Get("sh_netmeter_max_ms", "150", CVAR_ARCHIVE);
     sh_netmeter_adaptive = Cvar_Get("sh_netmeter_adaptive", "1", CVAR_ARCHIVE);
-    sh_lagometer_color_normal = Cvar_Get("sh_lagometer_color_normal", "213", CVAR_ARCHIVE);
-    sh_lagometer_color_spike = Cvar_Get("sh_lagometer_color_spike", "220", CVAR_ARCHIVE);
+    sh_lagometer_color_normal = Cvar_Get("sh_lagometer_color_normal", "212", CVAR_ARCHIVE);
+    sh_lagometer_color_spike = Cvar_Get("sh_lagometer_color_spike", "225", CVAR_ARCHIVE);
     sh_lagometer_color_jitter = Cvar_Get("sh_lagometer_color_jitter", "220", CVAR_ARCHIVE);
-    sh_lagometer_color_loss_s2c = Cvar_Get("sh_lagometer_color_loss_s2c", "242", CVAR_ARCHIVE);
-    sh_lagometer_color_loss_c2s = Cvar_Get("sh_lagometer_color_loss_c2s", "224", CVAR_ARCHIVE);
-    sh_lagometer_alpha = Cvar_Get("sh_lagometer_alpha", "0.20", CVAR_ARCHIVE);
-    sh_lagometer_bad_alpha = Cvar_Get("sh_lagometer_bad_alpha", "0.75", CVAR_ARCHIVE);
+    sh_lagometer_color_loss_s2c = Cvar_Get("sh_lagometer_color_loss_s2c", "231", CVAR_ARCHIVE);
+    sh_lagometer_color_loss_c2s = Cvar_Get("sh_lagometer_color_loss_c2s", "243", CVAR_ARCHIVE);
+    sh_lagometer_alpha = Cvar_Get("sh_lagometer_alpha", "0.300000", CVAR_ARCHIVE);
+    sh_lagometer_bad_alpha = Cvar_Get("sh_lagometer_bad_alpha", "1", CVAR_ARCHIVE);
 
     /* Mode 2 - Netgraph: scrolling latency graph over recent network samples. */
     sh_netgraph_y = Cvar_Get("sh_netgraph_y", "-1", CVAR_ARCHIVE);
-    sh_netgraph_height = Cvar_Get("sh_netgraph_height", "32", CVAR_ARCHIVE);
+    sh_netgraph_height = Cvar_Get("sh_netgraph_height", "15", CVAR_ARCHIVE);
     sh_netgraph_alpha = Cvar_Get("sh_netgraph_alpha", "0.75", CVAR_ARCHIVE);
     sh_netgraph_color_normal = Cvar_Get("sh_netgraph_color_normal", "213", CVAR_ARCHIVE);
-    sh_netgraph_color_spike = Cvar_Get("sh_netgraph_color_spike", "220", CVAR_ARCHIVE);
+    sh_netgraph_color_spike = Cvar_Get("sh_netgraph_color_spike", "208", CVAR_ARCHIVE);
     sh_netgraph_color_jitter = Cvar_Get("sh_netgraph_color_jitter", "220", CVAR_ARCHIVE);
-    sh_netgraph_color_loss_s2c = Cvar_Get("sh_netgraph_color_loss_s2c", "242", CVAR_ARCHIVE);
-    sh_netgraph_color_loss_c2s = Cvar_Get("sh_netgraph_color_loss_c2s", "224", CVAR_ARCHIVE);
+    sh_netgraph_color_loss_s2c = Cvar_Get("sh_netgraph_color_loss_s2c", "233", CVAR_ARCHIVE);
+    sh_netgraph_color_loss_c2s = Cvar_Get("sh_netgraph_color_loss_c2s", "11", CVAR_ARCHIVE);
 
     /* Mode 3 - Histogram: compact network-quality history display. */
     sh_histogram_x = Cvar_Get("sh_histogram_x", "0", CVAR_ARCHIVE);
     sh_histogram_y = Cvar_Get("sh_histogram_y", "-1", CVAR_ARCHIVE);
-    sh_histogram_width = Cvar_Get("sh_histogram_width", "160", CVAR_ARCHIVE);
-    sh_histogram_height = Cvar_Get("sh_histogram_height", "4", CVAR_ARCHIVE);
-    sh_histogram_bg_alpha = Cvar_Get("sh_histogram_bg_alpha", "0.20", CVAR_ARCHIVE);
+    sh_histogram_width_mode = Cvar_Get("sh_histogram_width_mode", "2", CVAR_ARCHIVE);
+    sh_histogram_width = Cvar_Get("sh_histogram_width", "1280", CVAR_ARCHIVE);
+    sh_histogram_height = Cvar_Get("sh_histogram_height", "15", CVAR_ARCHIVE);
+    sh_histogram_fill_mode = Cvar_Get("sh_histogram_fill_mode", "0", CVAR_ARCHIVE);
+    sh_histogram_spacing_mode = Cvar_Get("sh_histogram_spacing_mode", "0", CVAR_ARCHIVE);
+    sh_histogram_bg_alpha = Cvar_Get("sh_histogram_bg_alpha", "0.150000", CVAR_ARCHIVE);
     sh_histogram_color_bg = Cvar_Get("sh_histogram_color_bg", "0", CVAR_ARCHIVE);
-    sh_histogram_color_normal = Cvar_Get("sh_histogram_color_normal", "213", CVAR_ARCHIVE);
+    sh_histogram_color_normal = Cvar_Get("sh_histogram_color_normal", "209", CVAR_ARCHIVE);
     sh_histogram_color_spike = Cvar_Get("sh_histogram_color_spike", "220", CVAR_ARCHIVE);
-    sh_histogram_color_jitter = Cvar_Get("sh_histogram_color_jitter", "220", CVAR_ARCHIVE);
-    sh_histogram_color_loss_s2c = Cvar_Get("sh_histogram_color_loss_s2c", "242", CVAR_ARCHIVE);
-    sh_histogram_color_loss_c2s = Cvar_Get("sh_histogram_color_loss_c2s", "224", CVAR_ARCHIVE);
-    sh_histogram_alpha = Cvar_Get("sh_histogram_alpha", "0.20", CVAR_ARCHIVE);
-    sh_histogram_bad_alpha = Cvar_Get("sh_histogram_bad_alpha", "0.75", CVAR_ARCHIVE);
-    sh_histogram_history = Cvar_Get("sh_histogram_history_ms", "60000", CVAR_ARCHIVE);
+    sh_histogram_color_jitter = Cvar_Get("sh_histogram_color_jitter", "215", CVAR_ARCHIVE);
+    sh_histogram_color_loss_s2c = Cvar_Get("sh_histogram_color_loss_s2c", "227", CVAR_ARCHIVE);
+    sh_histogram_color_loss_c2s = Cvar_Get("sh_histogram_color_loss_c2s", "241", CVAR_ARCHIVE);
+    sh_histogram_alpha = Cvar_Get("sh_histogram_alpha", "1", CVAR_ARCHIVE);
+    sh_histogram_bad_alpha = Cvar_Get("sh_histogram_bad_alpha", "1", CVAR_ARCHIVE);
+    sh_histogram_history = Cvar_Get("sh_histogram_history_ms", "52000", CVAR_ARCHIVE);
     sh_histogram_ping = Cvar_Get("sh_histogram_ping", "1", CVAR_ARCHIVE);
 }
 
@@ -712,7 +718,17 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
     unsigned age;
     float alpha, age_scale;
 
-    draw_w = Cvar_ClampInteger(sh_histogram_width, 10, max(10, scr.hud_width));
+    switch (Cvar_ClampInteger(sh_histogram_width_mode, 0, 2)) {
+    case 2:
+        draw_w = max(10, scr.hud_width);
+        break;
+    case 1:
+        draw_w = Q_clip(scr.hud_width / 2, 10, max(10, scr.hud_width));
+        break;
+    default:
+        draw_w = Cvar_ClampInteger(sh_histogram_width, 10, max(10, scr.hud_width));
+        break;
+    }
     draw_h = Cvar_ClampInteger(sh_histogram_height, 1, max(1, scr.hud_height));
     x = sh_histogram_x->integer;
     y = sh_histogram_y->integer;
@@ -768,10 +784,37 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
 
     for (n = count - 1; n >= 0; n--) {
         netmeter_sample_t *sample = &netmeter.samples[(netmeter.head - 1 - n) & NETMETER_MASK];
-        int sample_x;
+        int sample_x, span_end, span_w, fill_w;
 
         age = now - sample->time;
-        sample_x = draw_x + (int)(((uint64_t)(history - age) * (draw_w - 1)) / history);
+        if (Cvar_ClampInteger(sh_histogram_spacing_mode, 0, 1) == 1) {
+            int sample_pos = count - 1 - n;
+            int sample_range = max(1, count - 1);
+
+            sample_x = draw_x + (int)(((uint64_t)sample_pos * (draw_w - 1)) / sample_range);
+            if (n > 0) {
+                span_end = draw_x + (int)(((uint64_t)(sample_pos + 1) * (draw_w - 1)) / sample_range);
+            } else {
+                span_end = draw_x + draw_w;
+            }
+        } else {
+            sample_x = draw_x + (int)(((uint64_t)(history - age) * (draw_w - 1)) / history);
+            if (n > 0) {
+                netmeter_sample_t *next_sample = &netmeter.samples[(netmeter.head - n) & NETMETER_MASK];
+                unsigned next_age = now - next_sample->time;
+                span_end = draw_x + (int)(((uint64_t)(history - next_age) * (draw_w - 1)) / history);
+            } else {
+                span_end = draw_x + draw_w;
+            }
+        }
+        span_w = max(1, span_end - sample_x);
+        if (Cvar_ClampInteger(sh_histogram_fill_mode, 0, 1) == 1) {
+            fill_w = span_w;
+        } else {
+            int bar_w = span_w <= 2 ? 1 : Q_clip(span_w / 2, 1, 8);
+            fill_w = min(bar_w, draw_x + draw_w - sample_x);
+            fill_w = max(1, fill_w);
+        }
         color = SCR_NetMeterColor(3, sample);
         age_scale = 0.35f + 0.65f * (float)(history - age) / history;
 
@@ -791,14 +834,14 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         }
 
         R_SetAlpha(alpha * global_alpha);
-        R_DrawFill8(sample_x, draw_y + draw_h - h, 1, h, color);
+        R_DrawFill8(sample_x, draw_y + draw_h - h, fill_w, h, color);
     }
 
     if (sh_histogram_ping && sh_histogram_ping->integer && netmeter.ping_samples > 0) {
         char ping_str[16];
         Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.display_ping);
         R_SetAlpha(global_alpha);
-        SCR_DrawString(draw_x + draw_w, draw_y, UI_RIGHT, ping_str);
+        SCR_DrawString(draw_x, draw_y, UI_LEFT, ping_str);
     }
 
     SCR_DrawNetMeterNotice(draw_y, draw_h);

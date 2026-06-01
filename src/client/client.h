@@ -1177,8 +1177,11 @@ extern cvar_t *sh_netgraph_color_loss_c2s;
 /* Mode 3 - Histogram specific */
 extern cvar_t *sh_histogram_x;
 extern cvar_t *sh_histogram_y;
+extern cvar_t *sh_histogram_width_mode;
 extern cvar_t *sh_histogram_width;
 extern cvar_t *sh_histogram_height;
+extern cvar_t *sh_histogram_fill_mode;
+extern cvar_t *sh_histogram_spacing_mode;
 extern cvar_t *sh_histogram_bg_alpha;
 extern cvar_t *sh_histogram_color_bg;
 extern cvar_t *sh_histogram_color_normal;
