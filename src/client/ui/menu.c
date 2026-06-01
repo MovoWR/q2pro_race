@@ -18,8 +18,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "ui.h"
 #include "server/server.h"
+#include "src/jump/sh_menus.h"
 
 extern cvar_t *cl_drawStrafeHelper;
+
+static bool Field_ParseColor(const char *s, color_t *color);
+static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t size);
 
 static void Menu_SetColor(uint32_t color)
 {
@@ -30,6 +34,19 @@ static void Menu_SetColor(uint32_t color)
 static void Menu_SetNormalColor(void)
 {
     Menu_SetColor(uis.color.normal.u32);
+}
+
+static bool Menu_IsNetMeterMenu(const menuFrameWork_t *menu)
+{
+    return menu && menu->name &&
+        (!strcmp(menu->name, "jumpnetwork") ||
+         !strcmp(menu->name, "jumpnetalerts") ||
+         !strcmp(menu->name, "jumpnetthresholds"));
+}
+
+static bool Menu_IsStrafePresetMenu(const menuFrameWork_t *menu)
+{
+    return menu && menu->name && strcmp(menu->name, "shpresets") == 0;
 }
 
 /*
@@ -48,6 +65,84 @@ static void Action_Free(menuAction_t *a)
     Z_Free(a);
 }
 
+#define SH_PRESET_SWATCH_COUNT  3
+#define SH_PRESET_SWATCH_WIDTH  (CHAR_WIDTH * 2)
+#define SH_PRESET_SWATCH_HEIGHT (CHAR_HEIGHT - 2)
+#define SH_PRESET_SWATCH_GAP    2
+#define SH_PRESET_SWATCH_MARGIN CHAR_WIDTH
+
+static int Action_PresetSwatchesOnlyWidth(void)
+{
+    return SH_PRESET_SWATCH_COUNT * SH_PRESET_SWATCH_WIDTH +
+        (SH_PRESET_SWATCH_COUNT - 1) * SH_PRESET_SWATCH_GAP;
+}
+
+static bool Action_PresetColorStrings(menuAction_t *a, const char **accelerating,
+                                      const char **optimal,
+                                      const char **centermarker)
+{
+    static const char prefix[] = "sh hud preset ";
+    const char *name;
+
+    if (!a->cmd || Q_strncasecmp(a->cmd, prefix, sizeof(prefix) - 1) != 0) {
+        return false;
+    }
+
+    name = a->cmd + sizeof(prefix) - 1;
+    if (!*name || !_stricmp(name, "random")) {
+        return false;
+    }
+
+    return SH_GetPresetColors(name, accelerating, optimal, centermarker);
+}
+
+static int Action_PresetSwatchesWidth(menuAction_t *a)
+{
+    if (!Action_PresetColorStrings(a, NULL, NULL, NULL)) {
+        return 0;
+    }
+
+    return SH_PRESET_SWATCH_MARGIN +
+        SH_PRESET_SWATCH_COUNT * SH_PRESET_SWATCH_WIDTH +
+        (SH_PRESET_SWATCH_COUNT - 1) * SH_PRESET_SWATCH_GAP;
+}
+
+static void Action_DrawPresetSwatches(menuAction_t *a)
+{
+    const char *colors[SH_PRESET_SWATCH_COUNT];
+    int x, y, i;
+
+    if (!Action_PresetColorStrings(a, &colors[0], &colors[1], &colors[2])) {
+        return;
+    }
+
+    if (Menu_IsStrafePresetMenu(a->generic.parent)) {
+        x = a->generic.parent->maxs[0] - Action_PresetSwatchesOnlyWidth() -
+            SH_PRESET_SWATCH_MARGIN;
+    } else if ((a->generic.uiFlags & UI_CENTER) == UI_CENTER) {
+        x = a->generic.x + (int)strlen(a->generic.name) * CHAR_WIDTH / 2 +
+            SH_PRESET_SWATCH_MARGIN;
+    } else {
+        x = a->generic.x + RCOLUMN_OFFSET + CHAR_WIDTH * 12;
+    }
+    y = a->generic.y + 1;
+
+    for (i = 0; i < SH_PRESET_SWATCH_COUNT; i++) {
+        color_t color;
+
+        R_DrawFill8(x - 1, y - 1, SH_PRESET_SWATCH_WIDTH + 2,
+                    SH_PRESET_SWATCH_HEIGHT + 2, 7);
+        if (Field_ParseColor(colors[i], &color)) {
+            R_DrawFill32(x, y, SH_PRESET_SWATCH_WIDTH,
+                         SH_PRESET_SWATCH_HEIGHT, color.u32);
+        } else {
+            R_DrawFill32(x, y, SH_PRESET_SWATCH_WIDTH,
+                         SH_PRESET_SWATCH_HEIGHT, MakeColor(96, 0, 0, 220));
+        }
+        x += SH_PRESET_SWATCH_WIDTH + SH_PRESET_SWATCH_GAP;
+    }
+}
+
 /*
 =================
 Action_Init
@@ -64,6 +159,7 @@ static void Action_Init(menuAction_t *a)
     a->generic.rect.x = a->generic.x;
     a->generic.rect.y = a->generic.y;
     UI_StringDimensions(&a->generic.rect, a->generic.uiFlags, a->generic.name);
+    a->generic.rect.width += Action_PresetSwatchesWidth(a);
 }
 
 
@@ -97,6 +193,7 @@ static void Action_Draw(menuAction_t *a)
         Menu_SetColor(uis.color.selectable.u32);
     }
     UI_DrawString(a->generic.x, a->generic.y, flags, a->generic.name);
+    Action_DrawPresetSwatches(a);
     Menu_SetNormalColor();
 }
 
@@ -2697,6 +2794,15 @@ static const char *Menu_ShowIfValue(const char *name)
         return (!(r_config.flags & QVF_FULLSCREEN) || borderless) ? "1" : "0";
     }
 
+    if (!strcmp(name, "ui_histogram_custom_width")) {
+        cvar_t *sh_netmeter = Cvar_WeakGet("sh_netmeter");
+        cvar_t *sh_histogram_width_mode = Cvar_WeakGet("sh_histogram_width_mode");
+        bool histogram = sh_netmeter && sh_netmeter->integer == 3;
+        bool custom = !sh_histogram_width_mode || sh_histogram_width_mode->integer == 0;
+
+        return histogram && custom ? "1" : "0";
+    }
+
     var = Cvar_FindVar(name);
     if (!var) {
         return "";
@@ -2714,7 +2820,9 @@ void Menu_UpdateShowIf(menuFrameWork_t *menu)
         return;
     }
 
-    if (menu->name && strcmp(menu->name, "strafehelper") == 0 && menu->compact && cl_drawStrafeHelper) {
+    if (menu->name &&
+        (strcmp(menu->name, "strafehelper") == 0 || Menu_IsStrafePresetMenu(menu)) &&
+        menu->compact && cl_drawStrafeHelper) {
         bool should_shift = (cl_drawStrafeHelper->integer != 0);
         bool is_shifted = (menu->y1 == 16 - MENU_SPACING);
         if (should_shift != is_shifted) {
@@ -2868,7 +2976,9 @@ void Menu_Size(menuFrameWork_t *menu)
 
     // set menu top/bottom
     bool shift_top = false;
-    if (menu->name && strcmp(menu->name, "strafehelper") == 0 && cl_drawStrafeHelper && cl_drawStrafeHelper->integer) {
+    if (menu->name &&
+        (strcmp(menu->name, "strafehelper") == 0 || Menu_IsStrafePresetMenu(menu)) &&
+        cl_drawStrafeHelper && cl_drawStrafeHelper->integer) {
         shift_top = true;
     } else if (menu->name && strcmp(menu->name, "colorpicker") == 0 &&
                colorPicker.target && Q_strncasecmp(colorPicker.target->name, "sh_color_", 9) == 0 &&
@@ -2887,6 +2997,10 @@ void Menu_Size(menuFrameWork_t *menu)
     } else {
         menu->y1 = 0;
         menu->y2 = uis.height;
+    }
+
+    if (Menu_IsStrafePresetMenu(menu) && menu->y2 - menu->y1 > uis.height / 2) {
+        menu->y2 = menu->y1 + uis.height / 2;
     }
 
     // set menu horizontal base
@@ -2965,7 +3079,9 @@ void Menu_Size(menuFrameWork_t *menu)
 
     // scroll handling - reposition items when they don't fit
     {
-        int availHeight = uis.height - MENU_SPACING * 2;
+        int scrollTop = Menu_IsStrafePresetMenu(menu) ? menu->y1 + MENU_SPACING : MENU_SPACING;
+        int scrollBottom = Menu_IsStrafePresetMenu(menu) ? menu->y2 - MENU_SPACING : uis.height - MENU_SPACING;
+        int availHeight = scrollBottom - scrollTop;
         if (menu->banner && menu->banner_rc.height > 0)
             availHeight -= GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
 
@@ -2993,11 +3109,11 @@ restartScroll:
             // reposition banner at top for scrollable menu
             if (menu->banner) {
                 menu->banner_rc.x = (uis.width - menu->banner_rc.width) / 2;
-                menu->banner_rc.y = MENU_SPACING;
+                menu->banner_rc.y = scrollTop;
             }
 
             // base Y: top of items area minus scroll pre-height
-            y = MENU_SPACING;
+            y = scrollTop;
             if (menu->banner && menu->banner_rc.height > 0)
                 y += GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
             y -= preHeight;
@@ -3016,9 +3132,9 @@ restartScroll:
             int visibleY = y;
             int fitCount = 0;
             if (menu->banner && menu->banner_rc.height > 0)
-                visibleY = MENU_SPACING + GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
+                visibleY = scrollTop + GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
             else
-                visibleY = MENU_SPACING;
+                visibleY = scrollTop;
             visibleIndex = 0;
             for (i = 0; i < menu->nitems; i++) {
                 item = menu->items[i];
@@ -3030,7 +3146,7 @@ restartScroll:
                     continue;
 
                 itemH = Menu_ItemHeight(item);
-                if (visibleY + itemH > uis.height - MENU_SPACING)
+                if (visibleY + itemH > scrollBottom)
                     break;
                 fitCount++;
                 visibleY += itemH;
@@ -3195,11 +3311,18 @@ static void Menu_DrawStatus(menuFrameWork_t *menu)
 {
     int     linewidth = uis.width / CHAR_WIDTH;
     int     x, y, l, count;
+    const char *status;
+    char    statusBuffer[MAX_STRING_CHARS];
     char    *txt, *p;
     int     lens[8];
     char    *ptrs[8];
 
-    txt = menu->status;
+    status = Menu_StatusText(menu, statusBuffer, sizeof(statusBuffer));
+    if (!status || !*status) {
+        return;
+    }
+
+    txt = (char *)status;
     x = 0;
 
     count = 0;
@@ -3252,6 +3375,55 @@ static int Menu_TitleX(menuFrameWork_t *menu)
     }
 
     return (menu->mins[0] + menu->maxs[0]) / 2;
+}
+
+static cvar_t *Menu_ItemCvar(const menuCommon_t *item)
+{
+    if (!item) {
+        return NULL;
+    }
+
+    switch (item->type) {
+    case MTYPE_FIELD:
+        return ((const menuField_t *)item)->cvar;
+    case MTYPE_SLIDER:
+        return ((const menuSlider_t *)item)->cvar;
+    case MTYPE_SPINCONTROL:
+    case MTYPE_BITFIELD:
+    case MTYPE_PAIRS:
+    case MTYPE_VALUES:
+    case MTYPE_STRINGS:
+    case MTYPE_TOGGLE:
+        return ((const menuSpinControl_t *)item)->cvar;
+    default:
+        return NULL;
+    }
+}
+
+static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t size)
+{
+    menuCommon_t *item;
+    cvar_t *cvar;
+    const char *status;
+
+    status = menu->status;
+    if (!Menu_IsNetMeterMenu(menu)) {
+        return status;
+    }
+
+    item = Menu_ItemAtCursor(menu);
+    cvar = Menu_ItemCvar(item);
+    if (!cvar || !cvar->default_string) {
+        return status;
+    }
+
+    if (status && *status) {
+        Q_snprintf(buffer, size, "%s Default: %s.", status, cvar->default_string);
+    } else {
+        Q_snprintf(buffer, size, "Default: %s.", cvar->default_string);
+    }
+
+    return buffer;
 }
 
 static uint32_t Menu_BackgroundColor(menuFrameWork_t *menu)
@@ -3414,16 +3586,23 @@ void Menu_Draw(menuFrameWork_t *menu)
     // draw scroll indicators for scrollable menus
     if (menu->maxVisible && menu->maxVisible < Menu_CountVisibleItems(menu)) {
         if (menu->scrollOffset > 0) {
-            int y = menu->banner_rc.y;
-            if (menu->banner)
+            int y;
+            if (Menu_IsStrafePresetMenu(menu)) {
+                y = menu->y1 + MENU_SPACING;
+            } else if (menu->banner) {
+                y = menu->banner_rc.y;
                 y += GENERIC_SPACING(menu->banner_rc.height) + MENU_SPACING;
-            else
+            } else {
                 y = MENU_SPACING;
+            }
             UI_DrawString(uis.width / 2, y - CHAR_HEIGHT,
                           UI_CENTER | UI_ALTCOLOR, "...");
         }
         if (menu->scrollOffset + menu->maxVisible < Menu_CountVisibleItems(menu)) {
-            UI_DrawString(uis.width / 2, uis.height - MENU_SPACING - CHAR_HEIGHT,
+            int y = Menu_IsStrafePresetMenu(menu) ?
+                menu->y2 - MENU_SPACING - CHAR_HEIGHT :
+                uis.height - MENU_SPACING - CHAR_HEIGHT;
+            UI_DrawString(uis.width / 2, y,
                           UI_CENTER | UI_ALTCOLOR, "...");
         }
     }

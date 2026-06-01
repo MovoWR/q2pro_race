@@ -60,6 +60,30 @@ static const ColorPreset presets[] = {
     {"Emerald", "80 200 120 255", "40 100 60 80", "200 255 200 255", "Lush emerald green with light highlights"},
 };
 
+bool SH_GetPresetColors(const char *name, const char **accelerating,
+                        const char **optimal, const char **centermarker) {
+    if (!name || !*name) {
+        return false;
+    }
+
+    for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
+        if (!_stricmp(name, presets[i].name)) {
+            if (accelerating) {
+                *accelerating = presets[i].color_accelerating;
+            }
+            if (optimal) {
+                *optimal = presets[i].color_optimal;
+            }
+            if (centermarker) {
+                *centermarker = presets[i].color_centermarker;
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void SH_SetPreset_f(void) {
     if (Cmd_Argc() < 4) {
         Com_Printf("Available presets:\n");

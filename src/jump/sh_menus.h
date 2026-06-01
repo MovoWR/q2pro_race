@@ -76,3 +76,6 @@ void GrenadeTimer_Update(void);
 void GrenadeTimer_Add(float firing_time);
 
 void SH_SetPreset_f(void);
+
+bool SH_GetPresetColors(const char *name, const char **accelerating,
+                        const char **optimal, const char **centermarker);

@@ -583,7 +583,7 @@ static void ui_menu_style_changed(cvar_t *self)
 static uiMenuStyleId_t UI_MenuStyleId(void)
 {
     if (!ui_menu_style) {
-        return UI_MENU_STYLE_CLASSIC;
+        return UI_MENU_STYLE_SLATE;
     }
 
     if (!Q_stricmp(ui_menu_style->string, "classic")) {
@@ -719,6 +719,79 @@ static void UI_ResetMenuColors_f(void)
     }
 
     Com_Printf("Custom menu colors reset to defaults.\n");
+}
+
+static const char *ui_netmeter_cvars[] = {
+    "sh_netmeter",
+    "sh_netmeter_adaptive",
+    "sh_netmeter_min_ms",
+    "sh_netmeter_max_ms",
+    "sh_lagometer_x",
+    "sh_lagometer_y",
+    "sh_lagometer_alpha",
+    "sh_lagometer_bad_alpha",
+    "sh_lagometer_color_normal",
+    "sh_lagometer_color_spike",
+    "sh_lagometer_color_jitter",
+    "sh_lagometer_color_loss_s2c",
+    "sh_lagometer_color_loss_c2s",
+    "sh_netgraph_y",
+    "sh_netgraph_height",
+    "sh_netgraph_alpha",
+    "sh_netgraph_color_normal",
+    "sh_netgraph_color_spike",
+    "sh_netgraph_color_jitter",
+    "sh_netgraph_color_loss_s2c",
+    "sh_netgraph_color_loss_c2s",
+    "sh_histogram_x",
+    "sh_histogram_y",
+    "sh_histogram_width_mode",
+    "sh_histogram_width",
+    "sh_histogram_height",
+    "sh_histogram_fill_mode",
+    "sh_histogram_spacing_mode",
+    "sh_histogram_bg_alpha",
+    "sh_histogram_color_bg",
+    "sh_histogram_color_normal",
+    "sh_histogram_color_spike",
+    "sh_histogram_color_jitter",
+    "sh_histogram_color_loss_s2c",
+    "sh_histogram_color_loss_c2s",
+    "sh_histogram_alpha",
+    "sh_histogram_bad_alpha",
+    "sh_histogram_history_ms",
+    "sh_histogram_ping",
+    "sh_netalert",
+    "sh_netalert_x",
+    "sh_netalert_y",
+    "sh_netalert_color",
+    "sh_netalert_alpha",
+    "sh_netalert_duration_ms",
+    "sh_netalert_loss",
+    "sh_netalert_jitter",
+    "sh_netalert_spike",
+    "sh_netwarn_ping_adaptive",
+    "sh_netwarn_spike_ms",
+    "sh_netwarn_spike_pct",
+    "sh_netwarn_jitter_ms"
+};
+
+static void UI_ResetNetMeterSettings_f(void)
+{
+    size_t i;
+    int reset = 0;
+
+    for (i = 0; i < q_countof(ui_netmeter_cvars); i++) {
+        cvar_t *var = Cvar_FindVar(ui_netmeter_cvars[i]);
+        if (!var || !var->default_string) {
+            continue;
+        }
+
+        Cvar_SetByVar(var, var->default_string, FROM_MENU);
+        reset++;
+    }
+
+    Com_Printf("Network meter settings reset to defaults (%d cvars).\n", reset);
 }
 
 /*
@@ -903,6 +976,7 @@ static const cmdreg_t c_ui[] = {
     { "pushmenu", UI_PushMenu_f, UI_PushMenu_c },
     { "popmenu", UI_PopMenu_f },
     { "ui_reset_menu_colors", UI_ResetMenuColors_f },
+    { "ui_reset_netmeter_settings", UI_ResetNetMeterSettings_f },
 
     { NULL, NULL }
 };
@@ -1011,7 +1085,7 @@ void UI_Init(void)
     ui_debug = Cvar_Get("ui_debug", "0", 0);
     ui_open = Cvar_Get("ui_open", "0", 0);
     ui_draw_layers = Cvar_Get("ui_draw_layers", "0", 0);
-    ui_menu_style = Cvar_Get("ui_menu_style", "0", CVAR_ARCHIVE);
+    ui_menu_style = Cvar_Get("ui_menu_style", "1", CVAR_ARCHIVE);
     ui_menu_style->changed = ui_menu_style_changed;
     ui_menu_style_changed(ui_menu_style);
     for (i = 0; i < UI_MENU_COLOR_COUNT; i++) {
