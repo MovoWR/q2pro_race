@@ -16,17 +16,17 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_draw` | `0` | Enables the strafe helper HUD bar. |
+| `sh_draw` | `1` | Enables the strafe helper HUD bar. |
 | `sh_center` | `1` | Draws the center reference zone. |
 | `sh_centermarker` | `1` | Draws the center marker. |
-| `sh_height` | `20` | Height of the strafe helper bar. |
-| `sh_scale` | `1.5` | Visual scale of the helper. |
+| `sh_height` | `15` | Height of the strafe helper bar. |
+| `sh_scale` | `1.500000` | Visual scale of the helper. |
 | `sh_y` | `100` | Vertical position of the helper. |
-| `sh_alpha` | `1` | Overall helper alpha multiplier. |
+| `sh_alpha` | `0.500000` | Overall helper alpha multiplier. |
 | `sh_bar_style` | `gradient` | Bar rendering style. |
-| `sh_center_width` | `2.0` | Width of the center marker/zone. |
-| `sh_optimal_width` | `2.0` | Width of the optimal acceleration zone. |
-| `sh_optimal_outline` | `0` | Draws the optimal zone as an outline. |
+| `sh_center_width` | `2` | Width of the center marker/zone. |
+| `sh_optimal_width` | `2` | Width of the optimal acceleration zone. |
+| `sh_optimal_outline` | `1` | Draws the optimal zone as an outline. |
 | `sh_smoothing` | `0` | Amount of helper smoothing. |
 | `sh_smoothing_mode` | `1` | Smoothing curve/mode. |
 
@@ -34,8 +34,8 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_color_accelerating` | `0 128 255 80` | RGBA color used while accelerating. |
-| `sh_color_optimal` | `0 255 0 255` | RGBA color for the optimal acceleration zone. |
+| `sh_color_accelerating` | `0 128 0 128` | RGBA color used while accelerating. |
+| `sh_color_optimal` | `255 215 0 255` | RGBA color for the optimal acceleration zone. |
 | `sh_color_centermarker` | `255 255 255 255` | RGBA color for the center marker. |
 | `sh_color_nerdstats` | `50 0 50 100` | RGBA background/color value used by NerdStats. |
 | `sh_nerdstats` | `0` | Enables detailed strafe helper NerdStats display. |
@@ -44,11 +44,11 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_ups` | `0` | Enables the centered UPS display. |
-| `sh_ups_scale` | `1` | Text scale for the UPS display. |
-| `sh_ups_y` | `0` | Vertical offset for the UPS display. |
+| `sh_ups` | `1` | Enables the centered UPS display. |
+| `sh_ups_scale` | `1.250000` | Text scale for the UPS display. |
+| `sh_ups_y` | `-5` | Vertical offset for the UPS display. |
 | `sh_ups_shadow` | `1` | Draws a shadow behind UPS text. |
-| `sh_ups_hide_zero` | `0` | Hides the UPS display when rounded speed is zero. |
+| `sh_ups_hide_zero` | `1` | Hides the UPS display when rounded speed is zero. |
 | `sh_ups_color_mode` | `dynamic` | UPS color mode. |
 | `sh_ups_color_gain` | `0 255 0 255` | RGBA color for speed gain. |
 | `sh_ups_color_loss` | `255 0 0 255` | RGBA color for speed loss. |
@@ -72,7 +72,7 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_netmeter` | `0` | Selects the network display mode: off, lagometer, netgraph, or histogram. |
+| `sh_netmeter` | `3` | Selects the network display mode: off, lagometer, netgraph, or histogram. |
 | `sh_netmeter_min_ms` | `0` | Bottom of the fixed latency scale. |
 | `sh_netmeter_max_ms` | `150` | Top of the fixed latency scale. |
 | `sh_netmeter_adaptive` | `1` | Auto-scales network displays against recent latency. |
@@ -82,20 +82,20 @@
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_netwarn_ping_adaptive` | `1` | Compares warnings against the rolling ping baseline. |
-| `sh_netwarn_spike_ms` | `80` | Absolute spike threshold in milliseconds. |
-| `sh_netwarn_spike_pct` | `50` | Adaptive spike threshold as a percentage of rolling ping. |
-| `sh_netwarn_jitter_ms` | `40` | Jitter threshold in milliseconds. |
+| `sh_netwarn_spike_ms` | `300` | Absolute spike threshold in milliseconds. |
+| `sh_netwarn_spike_pct` | `100` | Adaptive spike threshold as a percentage of rolling ping. |
+| `sh_netwarn_jitter_ms` | `100` | Jitter threshold in milliseconds. |
 
 ## Network Alerts
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_netalert` | `0` | Enables network incident text alerts. |
+| `sh_netalert` | `1` | Enables network incident text alerts. |
 | `sh_netalert_x` | `0` | Alert X position. |
-| `sh_netalert_y` | `48` | Alert Y position. |
-| `sh_netalert_color` | `7` | Alert color or severity-based color mode. |
-| `sh_netalert_alpha` | `0.85` | Alert text alpha. |
-| `sh_netalert_duration_ms` | `1200` | Alert lifetime in milliseconds. |
+| `sh_netalert_y` | `353` | Alert Y position. |
+| `sh_netalert_color` | `1` | Alert color or severity-based color mode. |
+| `sh_netalert_alpha` | `1` | Alert text alpha. |
+| `sh_netalert_duration_ms` | `2000` | Alert lifetime in milliseconds. |
 | `sh_netalert_loss` | `1` | Enables packet loss alerts. |
 | `sh_netalert_jitter` | `1` | Enables jitter alerts. |
 | `sh_netalert_spike` | `1` | Enables ping spike alerts. |
@@ -104,28 +104,28 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_lagometer_x` | `0` | Lagometer X position. |
+| `sh_lagometer_x` | `166` | Lagometer X position. |
 | `sh_lagometer_y` | `-1` | Lagometer Y position. |
-| `sh_lagometer_color_normal` | `213` | Palette index for normal samples. |
-| `sh_lagometer_color_spike` | `220` | Palette index for ping spike samples. |
+| `sh_lagometer_color_normal` | `212` | Palette index for normal samples. |
+| `sh_lagometer_color_spike` | `225` | Palette index for ping spike samples. |
 | `sh_lagometer_color_jitter` | `220` | Palette index for jitter samples. |
-| `sh_lagometer_color_loss_s2c` | `242` | Palette index for server-to-client loss. |
-| `sh_lagometer_color_loss_c2s` | `224` | Palette index for client-to-server/choke loss. |
-| `sh_lagometer_alpha` | `0.20` | Alpha for normal samples. |
-| `sh_lagometer_bad_alpha` | `0.75` | Alpha for incident samples. |
+| `sh_lagometer_color_loss_s2c` | `231` | Palette index for server-to-client loss. |
+| `sh_lagometer_color_loss_c2s` | `243` | Palette index for client-to-server/choke loss. |
+| `sh_lagometer_alpha` | `0.300000` | Alpha for normal samples. |
+| `sh_lagometer_bad_alpha` | `1` | Alpha for incident samples. |
 
 ## Netgraph Display
 
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_netgraph_y` | `-1` | Netgraph Y position. |
-| `sh_netgraph_height` | `32` | Netgraph height in HUD pixels. |
+| `sh_netgraph_height` | `15` | Netgraph height in HUD pixels. |
 | `sh_netgraph_alpha` | `0.75` | Netgraph alpha. |
 | `sh_netgraph_color_normal` | `213` | Palette index for normal samples. |
-| `sh_netgraph_color_spike` | `220` | Palette index for ping spike samples. |
+| `sh_netgraph_color_spike` | `208` | Palette index for ping spike samples. |
 | `sh_netgraph_color_jitter` | `220` | Palette index for jitter samples. |
-| `sh_netgraph_color_loss_s2c` | `242` | Palette index for server-to-client loss. |
-| `sh_netgraph_color_loss_c2s` | `224` | Palette index for client-to-server/choke loss. |
+| `sh_netgraph_color_loss_s2c` | `233` | Palette index for server-to-client loss. |
+| `sh_netgraph_color_loss_c2s` | `11` | Palette index for client-to-server/choke loss. |
 
 ## Histogram Display
 
@@ -133,18 +133,21 @@
 | --- | --- | --- |
 | `sh_histogram_x` | `0` | Histogram X position. |
 | `sh_histogram_y` | `-1` | Histogram Y position. |
-| `sh_histogram_width` | `160` | Histogram width in HUD pixels. |
-| `sh_histogram_height` | `4` | Histogram height in HUD pixels. |
-| `sh_histogram_bg_alpha` | `0.20` | Histogram background alpha. |
+| `sh_histogram_width_mode` | `2` | Histogram width mode: `0` custom, `1` half screen, `2` full screen. |
+| `sh_histogram_width` | `1280` | Custom histogram width in HUD pixels. |
+| `sh_histogram_height` | `15` | Histogram height in HUD pixels. |
+| `sh_histogram_fill_mode` | `0` | Histogram fill mode: `0` separated bars, `1` spans between samples. |
+| `sh_histogram_spacing_mode` | `0` | Histogram spacing mode: `0` sample time, `1` evenly spaced samples. |
+| `sh_histogram_bg_alpha` | `0.150000` | Histogram background alpha. |
 | `sh_histogram_color_bg` | `0` | Palette index for the histogram background. |
-| `sh_histogram_color_normal` | `213` | Palette index for normal samples. |
+| `sh_histogram_color_normal` | `209` | Palette index for normal samples. |
 | `sh_histogram_color_spike` | `220` | Palette index for ping spike samples. |
-| `sh_histogram_color_jitter` | `220` | Palette index for jitter samples. |
-| `sh_histogram_color_loss_s2c` | `242` | Palette index for server-to-client loss. |
-| `sh_histogram_color_loss_c2s` | `224` | Palette index for client-to-server/choke loss. |
-| `sh_histogram_alpha` | `0.20` | Alpha for normal samples. |
-| `sh_histogram_bad_alpha` | `0.75` | Alpha for incident samples. |
-| `sh_histogram_history_ms` | `60000` | Histogram history window in milliseconds. |
+| `sh_histogram_color_jitter` | `215` | Palette index for jitter samples. |
+| `sh_histogram_color_loss_s2c` | `227` | Palette index for server-to-client loss. |
+| `sh_histogram_color_loss_c2s` | `241` | Palette index for client-to-server/choke loss. |
+| `sh_histogram_alpha` | `1` | Alpha for normal samples. |
+| `sh_histogram_bad_alpha` | `1` | Alpha for incident samples. |
+| `sh_histogram_history_ms` | `52000` | Histogram history window in milliseconds. |
 | `sh_histogram_ping` | `1` | Draws smoothed ping text near the histogram. |
 
 ## MP4 Recording

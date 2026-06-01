@@ -822,7 +822,7 @@ void CL_RegisterInput(void)
     freelook = Cvar_Get("freelook", "1", CVAR_ARCHIVE);
     lookspring = Cvar_Get("lookspring", "0", CVAR_ARCHIVE);
     lookstrafe = Cvar_Get("lookstrafe", "0", CVAR_ARCHIVE);
-    sensitivity = Cvar_Get("sensitivity", "3", CVAR_ARCHIVE);
+    sensitivity = Cvar_Get("sensitivity", "3.600000", CVAR_ARCHIVE);
 
     m_pitch = Cvar_Get("m_pitch", "0.022", CVAR_ARCHIVE);
     m_yaw = Cvar_Get("m_yaw", "0.022", 0);

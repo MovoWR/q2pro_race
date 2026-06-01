@@ -3267,34 +3267,34 @@ static void CL_InitLocal(void)
 
 
     // q2pro_race strafe_helper
-    cl_drawStrafeHelper = Cvar_Get("sh_draw", "0", CVAR_ARCHIVE);
+    cl_drawStrafeHelper = Cvar_Get("sh_draw", "1", CVAR_ARCHIVE);
     cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
     cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
-    cl_strafeHelperHeight = Cvar_Get("sh_height", "20", CVAR_ARCHIVE);
-    cl_strafeHelperScale = Cvar_Get("sh_scale", "1.5", CVAR_ARCHIVE);
+    cl_strafeHelperHeight = Cvar_Get("sh_height", "15", CVAR_ARCHIVE);
+    cl_strafeHelperScale = Cvar_Get("sh_scale", "1.500000", CVAR_ARCHIVE);
     cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
-    cl_strafehelperUps = Cvar_Get("sh_ups", "0", CVAR_ARCHIVE);
-    cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1", CVAR_ARCHIVE);
-    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "0", CVAR_ARCHIVE);
+    cl_strafehelperUps = Cvar_Get("sh_ups", "1", CVAR_ARCHIVE);
+    cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1.250000", CVAR_ARCHIVE);
+    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "-5", CVAR_ARCHIVE);
     cl_strafehelperUpsShadow = Cvar_Get("sh_ups_shadow", "1", CVAR_ARCHIVE);
-    cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "0", CVAR_ARCHIVE);
+    cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsColorMode = Cvar_Get("sh_ups_color_mode", "dynamic", CVAR_ARCHIVE);
     cl_strafehelperUpsColorGain = Cvar_Get("sh_ups_color_gain", "0 255 0 255", CVAR_ARCHIVE);
     cl_strafehelperUpsColorLoss = Cvar_Get("sh_ups_color_loss", "255 0 0 255", CVAR_ARCHIVE);
     cl_strafehelperUpsColorNeutral = Cvar_Get("sh_ups_color_neutral", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelperUpsFormat = Cvar_Get("sh_ups_format", "plain", CVAR_ARCHIVE);
     cl_strafehelperUps3D = Cvar_Get("sh_ups_3d", "0", CVAR_ARCHIVE);
-    cl_strafehelperAlpha = Cvar_Get("sh_alpha", "1", CVAR_ARCHIVE);
+    cl_strafehelperAlpha = Cvar_Get("sh_alpha", "0.500000", CVAR_ARCHIVE);
     cl_strafehelperBarStyle = Cvar_Get("sh_bar_style", "gradient", CVAR_ARCHIVE);
     cl_strafehelperSmoothing = Cvar_Get("sh_smoothing", "0", CVAR_ARCHIVE);
     cl_strafehelperSmoothingMode = Cvar_Get("sh_smoothing_mode", "1", CVAR_ARCHIVE);
     // width
-    cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2.0", CVAR_ARCHIVE);
-    cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2.0", CVAR_ARCHIVE);
-    cl_strafehelper_optimal_outline = Cvar_Get("sh_optimal_outline", "0", CVAR_ARCHIVE);
+    cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2", CVAR_ARCHIVE);
+    cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2", CVAR_ARCHIVE);
+    cl_strafehelper_optimal_outline = Cvar_Get("sh_optimal_outline", "1", CVAR_ARCHIVE);
     // color settings
-    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 255 80", CVAR_ARCHIVE);
-    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "0 255 0 255", CVAR_ARCHIVE);
+    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 0 128", CVAR_ARCHIVE);
+    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "255 215 0 255", CVAR_ARCHIVE);
     cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 255", CVAR_ARCHIVE);
     cl_strafehelper_color_nerdstats = Cvar_Get("sh_color_nerdstats", "50 0 50 100", CVAR_ARCHIVE);
     cl_strafehelperNerdStats = Cvar_Get("sh_nerdstats", "0", CVAR_ARCHIVE);

@@ -1442,9 +1442,9 @@ void SCR_Init(void)
     scr_centertime->changed(scr_centertime);
     scr_printspeed = Cvar_Get("scr_printspeed", "16", 0);
     scr_demobar = Cvar_Get("scr_demobar", "1", 0);
-    scr_font = Cvar_Get("scr_font", "conchars", 0);
+    scr_font = Cvar_Get("scr_font", "prochars", 0);
     scr_font->changed = scr_font_changed;
-    scr_scale = Cvar_Get("scr_scale", "0", 0);
+    scr_scale = Cvar_Get("scr_scale", "2", 0);
     scr_scale->changed = scr_scale_changed;
     scr_crosshair = Cvar_Get("crosshair", "0", CVAR_ARCHIVE);
     scr_crosshair->changed = scr_crosshair_changed;
@@ -1458,11 +1458,11 @@ void SCR_Init(void)
 
     scr_chathud = Cvar_Get("scr_chathud", "0", 0);
     scr_chathud_lines = Cvar_Get("scr_chathud_lines", "4", 0);
-    scr_chathud_time = Cvar_Get("scr_chathud_time", "0", 0);
+    scr_chathud_time = Cvar_Get("scr_chathud_time", "30", 0);
     scr_chathud_time->changed = cl_timeout_changed;
     scr_chathud_time->changed(scr_chathud_time);
     scr_chathud_x = Cvar_Get("scr_chathud_x", "8", 0);
-    scr_chathud_y = Cvar_Get("scr_chathud_y", "-64", 0);
+    scr_chathud_y = Cvar_Get("scr_chathud_y", "-150", 0);
 
     ch_health = Cvar_Get("ch_health", "0", 0);
     ch_health->changed = ch_color_changed;
@@ -1481,9 +1481,9 @@ void SCR_Init(void)
     ch_y = Cvar_Get("ch_y", "0", 0);
 
     scr_draw2d = Cvar_Get("scr_draw2d", "2", 0);
-    scr_showturtle = Cvar_Get("scr_showturtle", "1", 0);
+    scr_showturtle = Cvar_Get("scr_showturtle", "2", 0);
     scr_lag_draw = Cvar_Get("scr_lag_draw", "0", 0);
-    scr_alpha = Cvar_Get("scr_alpha", "1", 0);
+    scr_alpha = Cvar_Get("scr_alpha", "0.700000", 0);
 
 #if USE_DEBUG
     scr_showstats = Cvar_Get("scr_showstats", "0", 0);
