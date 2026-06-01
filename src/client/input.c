@@ -27,7 +27,6 @@ static cvar_t    *cl_fuzzhack;
 static cvar_t    *cl_showpackets;
 #endif
 static cvar_t    *cl_instantpacket;
-static cvar_t    *cl_instantjump;
 static cvar_t    *cl_batchcmds;
 
 static cvar_t    *m_filter;
@@ -343,24 +342,8 @@ static void KeyClear(kbutton_t *b)
 
 static void IN_KLookDown(void) { KeyDown(&in_klook); }
 static void IN_KLookUp(void) { KeyUp(&in_klook); }
-static void IN_UpDown(void)
-{
-    KeyDown(&in_up);
-
-    if (cl_instantjump->integer && cl_instantpacket->integer &&
-        cls.state == ca_active && !cls.demo.playback) {
-        cl.sendPacketNow = true;
-    }
-}
-static void IN_UpUp(void)
-{
-    KeyUp(&in_up);
-
-    if (cl_instantjump->integer && cl_instantpacket->integer &&
-        cls.state == ca_active && !cls.demo.playback) {
-        cl.sendPacketNow = true;
-    }
-}
+static void IN_UpDown(void) { KeyDown(&in_up); }
+static void IN_UpUp(void) { KeyUp(&in_up); }
 static void IN_DownDown(void) { KeyDown(&in_down); }
 static void IN_DownUp(void) { KeyUp(&in_down); }
 static void IN_LeftDown(void) { KeyDown(&in_left); }
@@ -826,7 +809,6 @@ void CL_RegisterInput(void)
     cl_showpackets = Cvar_Get("cl_showpackets", "0", 0);
 #endif
     cl_instantpacket = Cvar_Get("cl_instantpacket", "1", 0);
-    cl_instantjump = Cvar_Get("cl_instantjump", "0", CVAR_ARCHIVE);
     cl_batchcmds = Cvar_Get("cl_batchcmds", "1", 0);
 
     cl_upspeed = Cvar_Get("cl_upspeed", "200", 0);

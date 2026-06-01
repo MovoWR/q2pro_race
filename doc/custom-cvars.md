@@ -4,7 +4,6 @@
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `cl_input_keys` | empty | Read-only string with currently pressed movement/jump keys. |
-| `cl_instantjump` | `0` | Sends instant jump press/release packets when `cl_instantpacket` is enabled. |
 | `m_r1q2` | `0` | Enables R1Q2-style mouse handling behavior. |
 
 ## Client Smoothing and FPS Behavior
