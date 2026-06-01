@@ -1,90 +1,108 @@
 # q2pro_race
 
-q2pro_race is an enhanced fork of [q2pro](https://github.com/skullernet/q2pro), tailored specifically for playing [q2jump](http://q2jump.net).
-It incorporates features from [q2pro-speed](https://github.com/kugelrund/q2pro-speed) and [q2pro-jump](https://github.com/TotallyMehis/q2pro-jump)
-and remains synchronized with upstream Q2PRO changes.
+`q2pro_race` is an enhanced fork of [Q2PRO](https://github.com/skullernet/q2pro) tuned for [q2jump](http://q2jump.net) race and jump play.
+It incorporates work from [q2pro-speed](https://github.com/kugelrund/q2pro-speed) and [q2pro-jump](https://github.com/TotallyMehis/q2pro-jump), while continuing to track upstream Q2PRO changes.
 
-This fork introduces visual assist overlays, dynamic menu rendering, modular network diagnostics, and configuration improvements for advanced race/jump gameplay.
+This fork focuses on practical race tooling: visual assist overlays, centered speed feedback, modular network diagnostics, an expanded in-game setup menu, and configuration improvements for advanced jump gameplay.
 
----
+## Highlights
 
-## Key Features
+### Strafe Helper HUD
 
-### 1. Modular NetMeter Subsystem (`sh_netmeter`)
-Replaces the legacy, static network bar with a highly customizable diagnostics overlay offering three modes:
-* **Lagometer (Mode 1)**: Traditional, compact 48x48 pixel packet quality monitor.
-* **Netgraph (Mode 2)**: Full-width scrolling packet ribbon with hybrid log-linear scaling to visualize ping fluctuations.
-* **Histogram (Mode 3)**: A localized scrolling latency distribution graph tracking network quality history over time.
-* **Adaptive Scaling**: Automatically adjusts the maximum scale limits to match your recent rolling ping baseline.
+A configurable helper bar for reading strafe angles and acceleration behavior while playing.
 
-### 2. On-screen Network Alerts (`sh_netalert`)
-Triggers real-time warnings overlaying the HUD to alert you of incidents that might impact a race run:
-* `PACKET LOSS` (Incoming Server-to-Client dropped packets)
-* `NETWORK JITTER` (High ping standard deviation)
-* `PING SPIKE` (Sudden latency jumps compared to baseline)
+* Toggle the helper HUD with `sh_draw`.
+* Adjust position, scale, height, alpha, and marker widths.
+* Enable an optional center marker.
+* Choose between solid, gradient, outline, and minimal bar styles.
+* Smooth helper movement to keep the HUD readable during fast runs.
+* Customize accelerating-zone, optimal-marker, and center-marker colors.
+* Load HUD presets with `sh hud preset`.
 
-### 3. Dynamic FPS Key Bindings & Shortcuts
-Enables quick changes to the maximum frame rate to optimize physics at different run segments:
-* **Press-and-release bindings (`+fps` / `-fps`)**: Press a key to drop FPS and release it to restore (e.g. `bind space "+fps 60 120"`).
-* **Console Shortcuts (`f20` to `f120`)**: Instantly changes `cl_maxfps` via shortcut commands (e.g. typing `f60` sets `cl_maxfps 60`).
+### Center UPS Display
 
-### 4. Advanced UI Improvements
-* **Scrollable Menus**: Large configuration pages now scroll seamlessly using the mouse wheel (`K_MWHEELUP` / `K_MWHEELDOWN`) with scroll boundaries and indicators (`...`).
-* **Conditional Visibility (`--show-if`)**: Menu controls dynamically hide or show based on related settings (e.g. hiding download category settings if downloads are globally disabled).
-* **Color Swatches & Centering**: Slider controls for color configuration show a live preview color swatch. The color picker dynamically shifts to center-screen to avoid overlapping visual HUD items.
+A lightweight center speed readout for tracking UPS during jump and race play.
 
----
+* Toggle with `sh ups enable`, `sh ups disable`, `sh ups toggle`, or `sh ups status`.
+* Adjust scale and vertical position for different HUD layouts.
+* Choose dynamic, static, threshold, rainbow, gradient, or strafing color modes.
+* Keep speed feedback readable without covering the route.
 
-## Settings & Macros
+### Modular NetMeter (`sh_netmeter`)
 
-### Position & Speed Macros
-* **Position Tracking**:
-  * `cl_playerpos_x`: Player's X-coordinate.
-  * `cl_playerpos_y`: Player's Y-coordinate.
-  * `cl_playerpos_z`: Player's Z-coordinate.
-* **Speed Metrics**:
-  * `cl_ups`: Horizontal velocity (Units Per Second).
-  * `cl_rups` / `sh_ups_3d`: Toggles 3D speed tracking including vertical velocity.
-  * `cl_fps` / `r_fps`: Reports engine frame rate.
+The NetMeter replaces the legacy static network bar with customizable diagnostics overlays:
 
-### Cvar Mapping updates
-For HUD customization and menus, several settings have been renamed or refactored:
-* `sh_draw` (0-1) - Toggles the strafe helper HUD.
-* `sh_height` - Adjusts the height of the helper bar.
-* `sh_scale` - Modifies the visual scaling factor.
-* `sh_y` - Sets the vertical position of the helper.
-* `sh_optimal_outline` (0-1) - Renders the optimal acceleration zone as an outline.
-* `sh_ups_color_mode` - Supports color presets: `dynamic`, `static`, `threshold`, `rainbow`, `gradient`, and `strafing`.
+* **Lagometer, Mode 1**: compact 48x48 packet-quality monitor.
+* **Netgraph, Mode 2**: full-width scrolling packet ribbon with hybrid log-linear scaling for ping fluctuations.
+* **Histogram, Mode 3**: localized scrolling latency distribution graph with network-quality history.
+* **Adaptive scaling**: automatically adjusts display limits against your recent rolling ping baseline.
 
+### Network Alerts (`sh_netalert`)
 
----
+On-screen warnings call out network incidents that can affect a race run:
 
-## Installation
+* `PACKET LOSS`: incoming server-to-client dropped packets.
+* `NETWORK JITTER`: high ping standard deviation.
+* `PING SPIKE`: sudden latency jumps compared with baseline.
 
-1. Extract all binary files into your main Quake 2 directory.
-2. Ensure the original Quake 2 base assets are present.
-3. Access the menu inside the client to customize your helper, network overlays, and key bindings.
+### Dynamic FPS Binds
 
-## Building
+Quickly change the frame-rate cap to match different run segments.
 
-This project utilizes the **Meson** build system. To compile:
+* **Press-and-release binds (`+fps` / `-fps`)**: hold a key to drop FPS and release it to restore, for example `bind space "+fps 60 120"`.
+* **Console shortcuts (`f20` to `f120`)**: set `cl_maxfps` instantly, for example `f60`.
 
-1. Configure the build directory:
-   ```bash
-   meson setup buildDir
-   ```
-2. Build the project targets:
-   ```bash
-   ninja -C buildDir
-   ```
+### Expanded Menu System
 
-It can be compiled for Windows, Linux, and macOS. Refer to [INSTALL.md](file:///C:/Users/stasi/Desktop/q2pro_race_github/INSTALL.md) for prerequisite dependencies.
+The menu has been rebuilt around the race and jump workflow while keeping classic Q2PRO options available.
 
----
+* **Jump/Race setup pages**: strafe helper, UPS display, race line, NetMeter, network alerts, replay recording, FPS binds, mod binds, jump binds, and debug tools.
+* **Improved main flow**: multiplayer, jump server browsing, address book access, quick video tuning, and HUD/helper setup are easier to reach.
+* **Built-in menu fallback**: compiled menu data is available when `game` is `jump`; other games can continue to load external `q2pro.menu` data.
+* **Conditional visibility (`--show-if`)**: controls appear only when their related settings are active.
+* **Live controls and status hints**: many sliders, toggles, and fields apply immediately and show short bottom-bar hints.
+* **Color picker and swatches**: color fields show live previews and can open an RGBA picker with current/original previews and preset swatches.
+* **Menu styling**: `Menu Setup` exposes menu scale, cursor selection, menu source, and color style; `Custom Menu Colors` exposes archived `ui_menu_color_*` cvars plus `ui_reset_menu_colors`.
+
+## Position and Speed Macros
+
+### Position Tracking
+
+* `cl_playerpos_x`: player's X coordinate.
+* `cl_playerpos_y`: player's Y coordinate.
+* `cl_playerpos_z`: player's Z coordinate.
+
+### Speed Metrics
+
+* `cl_ups`: horizontal velocity in units per second.
+* `cl_rups` / `sh_ups_3d`: toggles 3D speed tracking, including vertical velocity.
+* `cl_fps` / `r_fps`: reports engine frame rate.
+
+## Custom Cvars
+
+See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD, network, menu, recording, and video cvars added by this fork.
+
+## Install
+
+1. Drop the binary files into your main Quake II directory.
+2. Make sure the original Quake II base assets are present.
+3. Launch the client.
+4. Open the in-game menus and tune the helper, network overlays, colors, and binds until the setup feels right.
+
+## Build
+
+Q2PRO uses the Meson build system. A basic local build looks like this:
+
+```sh
+meson setup buildDir
+meson compile -C buildDir
+```
+
+For platform-specific dependencies, portable builds, and Windows build notes, see [INSTALL.md](INSTALL.md).
 
 ## License
 
-* **Q2PRO** is licensed under the GPL-2.0 license.
-* **q2pro-jump** is licensed under the GPL-2.0 license.
-* **strafe_helper** is licensed under the MPL-2.0 license.
-* Any modifications made to the files covered by those licenses follow their original licenses.
+* **Q2PRO** is licensed under GPL-2.0.
+* **q2pro-jump** is licensed under GPL-2.0.
+* **strafe_helper** is licensed under MPL-2.0.
+* Modified files remain covered by their original licenses.
