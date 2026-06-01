@@ -94,6 +94,7 @@ static struct {
     netmeter_sample_t samples[NETMETER_SAMPLES];
     unsigned        head;
     unsigned        avg_ping;
+    unsigned        display_ping;
     unsigned        last_ping;
     unsigned        jitter;
     unsigned        jitter_base;
@@ -223,6 +224,12 @@ void SH_NetMeter_Sample(unsigned ping)
 
     if (cl.frameflags & FF_SUPPRESSED) {
         events |= NETEVENT_CHOKE;
+    }
+
+    if (netmeter.ping_samples == 0) {
+        netmeter.display_ping = ping;
+    } else {
+        netmeter.display_ping = (netmeter.display_ping * 3 + ping + 2) >> 2;
     }
 
     if (!has_loss) {
@@ -789,7 +796,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
 
     if (sh_histogram_ping && sh_histogram_ping->integer && netmeter.ping_samples > 0) {
         char ping_str[16];
-        Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.avg_ping);
+        Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.display_ping);
         R_SetAlpha(global_alpha);
         SCR_DrawString(draw_x + draw_w, draw_y, UI_RIGHT, ping_str);
     }
