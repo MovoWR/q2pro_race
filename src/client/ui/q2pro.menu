@@ -27,6 +27,8 @@ background <color|image>
 font <image>
 cursor <image>
 weapon <model>
+style [--compact|--no-compact] [--left|--center|--right] [--transparent|--no-transparent] [--live|--no-live]
+focus [--fullwidth|--menuwidth] [--border <pixels>|--no-border] [--inset <pixels>] [--height <pixels>]
 
 color <state> <color>
 
@@ -55,13 +57,15 @@ begin <menuname>
    field [--center] [--color|--picker] [--integer|--numeric] [--status <text>] [--width <chars>] <name> <cvar>
 end
 
-Virtual --show-if cvars: ui_exclusive_fullscreen, ui_borderless_or_windowed.
+Virtual --show-if cvars: ui_exclusive_fullscreen, ui_borderless_or_windowed,
+ui_histogram_custom_width.
 */
 
 background #3f6da070
 font prochars
 cursor ch5
 weapon w_railgun.md2
+style --compact --center --transparent
 
 color normal    #ffffffff
 color selectable #ffffffff
@@ -75,8 +79,8 @@ color disabled   #aa4651ff
 
 begin video
     title "Video Setup"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     values --show-value --status "Switch between fullscreen and windowed modes." "video mode" vid_fullscreen windowed $$vid_modelist
     toggle --show-value --status "Use a borderless window. With fullscreen enabled, this becomes borderless fullscreen." "borderless" vid_noborder
     values --show-value --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
@@ -102,8 +106,7 @@ end
 
 begin video_advanced
     title "Advanced Video"
-    background #3f6da070
-    style --compact --center --transparent
+
     toggle --status "Draw skybox textures (disable to draw black sky)." "draw skybox" gl_drawsky
     toggle --status "Bilinear filtering of skybox textures." "sky filtering" gl_bilerp_skies
     pairs --status "HQ upscale filter for PCX images (improves scaled HUD elements)." "HUD image upscale" gl_upscale_pcx no 0 2x 1 4x 2
@@ -117,8 +120,7 @@ end
 
 begin options
     title "Options"
-    background #3f6da070
-    style --compact --center --transparent
+
     action --status "Customize your player name and appearance." "player setup" pushmenu players
     action --status "Configure jump-specific HUD and assist tools." "jump setup" pushmenu jump
     action --status "Adjust mouse sensitivity and input settings." "input setup" pushmenu input
@@ -134,8 +136,7 @@ end
 
 begin sound
     title "Sound Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     values --status "Select the audio output engine (OpenAL recommended)." "sound engine" s_enable "no sound" "software" "OpenAL"
     range --show-value --status "Lower values reduce delay but may cause stuttering." "sound latency" s_mixahead 0.05 0.2 --show-if s_enable !0
     range --show-value --status "Overall volume of sound effects and voices." "effects volume" s_volume 0 1 --show-if s_enable !0
@@ -153,8 +154,7 @@ end
 
 begin railtrail
     title "Railgun Trail Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     values --status "Visual style of the railgun beam." "rail trail type" cl_railtrail_type \
         "default" "core only" "core and spiral"
     range --show-value --status "How long the trail remains visible in seconds." "rail trail duration" cl_railtrail_time 0.1 3.0 0.1
@@ -168,8 +168,7 @@ end
 
 begin effects
     title "Effects Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     values --status "World lighting from projectiles and explosions." "dynamic lighting" gl_dynamic "no" "yes" "only switchable"
     values --status "Cartoon-style thick outlines on players and items." "entity cel-shading" gl_celshading no 1x 2x 3x
     toggle --status "Enable glowing shell around certain entities." "entity glowing" cl_noglow ~
@@ -193,8 +192,7 @@ end
 
 begin crosshair
     title "Crosshair Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     values --status "Style of the center-screen aiming cursor." "crosshair type" crosshair none cross dot angle
     pairs --status "Change the physical size of the crosshair." "crosshair scale" ch_scale 0.5x 0.5 1x 1 2x 2 --show-if crosshair !0
     toggle --status "Change crosshair color based on player health." "color by health" ch_health --show-if crosshair !0
@@ -206,8 +204,7 @@ end
 
 begin screen
     title "Screen Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     range --show-value --status "Vertical field of view adjustment (legacy)." "screen size" viewsize 40 100 10
     toggle --status "Show a real-time graph of server latency." "ping graph" scr_lag_draw
     pairs --status "Show a subtle network history indicator." "network bar" sh_netmeter off 0 lagometer 1 netgraph 2 histogram 3
@@ -228,8 +225,8 @@ end
 
 begin menusetup
     title "Menu Setup"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     pairs --status "Scale factor for this menu system." "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
     pairs --show-value --status "Choose the menu color preset, or use your own custom palette." "color style" ui_menu_style classic 0 slate 1 custom 2
     action --status "Adjust the custom menu palette." --align "custom colors..." pushmenu menu_colors --show-if ui_menu_style 2
@@ -240,8 +237,8 @@ end
 
 begin menu_colors
     title "Custom Menu Colors"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     field --picker --status "Whole menu panel background." "panel background" ui_menu_color_panel_bg
     field --picker --status "Top menu title text." "title text" ui_menu_color_title_text
     field --picker --status "Default menu text." "normal text" ui_menu_color_text
@@ -262,8 +259,7 @@ end
 
 begin downloads
     title "Download Options"
-    background #3f6da070
-    style --compact --center --transparent
+
     toggle --status "Global switch for automated server downloads." "allow downloading" allow_download
     toggle --status "Automatically fetch missing .bsp files." "maps" allow_download_maps --show-if allow_download !0
     toggle --status "Fetch custom player models and skins." "player models/skins" allow_download_players --show-if allow_download !0
@@ -277,8 +273,8 @@ end
 
 begin jump
     title "Jump Setup"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     blank
     action --status "Configure the visual strafe-assist bar." "strafe helper" pushmenu strafehelper
     action --status "Show your current speed (Units Per Second)." "UPS display" pushmenu jumpups
@@ -295,8 +291,6 @@ end
 
 begin jumpfpsbinds
     title "FPS Bindings"
-    background #3f6da070
-    style --compact --center --transparent
 
     bind --status "Bind key to set cl_maxfps to 20." "FPS 20" f20
     bind --status "Bind key to set cl_maxfps to 22." "FPS 22" f22
@@ -314,8 +308,6 @@ end
 
 begin jumpmodbinds
     title "Mod Bindings"
-    background #3f6da070
-    style --compact --center --transparent
 
     static "[Movement / Storage]"
     bind --status "Saves current position and velocity." "store" store
@@ -345,8 +337,7 @@ end
 
 begin jumpkeys
     title "Jump Key Bindings"
-    background #3f6da070
-    style --compact --center --transparent
+
     bind --status "The primary jump action (+moveup)." "jump" +moveup
     bind --status "Double-jump script (+dj)." "double jump" +dj
     bind --status "Move downward or crouch (+movedown)." "crouch" +movedown
@@ -366,8 +357,8 @@ end
 
 begin strafehelper
     title "Strafe Helper"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     toggle --show-value --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
     toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker --show-if sh_draw !0
     range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1 --show-if sh_draw !0
@@ -389,23 +380,58 @@ end
 
 begin shpresets
     title "Strafe Helper Presets"
-    background #3f6da070
-    style --compact --center --transparent
-    action --status "Apply a randomized color scheme." "random" "sh hud preset random"
-    action --status "Original grey and blue theme." "vanilla" "sh hud preset vanilla"
-    action --status "Calm blue and teal tones." "ocean" "sh hud preset ocean"
-    action --status "Classic CRT orange and green." "retro" "sh hud preset retro"
-    action --status "Neon pink and cyan aesthetic." "cyberpunk" "sh hud preset cyberpunk"
-    action --status "Fresh green and white theme." "mint" "sh hud preset mint"
-    action --status "Hot orange and red theme." "lava" "sh hud preset lava"
-    action --status "Subtle dark and grey tones." "shadow" "sh hud preset shadow"
-    action --status "List all available presets in the console." "show all presets" "sh hud preset"
+
+    action --status "Apply a randomized color scheme." --align "random" "sh hud preset random"
+    action --status "Original grey and blue theme." --align "vanilla" "sh hud preset vanilla"
+    action --status "Rich gold with deep blue contrasts." --align "gold" "sh hud preset gold"
+    action --status "Vivid RGB rainbow colors." --align "rainbow" "sh hud preset rainbow"
+    action --status "Magenta, cyan, and yellow overload." --align "fever dream" "sh hud preset feverdream"
+    action --status "Bold magenta and purple on black." --align "nightmare" "sh hud preset nightmare"
+    action --status "Calm blue and teal tones." --align "ocean" "sh hud preset ocean"
+    action --status "Classic CRT orange and green." --align "retro" "sh hud preset retro"
+    action --status "Warm amber tones with subtle highlights." --align "amber" "sh hud preset amber"
+    action --status "Cool sky blue with contrasting pink highlights." --align "sky blue" "sh hud preset skyblue"
+    action --status "Bright pinks with yellow." --align "candy" "sh hud preset candy"
+    action --status "Neon pink and cyan aesthetic." --align "cyberpunk" "sh hud preset cyberpunk"
+    action --status "Yellow, cyan, and magenta." --align "party" "sh hud preset party"
+    action --status "Golden wattle yellow, green, and white." --align "aussie" "sh hud preset aussie"
+    action --status "Bright green with muted gray and magenta." --align "pepega" "sh hud preset pepega"
+    action --status "Toxic green with magenta and black." --align "toxic" "sh hud preset toxic"
+    action --status "Black, white, and cyan blocks." --align "pixelated" "sh hud preset pixelated"
+    action --status "Earthy green tones." --align "forest" "sh hud preset forest"
+    action --status "Neon green, dark green, and magenta." --align "radioactive" "sh hud preset radioactive"
+    action --status "Warm coral tones with vivid blue accents." --align "coral" "sh hud preset coral"
+    action --status "Magenta, lime green, and orange." --align "funky" "sh hud preset funky"
+    action --status "Blue, yellow, and magenta sparks." --align "electric" "sh hud preset electric"
+    action --status "Bold red, green, and blue for maximum contrast." --align "hudslut" "sh hud preset hudslut"
+    action --status "Muted sandy tones with soft highlights." --align "sand" "sh hud preset sand"
+    action --status "Fiery red and orange with a yellow highlight." --align "fire" "sh hud preset fire"
+    action --status "Fresh green and white theme." --align "mint" "sh hud preset mint"
+    action --status "Magenta, bright white, and black." --align "karen" "sh hud preset karen"
+    action --status "Toxic green, yellow, and red explosion." --align "nuclear" "sh hud preset nuclear"
+    action --status "Neon yellow, magenta, and cyan." --align "highlighter" "sh hud preset highlighter"
+    action --status "Dark black, spooky magenta, and haunting white." --align "cursed" "sh hud preset cursed"
+    action --status "Black, white, and gray." --align "zebra" "sh hud preset zebra"
+    action --status "Cool icy cyan and white." --align "ice" "sh hud preset ice"
+    action --status "Transparent debugging preset." --align "imposs" "sh hud preset imposs"
+    action --status "Red, blue, and yellow for a playful feel." --align "clown" "sh hud preset clown"
+    action --status "Acidic green and yellow with teal." --align "acid" "sh hud preset acid"
+    action --status "Deep cherry red with soft pink accents." --align "cherry" "sh hud preset cherry"
+    action --status "Black, neon green, and blood red." --align "venom" "sh hud preset venom"
+    action --status "Red, yellow, and blue for mind-bending contrast." --align "psycho" "sh hud preset psycho"
+    action --status "Golden yellow, sky blue, and hot pink." --align "doge" "sh hud preset doge"
+    action --status "Hot orange and red theme." --align "lava" "sh hud preset lava"
+    action --status "Orange, pink, and green madness." --align "toxic sunset" "sh hud preset toxicsunset"
+    action --status "Subtle dark and grey tones." --align "shadow" "sh hud preset shadow"
+    action --status "Soft lavender tones with bright green." --align "lavender" "sh hud preset lavender"
+    action --status "Lush emerald green with light highlights." --align "emerald" "sh hud preset emerald"
+    action --status "List all available presets in the console." --align "show all presets" "sh hud preset"
 end
 
 begin jumpups
     title "UPS Display"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     toggle --show-value --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
     range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 4 0.25 --show-if sh_ups !0
     range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -300 300 5 --show-if sh_ups !0
@@ -421,8 +447,8 @@ end
 
 begin raceline
     title "Race Line"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     range --show-value --status "Thickness of the movement trail line." "width" race_width 0 20 1
     range --show-value --status "Opacity level of the movement trail." "opacity" race_alpha 0 1 0.05
     range --show-value --status "Duration before the line fades away (ms)." "lifetime (ms)" race_life 0 5000 100
@@ -431,8 +457,8 @@ end
 
 begin jumpnetwork
     title "Jump Network"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     static "[Run Feedback]"
     pairs --show-value --status "Localized network status indicator." "network bar" sh_netmeter off 0 lagometer 1 netgraph 2 histogram 3
     pairs --show-value --status "Scale netmeter dynamically based on recent latency baseline." "adaptive scaling" sh_netmeter_adaptive off 0 on 1 --show-if sh_netmeter !0
@@ -465,7 +491,10 @@ begin jumpnetwork
     blank --show-if sh_netmeter 2
     static "[Histogram Layout]" --show-if sh_netmeter 3
     range --show-value --status "Bar height in HUD pixels." "height" sh_histogram_height 1 120 1 --show-if sh_netmeter 3
-    range --show-value --status "Bar width in HUD pixels." "width" sh_histogram_width 10 640 10 --show-if sh_netmeter 3
+    pairs --show-value --status "Choose full screen, half screen, or a custom histogram width." "width" sh_histogram_width_mode full 2 half 1 custom 0 --show-if sh_netmeter 3
+    range --show-value --status "Custom bar width in HUD pixels; values beyond the current HUD width fill the screen." "custom width" sh_histogram_width 10 8192 10 --show-if ui_histogram_custom_width 1
+    pairs --show-value --status "Draw separated bars or fill each sample to the next one." "fill mode" sh_histogram_fill_mode bars 0 spans 1 --show-if sh_netmeter 3
+    pairs --show-value --status "Place samples by actual time or spread recent samples evenly across the bar." "spacing" sh_histogram_spacing_mode time 0 even 1 --show-if sh_netmeter 3
     range --show-value --status "Horizontal offset; negative values align from the right edge." "X position" sh_histogram_x -640 640 1 --show-if sh_netmeter 3
     range --show-value --status "Vertical offset; negative values align from the bottom edge." "Y position" sh_histogram_y -480 480 1 --show-if sh_netmeter 3
     range --show-value --status "Opacity of normal samples; lower values keep stable network almost invisible." "normal alpha" sh_histogram_alpha 0 1 0.05 --show-if sh_netmeter 3
@@ -482,13 +511,15 @@ begin jumpnetwork
     range --show-value --status "Incoming (Server-to-Client) packet loss color palette index." "S2C loss color" sh_histogram_color_loss_s2c 0 255 1 --show-if sh_netmeter 3
     range --show-value --status "Outgoing (Client-to-Server) packet loss color palette index." "C2S loss color" sh_histogram_color_loss_c2s 0 255 1 --show-if sh_netmeter 3
     blank --show-if sh_netmeter 3
+    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
+    blank
     action --status "Configure latency and loss warning thresholds." "threshold settings" pushmenu jumpnetthresholds
 end
 
 begin jumpnetalerts
     title "Network Alerts"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     static "[Notice Feedback]"
     toggle --show-value --status "Short warning text for incidents likely to affect a run." "incident notice" sh_netalert
     blank --show-if sh_netalert !0
@@ -506,24 +537,26 @@ begin jumpnetalerts
     blank --show-if sh_netalert !0
     action --status "Configure latency and loss warning thresholds." "threshold settings" pushmenu jumpnetthresholds --show-if sh_netalert !0
     blank --show-if sh_netalert !0
+    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
 end
 
 begin jumpnetthresholds
     title "Network Thresholds"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     static "[Latency Thresholds]"
     toggle --show-value --status "Compare spikes and jitter against your current ping baseline; recommended for distant servers." "adaptive ping" sh_netwarn_ping_adaptive
     range --show-value --status "Minimum sudden ping jump before a spike warning." "spike ms" sh_netwarn_spike_ms 0 300 5 --show-if sh_netwarn_ping_adaptive 0
     range --show-value --status "Adaptive spike threshold as percent of your rolling ping baseline." "spike pct" sh_netwarn_spike_pct 0 100 5 --show-if sh_netwarn_ping_adaptive 1
     range --show-value --status "Repeated ping wobble threshold before jitter warning." "jitter ms" sh_netwarn_jitter_ms 0 150 5
     blank
+    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
 end
 
 begin replayrecording
     title "Replay Recording"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     action --status "Start recording a new movement replay." "start recording" "sh record"
     action --status "Stop the current recording session." "stop recording" "sh stop"
     action --status "Play back a saved movement replay." "play replay" "sh play"
@@ -531,8 +564,8 @@ end
 
 begin jumpdebug
     title "Jump Debug"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     pairs --status "Diagnostic overlay for movement physics." "NerdStats" sh_nerdstats off 0 left 1 right 2
     toggle --show-value --status "Draw a marker at map coordinate 0 0 0." "world origin" cl_drawworldorigin
     range --show-value --status "World origin marker size in map units." "origin size" cl_worldorigin_size 0 16384 256 --show-if cl_drawworldorigin !0
@@ -545,8 +578,7 @@ end
 
 begin multiplayer
     title "Multiplayer"
-    background #3f6da070
-    style --compact --center --transparent
+
     action --status "Browse all active Quake 2 servers." "browse q2servers.com" pushmenu servers "+http://q2servers.com/?raw=2"
     action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
     action --status "Quick access to your saved servers." "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
@@ -555,8 +587,7 @@ end
 
 begin main
     title "Main Menu"
-    background #3f6da070
-    style --compact --center --transparent
+
     action --status "Find and join online games." "multiplayer" pushmenu multiplayer
     action --status "Engine and gameplay configuration." "options" pushmenu options
     action --status "Display and resolution settings." "video setup" pushmenu video
@@ -566,8 +597,7 @@ end
 
 begin game
     title "In-Game Menu"
-    background #3f6da070
-    style --compact --center --transparent
+
     action --status "Configure HUD and jump tools." "jump setup" pushmenu jump
     blank
     action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
@@ -584,8 +614,8 @@ end
 
 begin video_quick
     title "Quick Video"
-    background #3f6da070
-    style --compact --center --transparent --live
+
+    style --live
     range --show-value --status "Texture lightmap multiplier (higher values make world textures brighter)." "world modulation" gl_modulate 1 4
     range --show-value --status "Adjust the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
     range --show-value --status "Boost the overall brightness of textures." "texture intensity" intensity 1 3 0.1
@@ -614,8 +644,7 @@ end
 
 begin input
     title "Input Setup"
-    background #3f6da070
-    style --compact --center --transparent
+
     field --numeric --width 8 --status "Multiplier for mouse movement speed." "mouse sens" sensitivity
     toggle --status "Automatically scale sensitivity based on resolution." "auto sens" m_autosens
     toggle --status "Smooth out erratic mouse movement." "mouse filter" m_filter
@@ -625,8 +654,7 @@ end
 
 begin keys
     title "Key Bindings"
-    background #3f6da070
-    style --compact --center --transparent
+
     bind --status "Fire current weapon." "attack" +attack
     bind --status "Move the player forward." "walk forward" +forward
     bind --status "Move the player backward." "backpedal" +back
@@ -651,7 +679,7 @@ end
 begin legacykeys
     title "Legacy Key Bindings"
     background #3f6da040
-    style --compact --center --transparent
+
     bind --status "Rotate view to the left (keyboard)." "turn left" +left
     bind --status "Rotate view to the right (keyboard)." "turn right" +right
     bind --status "Modifier for keyboard-driven strafing." "sidestep" +strafe
