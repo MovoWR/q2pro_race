@@ -1055,13 +1055,22 @@ static void Parse_BuiltinMenu(void)
     Z_Free(data);
 }
 
+static bool UI_ShouldUseBuiltinMenu(cvar_t *ui_external_menu)
+{
+    if (ui_external_menu->integer) {
+        return false;
+    }
+
+    return fs_game && !Q_stricmp(fs_game->string, "jump");
+}
+
 void UI_LoadScript(void)
 {
     cvar_t *ui_external_menu = Cvar_Get("ui_external_menu", "0", CVAR_ARCHIVE);
 
-    Parse_BuiltinMenu();
-
-    if (ui_external_menu->integer) {
-    Parse_File("q2pro.menu", 0);
-}
+    if (UI_ShouldUseBuiltinMenu(ui_external_menu)) {
+        Parse_BuiltinMenu();
+    } else {
+        Parse_File("q2pro.menu", 0);
+    }
 }

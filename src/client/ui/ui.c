@@ -31,6 +31,71 @@ static cvar_t    *ui_open;
 static cvar_t    *ui_scale;
 static cvar_t    *ui_draw_layers;
 
+typedef enum {
+    UI_MENU_STYLE_CLASSIC,
+    UI_MENU_STYLE_SLATE,
+    UI_MENU_STYLE_CUSTOM,
+    UI_MENU_STYLE_COUNT
+} uiMenuStyleId_t;
+
+typedef enum {
+    UI_MENU_COLOR_BACKGROUND,
+    UI_MENU_COLOR_TITLE,
+    UI_MENU_COLOR_NORMAL,
+    UI_MENU_COLOR_SELECTABLE,
+    UI_MENU_COLOR_ALTERNATE,
+    UI_MENU_COLOR_ACTIVE,
+    UI_MENU_COLOR_SELECTION,
+    UI_MENU_COLOR_FOCUS,
+    UI_MENU_COLOR_FOCUS_BORDER,
+    UI_MENU_COLOR_DISABLED,
+    UI_MENU_COLOR_LIST_HEADER,
+    UI_MENU_COLOR_SCROLLBAR,
+    UI_MENU_COLOR_HINT_BACKGROUND,
+    UI_MENU_COLOR_HINT_TEXT,
+    UI_MENU_COLOR_COUNT
+} uiMenuColorId_t;
+
+typedef struct {
+    const char *cvarName;
+    const char *defaultValue;
+} uiMenuCustomColor_t;
+
+static cvar_t *ui_menu_custom_colors[UI_MENU_COLOR_COUNT];
+
+static const uiColorStyle_t ui_slateColorStyle = {
+    { .u32 = MakeColor(28,  31,  34, 210) },
+    { .u32 = MakeColor(214, 218, 224, 255) },
+    { .u32 = MakeColor(232, 235, 240, 255) },
+    { .u32 = MakeColor(232, 235, 240, 255) },
+    { .u32 = MakeColor(255, 255, 255, 255) },
+    { .u32 = MakeColor(139, 150, 163, 255) },
+    { .u32 = MakeColor(95,  102, 112, 220) },
+    { .u32 = MakeColor(80,  84,  90,  150) },
+    { .u32 = MakeColor(180, 184, 190, 220) },
+    { .u32 = MakeColor(112, 116, 122, 255) }
+};
+
+static const uint32_t ui_slateListHeaderColor = MakeColor(62, 68, 76, 255);
+static const uint32_t ui_slateScrollbarColor = MakeColor(50, 55, 62, 255);
+
+static const uiMenuCustomColor_t ui_menu_custom_color_defs[UI_MENU_COLOR_COUNT] = {
+    [UI_MENU_COLOR_BACKGROUND]      = { "ui_menu_color_panel_bg",        "28 31 34 210" },
+    [UI_MENU_COLOR_TITLE]           = { "ui_menu_color_title_text",      "214 218 224 255" },
+    [UI_MENU_COLOR_NORMAL]          = { "ui_menu_color_text",            "232 235 240 255" },
+    [UI_MENU_COLOR_SELECTABLE]      = { "ui_menu_color_item_text",       "232 235 240 255" },
+    [UI_MENU_COLOR_ALTERNATE]       = { "ui_menu_color_label_text",      "255 255 255 255" },
+    [UI_MENU_COLOR_ACTIVE]          = { "ui_menu_color_focus_text",      "139 150 163 255" },
+    [UI_MENU_COLOR_SELECTION]       = { "ui_menu_color_selection_bg",    "95 102 112 220" },
+    [UI_MENU_COLOR_FOCUS]           = { "ui_menu_color_focus_bg",        "80 84 90 150" },
+    [UI_MENU_COLOR_FOCUS_BORDER]    = { "ui_menu_color_focus_edge",      "180 184 190 220" },
+    [UI_MENU_COLOR_DISABLED]        = { "ui_menu_color_disabled_text",   "112 116 122 255" },
+    [UI_MENU_COLOR_LIST_HEADER]     = { "ui_menu_color_list_header_bg",  "62 68 76 255" },
+    [UI_MENU_COLOR_SCROLLBAR]       = { "ui_menu_color_scrollbar_track", "50 55 62 255" },
+    [UI_MENU_COLOR_HINT_BACKGROUND] = { "ui_menu_color_hint_bg",         "18 20 23 235" },
+    [UI_MENU_COLOR_HINT_TEXT]       = { "ui_menu_color_hint_text",       "232 235 240 255" }
+};
+
 // ===========================================================================
 
 /*
@@ -460,24 +525,200 @@ static bool UI_ShouldDrawCursor(void)
     return true;
 }
 
-static void UI_ApplyMenuStyle(void)
+static int UI_ClampColorComponent(int value)
 {
-    uis.color = uis.baseColor;
+    if (value < 0) {
+        return 0;
+    }
+    if (value > 255) {
+        return 255;
+    }
+    return value;
+}
 
-    if (!ui_menu_style || !ui_menu_style->integer) {
+static bool UI_ParseMenuColor(const char *s, color_t *color)
+{
+    int r, g, b, a = 255;
+    int components;
+
+    if (!s || !*s) {
+        return false;
+    }
+
+    if (*s == '#' || !strchr(s, ' ')) {
+        return SCR_ParseColor(s, color);
+    }
+
+    components = sscanf(s, "%d %d %d %d", &r, &g, &b, &a);
+    if (components < 3) {
+        return false;
+    }
+
+    color->u8[0] = UI_ClampColorComponent(r);
+    color->u8[1] = UI_ClampColorComponent(g);
+    color->u8[2] = UI_ClampColorComponent(b);
+    color->u8[3] = UI_ClampColorComponent(a);
+    return true;
+}
+
+static void ui_menu_style_changed(cvar_t *self)
+{
+    const char *value;
+
+    if (!Q_stricmp(self->string, "classic")) {
+        value = "0";
+    } else if (!Q_stricmp(self->string, "slate")) {
+        value = "1";
+    } else if (!Q_stricmp(self->string, "custom")) {
+        value = "2";
+    } else {
+        value = va("%d", Q_clip(self->integer, 0, UI_MENU_STYLE_COUNT - 1));
+    }
+
+    if (strcmp(self->string, value)) {
+        Cvar_SetByVar(self, value, FROM_CODE);
+    }
+}
+
+static uiMenuStyleId_t UI_MenuStyleId(void)
+{
+    if (!ui_menu_style) {
+        return UI_MENU_STYLE_CLASSIC;
+    }
+
+    if (!Q_stricmp(ui_menu_style->string, "classic")) {
+        return UI_MENU_STYLE_CLASSIC;
+    }
+    if (!Q_stricmp(ui_menu_style->string, "slate")) {
+        return UI_MENU_STYLE_SLATE;
+    }
+    if (!Q_stricmp(ui_menu_style->string, "custom")) {
+        return UI_MENU_STYLE_CUSTOM;
+    }
+
+    return Q_clip(ui_menu_style->integer, 0, UI_MENU_STYLE_COUNT - 1);
+}
+
+static void UI_ApplyCustomColor(uiMenuColorId_t id, color_t *color)
+{
+    color_t parsed;
+    cvar_t *cvar = ui_menu_custom_colors[id];
+
+    if (!cvar) {
         return;
     }
 
-    uis.color.background.u32    = MakeColor(28,  31,  34, 210);
-    uis.color.title.u32         = MakeColor(214, 218, 224, 255);
-    uis.color.normal.u32        = MakeColor(232, 235, 240, 255);
-    uis.color.selectable.u32    = MakeColor(232, 235, 240, 255);
-    uis.color.alternate.u32     = MakeColor(255, 255, 255, 255);
-    uis.color.active.u32        = MakeColor(139, 150, 163, 255);
-    uis.color.selection.u32     = MakeColor(95,  102, 112, 220);
-    uis.color.focus.u32         = MakeColor(80,  84,  90,  150);
-    uis.color.focus_border.u32  = MakeColor(180, 184, 190, 220);
-    uis.color.disabled.u32      = MakeColor(112, 116, 122, 255);
+    if (UI_ParseMenuColor(cvar->string, &parsed)) {
+        *color = parsed;
+    }
+}
+
+static void UI_ApplyCustomColor32(uiMenuColorId_t id, uint32_t *color)
+{
+    color_t parsed;
+    cvar_t *cvar = ui_menu_custom_colors[id];
+
+    if (!cvar) {
+        return;
+    }
+
+    if (UI_ParseMenuColor(cvar->string, &parsed)) {
+        *color = parsed.u32;
+    }
+}
+
+static void UI_ApplyMenuStyle(void)
+{
+    uis.color = uis.baseColor;
+    uis.listHeaderColor = uis.color.normal.u32;
+    uis.scrollbarColor = uis.color.normal.u32;
+    uis.hintBackgroundColor = MakeColor(0, 0, 255, 255);
+    uis.hintTextColor = MakeColor(255, 255, 255, 255);
+    uis.styleFocusFill = false;
+    uis.styleMenuBackground = false;
+
+    switch (UI_MenuStyleId()) {
+    case UI_MENU_STYLE_CLASSIC:
+        return;
+    case UI_MENU_STYLE_SLATE:
+        uis.color = ui_slateColorStyle;
+        uis.listHeaderColor = ui_slateListHeaderColor;
+        uis.scrollbarColor = ui_slateScrollbarColor;
+        uis.hintBackgroundColor = MakeColor(18, 20, 23, 235);
+        uis.hintTextColor = uis.color.normal.u32;
+        break;
+    case UI_MENU_STYLE_CUSTOM:
+        uis.color = ui_slateColorStyle;
+        uis.listHeaderColor = ui_slateListHeaderColor;
+        uis.scrollbarColor = ui_slateScrollbarColor;
+        uis.hintBackgroundColor = MakeColor(18, 20, 23, 235);
+        uis.hintTextColor = uis.color.normal.u32;
+        UI_ApplyCustomColor(UI_MENU_COLOR_BACKGROUND, &uis.color.background);
+        UI_ApplyCustomColor(UI_MENU_COLOR_TITLE, &uis.color.title);
+        UI_ApplyCustomColor(UI_MENU_COLOR_NORMAL, &uis.color.normal);
+        UI_ApplyCustomColor(UI_MENU_COLOR_SELECTABLE, &uis.color.selectable);
+        UI_ApplyCustomColor(UI_MENU_COLOR_ALTERNATE, &uis.color.alternate);
+        UI_ApplyCustomColor(UI_MENU_COLOR_ACTIVE, &uis.color.active);
+        UI_ApplyCustomColor(UI_MENU_COLOR_SELECTION, &uis.color.selection);
+        UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS, &uis.color.focus);
+        UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS_BORDER, &uis.color.focus_border);
+        UI_ApplyCustomColor(UI_MENU_COLOR_DISABLED, &uis.color.disabled);
+        UI_ApplyCustomColor32(UI_MENU_COLOR_LIST_HEADER, &uis.listHeaderColor);
+        UI_ApplyCustomColor32(UI_MENU_COLOR_SCROLLBAR, &uis.scrollbarColor);
+        UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_BACKGROUND, &uis.hintBackgroundColor);
+        UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_TEXT, &uis.hintTextColor);
+        break;
+    default:
+        return;
+    }
+
+    uis.styleFocusFill = true;
+    uis.styleMenuBackground = true;
+}
+
+uint32_t UI_MenuBackgroundColor(const menuFrameWork_t *menu)
+{
+    return uis.styleMenuBackground ? uis.color.background.u32 : menu->color.u32;
+}
+
+uint32_t UI_MenuListHeaderColor(void)
+{
+    return uis.listHeaderColor;
+}
+
+uint32_t UI_MenuScrollbarColor(void)
+{
+    return uis.scrollbarColor;
+}
+
+uint32_t UI_MenuHintBackgroundColor(void)
+{
+    return uis.hintBackgroundColor;
+}
+
+uint32_t UI_MenuHintTextColor(void)
+{
+    return uis.hintTextColor;
+}
+
+bool UI_MenuStyleFocusFill(void)
+{
+    return uis.styleFocusFill;
+}
+
+static void UI_ResetMenuColors_f(void)
+{
+    int i;
+
+    for (i = 0; i < UI_MENU_COLOR_COUNT; i++) {
+        if (ui_menu_custom_colors[i]) {
+            Cvar_SetByVar(ui_menu_custom_colors[i],
+                          ui_menu_custom_colors[i]->default_string,
+                          FROM_MENU);
+        }
+    }
+
+    Com_Printf("Custom menu colors reset to defaults.\n");
 }
 
 /*
@@ -661,6 +902,7 @@ static const cmdreg_t c_ui[] = {
     { "forcemenuoff", UI_ForceMenuOff },
     { "pushmenu", UI_PushMenu_f, UI_PushMenu_c },
     { "popmenu", UI_PopMenu_f },
+    { "ui_reset_menu_colors", UI_ResetMenuColors_f },
 
     { NULL, NULL }
 };
@@ -762,12 +1004,22 @@ UI_Init
 */
 void UI_Init(void)
 {
+    int i;
+
     Cmd_Register(c_ui);
 
     ui_debug = Cvar_Get("ui_debug", "0", 0);
     ui_open = Cvar_Get("ui_open", "0", 0);
     ui_draw_layers = Cvar_Get("ui_draw_layers", "0", 0);
     ui_menu_style = Cvar_Get("ui_menu_style", "0", CVAR_ARCHIVE);
+    ui_menu_style->changed = ui_menu_style_changed;
+    ui_menu_style_changed(ui_menu_style);
+    for (i = 0; i < UI_MENU_COLOR_COUNT; i++) {
+        ui_menu_custom_colors[i] =
+            Cvar_Get(ui_menu_custom_color_defs[i].cvarName,
+                     ui_menu_custom_color_defs[i].defaultValue,
+                     CVAR_ARCHIVE);
+    }
     cl_menu_cursor = Cvar_Get("cl_menu_cursor", "ch5", CVAR_ARCHIVE);
     cl_menu_cursor->changed = cl_menu_cursor_changed;
 
@@ -790,6 +1042,12 @@ void UI_Init(void)
     uis.color.focus.u32         = MakeColor(80, 80, 80, 110);
     uis.color.focus_border.u32  = MakeColor(180, 180, 180, 160);
     uis.color.disabled.u32      = MakeColor(127, 127, 127, 255);
+    uis.listHeaderColor         = uis.color.normal.u32;
+    uis.scrollbarColor          = uis.color.normal.u32;
+    uis.hintBackgroundColor     = MakeColor(0, 0, 255, 255);
+    uis.hintTextColor           = MakeColor(255, 255, 255, 255);
+    uis.styleFocusFill          = false;
+    uis.styleMenuBackground     = false;
 
     strcpy(uis.weaponModel, "w_railgun.md2");
 

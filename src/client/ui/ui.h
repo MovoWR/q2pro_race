@@ -293,6 +293,19 @@ void PlayerModel_Free(void);
 
 #define NUM_CURSOR_FRAMES 15
 
+typedef struct uiColorStyle_s {
+    color_t background;
+    color_t title;
+    color_t normal;
+    color_t selectable;
+    color_t alternate;
+    color_t active;
+    color_t selection;
+    color_t focus;
+    color_t focus_border;
+    color_t disabled;
+} uiColorStyle_t;
+
 typedef struct {
     bool initialized;
     unsigned realtime;
@@ -317,18 +330,13 @@ typedef struct {
 
     qhandle_t bitmapCursors[NUM_CURSOR_FRAMES];
 
-    struct uiColorStyle_s {
-        color_t background;
-        color_t title;
-        color_t normal;
-        color_t selectable;
-        color_t alternate;
-        color_t active;
-        color_t selection;
-        color_t focus;
-        color_t focus_border;
-        color_t disabled;
-    } color, baseColor;
+    uiColorStyle_t color, baseColor;
+    uint32_t listHeaderColor;
+    uint32_t scrollbarColor;
+    uint32_t hintBackgroundColor;
+    uint32_t hintTextColor;
+    bool styleFocusFill;
+    bool styleMenuBackground;
 } uiStatic_t;
 
 extern uiStatic_t   uis;
@@ -355,6 +363,12 @@ void        UI_DrawChar(int x, int y, int flags, int ch);
 void        UI_DrawRect8(const vrect_t *rect, int border, int c);
 //void        UI_DrawRect32(const vrect_t *rect, int border, uint32_t color);
 void        UI_StringDimensions(vrect_t *rc, int flags, const char *string);
+uint32_t    UI_MenuBackgroundColor(const menuFrameWork_t *menu);
+uint32_t    UI_MenuListHeaderColor(void);
+uint32_t    UI_MenuScrollbarColor(void);
+uint32_t    UI_MenuHintBackgroundColor(void);
+uint32_t    UI_MenuHintTextColor(void);
+bool        UI_MenuStyleFocusFill(void);
 
 void        UI_LoadScript(void);
 menuFrameWork_t *UI_FindMenu(const char *name);

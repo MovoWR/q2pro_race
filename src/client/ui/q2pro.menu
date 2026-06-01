@@ -127,6 +127,7 @@ begin options
     action --status "Audio levels and engine settings." "sound setup" pushmenu sound
     action --status "Explosions, shadows, and rail trails." "effects setup" pushmenu effects
     action --status "HUD size, opacity, and scaling." "screen setup" pushmenu screen
+    action --status "Menu scale, style, source, and cursor settings." "menu setup" pushmenu menusetup
     action --status "Asset downloading preferences." "download options" pushmenu downloads
     action --status "Quick-connect address book." "address book" pushmenu addressbook
 end
@@ -217,15 +218,46 @@ begin screen
     range --show-value --status "Transparency of the background console." "console opacity" con_alpha 0 1
     pairs --status "Scale factor for all HUD elements." "HUD scale" scr_scale auto 0 1x 1 2x 2 4x 4
     pairs --status "Scale factor for the console text." "console scale" con_scale auto 0 1x 1 2x 2 4x 4
-    pairs --status "Scale factor for this menu system." "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
-    pairs --show-value --status "Switch between the original blue/red menu and a muted grey alternate style." "menu style" ui_menu_style classic 0 slate 1
-    pairs --status "Choose the menu source used after the next UI restart. Built-in ignores q2pro.menu; external file loads q2pro.menu overrides from disk." "menu source" ui_external_menu built-in 0 "external file" 1
     blank
     toggle --status "Show digital clock in the console." "console clock" con_clock
     range --show-value --status "Fraction of the screen height the console occupies." "console height" con_height 0.1 1.0
     blank
     action --status "Adjust aiming cursor appearance." --align "crosshair setup..." pushmenu crosshair
     action --status "Configure jump-specific assist tools." --align "jump HUD setup..." pushmenu jump
+end
+
+begin menusetup
+    title "Menu Setup"
+    background #3f6da070
+    style --compact --center --transparent --live
+    pairs --status "Scale factor for this menu system." "menu scale" ui_scale auto 0 1x 1 2x 2 4x 4
+    pairs --show-value --status "Choose the menu color preset, or use your own custom palette." "color style" ui_menu_style classic 0 slate 1 custom 2
+    action --status "Adjust the custom menu palette." --align "custom colors..." pushmenu menu_colors --show-if ui_menu_style 2
+    values --status "Change OS cursor style for windowed and borderless menus." "system cursor" win_menu_cursor arrow cross hand ibeam wait no size --show-if ui_borderless_or_windowed 1
+    values --status "Texture cursor used in exclusive fullscreen menus." "menu cursor texture" cl_menu_cursor none cross dot angle ch4 ch5 --show-if ui_exclusive_fullscreen 1
+    pairs --status "Choose the menu source used after the next UI restart. Built-in is available only when game is jump; other games load q2pro.menu." "menu source" ui_external_menu built-in 0 "external file" 1
+end
+
+begin menu_colors
+    title "Custom Menu Colors"
+    background #3f6da070
+    style --compact --center --transparent --live
+    field --picker --status "Whole menu panel background." "panel background" ui_menu_color_panel_bg
+    field --picker --status "Top menu title text." "title text" ui_menu_color_title_text
+    field --picker --status "Default menu text." "normal text" ui_menu_color_text
+    field --picker --status "Unfocused selectable item text." "item text" ui_menu_color_item_text
+    field --picker --status "Left-side labels and secondary text." "label text" ui_menu_color_label_text
+    field --picker --status "Text on the currently focused control." "focused text" ui_menu_color_focus_text
+    field --picker --status "Selected row background in lists." "selected row" ui_menu_color_selection_bg
+    field --picker --status "Focused row background marker." "focused row" ui_menu_color_focus_bg
+    field --picker --status "Focused row side edge." "focused row edge" ui_menu_color_focus_edge
+    field --picker --status "Unavailable item text." "disabled text" ui_menu_color_disabled_text
+    field --picker --status "List column header background." "list header" ui_menu_color_list_header_bg
+    field --picker --status "Scrollbar background track." "scrollbar track" ui_menu_color_scrollbar_track
+    field --picker --status "Bottom hint bar background." "hint background" ui_menu_color_hint_bg
+    field --picker --status "Bottom hint bar text." "hint text" ui_menu_color_hint_text
+    blank
+    action --status "Restore all custom menu colors to their default slate palette values." --align "reset custom colors" ui_reset_menu_colors
 end
 
 begin downloads
@@ -439,7 +471,7 @@ begin jumpnetwork
     range --show-value --status "Opacity of normal samples; lower values keep stable network almost invisible." "normal alpha" sh_histogram_alpha 0 1 0.05 --show-if sh_netmeter 3
     range --show-value --status "Opacity of loss/stall/prediction samples." "incident alpha" sh_histogram_bad_alpha 0 1 0.05 --show-if sh_netmeter 3
     range --show-value --status "How much recent history the bar represents, in milliseconds." "history ms" sh_histogram_history_ms 500 120000 1000 --show-if sh_netmeter 3
-    toggle --show-value --status "Draw current ping value over the histogram." "ping display" sh_histogram_ping --show-if sh_netmeter 3
+    toggle --show-value --status "Draw smoothed ping value over the histogram." "ping display" sh_histogram_ping --show-if sh_netmeter 3
     blank --show-if sh_netmeter 3
     static "[Histogram Theme & Colors]" --show-if sh_netmeter 3
     range --show-value --status "Histogram background opacity level." "background alpha" sh_histogram_bg_alpha 0 1 0.05 --show-if sh_netmeter 3
@@ -502,6 +534,10 @@ begin jumpdebug
     background #3f6da070
     style --compact --center --transparent --live
     pairs --status "Diagnostic overlay for movement physics." "NerdStats" sh_nerdstats off 0 left 1 right 2
+    toggle --show-value --status "Draw a marker at map coordinate 0 0 0." "world origin" cl_drawworldorigin
+    range --show-value --status "World origin marker size in map units." "origin size" cl_worldorigin_size 0 16384 256 --show-if cl_drawworldorigin !0
+    range --show-value --status "World origin marker line width." "origin line" cl_worldorigin_linewidth 1 16 1 --show-if cl_drawworldorigin !0
+    blank
     action --status "Report current strafe helper internal state." --align "show strafe helper status" "sh status"
     action --status "List all active jump-mod commands." --align "show commands" !help
     bind --status  "debug physic." --align "dump physics now" debugnow
@@ -585,8 +621,6 @@ begin input
     toggle --status "Smooth out erratic mouse movement." "mouse filter" m_filter
     toggle --status "Use the mouse to aim around (recommended)." "free look" freelook
     toggle --status "Player always moves at running speed." "always run" cl_run
-    values --status "Change OS cursor style for windowed and borderless menus." "system cursor" win_menu_cursor arrow cross hand ibeam wait no size --show-if ui_borderless_or_windowed 1
-    values --status "Texture cursor used in exclusive fullscreen menus." "menu cursor texture" cl_menu_cursor none cross dot angle ch4 ch5 --show-if ui_exclusive_fullscreen 1
 end
 
 begin keys

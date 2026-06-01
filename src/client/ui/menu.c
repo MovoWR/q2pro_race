@@ -891,7 +891,7 @@ static bool Field_DrawFocusFill(const menuField_t *f)
     menuFrameWork_t *menu = f->generic.parent;
 
     return menu && !menu->compact &&
-        (menu->focusStyleSet || (ui_menu_style && ui_menu_style->integer));
+        (menu->focusStyleSet || UI_MenuStyleFocusFill());
 }
 
 static void Field_Draw(menuField_t *f)
@@ -1908,20 +1908,12 @@ static void MenuList_DrawString(int x, int y, int flags,
 
 static uint32_t MenuList_HeaderColor(void)
 {
-    if (ui_menu_style && ui_menu_style->integer) {
-        return MakeColor(62, 68, 76, 255);
-    }
-
-    return uis.color.normal.u32;
+    return UI_MenuListHeaderColor();
 }
 
 static uint32_t MenuList_ScrollbarColor(void)
 {
-    if (ui_menu_style && ui_menu_style->integer) {
-        return MakeColor(50, 55, 62, 255);
-    }
-
-    return uis.color.normal.u32;
+    return UI_MenuScrollbarColor();
 }
 
 /*
@@ -3235,13 +3227,17 @@ static void Menu_DrawStatus(menuFrameWork_t *menu)
 
     lens[count++] = x;
 
-    R_DrawFill8(0, uis.height - count * CHAR_HEIGHT, uis.width, count * CHAR_HEIGHT, 4);
+    R_DrawFill32(0, uis.height - count * CHAR_HEIGHT,
+                 uis.width, count * CHAR_HEIGHT,
+                 UI_MenuHintBackgroundColor());
+    Menu_SetColor(UI_MenuHintTextColor());
 
     for (l = 0; l < count; l++) {
         x = (uis.width - lens[l] * CHAR_WIDTH) / 2;
         y = uis.height - (count - l) * CHAR_HEIGHT;
         R_DrawString(x, y, 0, lens[l], ptrs[l], uis.fontHandle);
     }
+    Menu_SetNormalColor();
 }
 
 /*
@@ -3260,11 +3256,7 @@ static int Menu_TitleX(menuFrameWork_t *menu)
 
 static uint32_t Menu_BackgroundColor(menuFrameWork_t *menu)
 {
-    if (ui_menu_style && ui_menu_style->integer) {
-        return uis.color.background.u32;
-    }
-
-    return menu->color.u32;
+    return UI_MenuBackgroundColor(menu);
 }
 
 static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item)
@@ -3275,8 +3267,7 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
     if (!(item->flags & QMF_HASFOCUS) || !UI_IsItemSelectable(item)) {
         return;
     }
-    if (!menu->focusStyleSet && !menu->compact &&
-        (!ui_menu_style || !ui_menu_style->integer)) {
+    if (!menu->focusStyleSet && !menu->compact && !UI_MenuStyleFocusFill()) {
         return;
     }
 
