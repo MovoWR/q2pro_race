@@ -18,6 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "ui.h"
 #include "client/input.h"
+#include "common/files.h"
 #include "common/prompt.h"
 
 uiStatic_t    uis;
@@ -26,17 +27,18 @@ LIST_DECL(ui_menus);
 
 cvar_t    *ui_debug;
 cvar_t    *cl_menu_cursor;
-cvar_t    *ui_menu_style;
 static cvar_t    *ui_open;
 static cvar_t    *ui_scale;
 static cvar_t    *ui_draw_layers;
 
-typedef enum {
-    UI_MENU_STYLE_CLASSIC,
-    UI_MENU_STYLE_SLATE,
-    UI_MENU_STYLE_CUSTOM,
-    UI_MENU_STYLE_COUNT
-} uiMenuStyleId_t;
+cvar_t    *ui_menu_focus_width;
+cvar_t    *ui_menu_focus_padding_x;
+cvar_t    *ui_menu_focus_padding_y;
+cvar_t    *ui_menu_title_underline;
+cvar_t    *ui_menu_value_chips;
+cvar_t    *ui_menu_density;
+cvar_t    *ui_menu_focus_lerp;
+cvar_t    *ui_menu_focus_lerp_speed;
 
 typedef enum {
     UI_MENU_COLOR_BACKGROUND,
@@ -53,6 +55,24 @@ typedef enum {
     UI_MENU_COLOR_SCROLLBAR,
     UI_MENU_COLOR_HINT_BACKGROUND,
     UI_MENU_COLOR_HINT_TEXT,
+    UI_MENU_COLOR_FOCUS_MARKER,
+    UI_MENU_COLOR_VALUE,
+    UI_MENU_COLOR_VALUE_ACTIVE,
+    UI_MENU_COLOR_VALUE_CHANGED,
+    UI_MENU_COLOR_SLIDER_TRACK,
+    UI_MENU_COLOR_SLIDER_FILL,
+    UI_MENU_COLOR_SLIDER_THUMB,
+    UI_MENU_COLOR_SLIDER_BORDER,
+    UI_MENU_COLOR_SORTED_HEADER,
+    UI_MENU_COLOR_TAB_TEXT,
+    UI_MENU_COLOR_TAB_ACTIVE_TEXT,
+    UI_MENU_COLOR_TAB_ACTIVE_BG,
+    UI_MENU_COLOR_TAB_INACTIVE_BG,
+    UI_MENU_COLOR_TITLE_UNDERLINE,
+    UI_MENU_COLOR_PANEL_BORDER,
+    UI_MENU_COLOR_PANEL_SHADOW,
+    UI_MENU_COLOR_VALUE_BG,
+    UI_MENU_COLOR_TAB_UNDERLINE,
     UI_MENU_COLOR_COUNT
 } uiMenuColorId_t;
 
@@ -80,20 +100,39 @@ static const uint32_t ui_slateListHeaderColor = MakeColor(62, 68, 76, 255);
 static const uint32_t ui_slateScrollbarColor = MakeColor(50, 55, 62, 255);
 
 static const uiMenuCustomColor_t ui_menu_custom_color_defs[UI_MENU_COLOR_COUNT] = {
-    [UI_MENU_COLOR_BACKGROUND]      = { "ui_menu_color_panel_bg",        "28 31 34 210" },
-    [UI_MENU_COLOR_TITLE]           = { "ui_menu_color_title_text",      "214 218 224 255" },
-    [UI_MENU_COLOR_NORMAL]          = { "ui_menu_color_text",            "232 235 240 255" },
-    [UI_MENU_COLOR_SELECTABLE]      = { "ui_menu_color_item_text",       "232 235 240 255" },
-    [UI_MENU_COLOR_ALTERNATE]       = { "ui_menu_color_label_text",      "255 255 255 255" },
-    [UI_MENU_COLOR_ACTIVE]          = { "ui_menu_color_focus_text",      "139 150 163 255" },
-    [UI_MENU_COLOR_SELECTION]       = { "ui_menu_color_selection_bg",    "95 102 112 220" },
-    [UI_MENU_COLOR_FOCUS]           = { "ui_menu_color_focus_bg",        "80 84 90 150" },
-    [UI_MENU_COLOR_FOCUS_BORDER]    = { "ui_menu_color_focus_edge",      "180 184 190 220" },
-    [UI_MENU_COLOR_DISABLED]        = { "ui_menu_color_disabled_text",   "112 116 122 255" },
-    [UI_MENU_COLOR_LIST_HEADER]     = { "ui_menu_color_list_header_bg",  "62 68 76 255" },
-    [UI_MENU_COLOR_SCROLLBAR]       = { "ui_menu_color_scrollbar_track", "50 55 62 255" },
-    [UI_MENU_COLOR_HINT_BACKGROUND] = { "ui_menu_color_hint_bg",         "18 20 23 235" },
-    [UI_MENU_COLOR_HINT_TEXT]       = { "ui_menu_color_hint_text",       "232 235 240 255" }
+    [UI_MENU_COLOR_BACKGROUND]      = { "ui_menu_color_panel_bg",        "8 12 18 230" },
+    [UI_MENU_COLOR_TITLE]           = { "ui_menu_color_title_text",      "225 112 124 255" },
+    [UI_MENU_COLOR_NORMAL]          = { "ui_menu_color_text",            "210 216 224 255" },
+    [UI_MENU_COLOR_SELECTABLE]      = { "ui_menu_color_item_text",       "210 216 224 255" },
+    [UI_MENU_COLOR_ALTERNATE]       = { "ui_menu_color_label_text",      "160 168 178 255" },
+    [UI_MENU_COLOR_ACTIVE]          = { "ui_menu_color_focus_text",      "255 255 255 255" },
+    [UI_MENU_COLOR_SELECTION]       = { "ui_menu_color_selection_bg",    "44 78 112 200" },
+    [UI_MENU_COLOR_FOCUS]           = { "ui_menu_color_focus_bg",        "48 86 124 190" },
+    [UI_MENU_COLOR_FOCUS_BORDER]    = { "ui_menu_color_focus_edge",      "170 70 83 180" },
+    [UI_MENU_COLOR_DISABLED]        = { "ui_menu_color_disabled_text",   "86 90 98 255" },
+    [UI_MENU_COLOR_LIST_HEADER]     = { "ui_menu_color_list_header_bg",  "82 40 50 235" },
+    [UI_MENU_COLOR_SCROLLBAR]       = { "ui_menu_color_scrollbar_track", "26 36 48 255" },
+    [UI_MENU_COLOR_HINT_BACKGROUND] = { "ui_menu_color_hint_bg",         "5 7 10 235" },
+    [UI_MENU_COLOR_HINT_TEXT]       = { "ui_menu_color_hint_text",       "185 195 205 255" },
+
+    [UI_MENU_COLOR_FOCUS_MARKER]    = { "ui_menu_color_focus_marker",    "170 70 83 220" },
+    [UI_MENU_COLOR_VALUE]           = { "ui_menu_color_value_text",      "220 224 230 255" },
+    [UI_MENU_COLOR_VALUE_ACTIVE]    = { "ui_menu_color_value_active_text", "255 255 255 255" },
+    [UI_MENU_COLOR_VALUE_CHANGED]   = { "ui_menu_color_value_changed_text", "225 112 124 255" },
+    [UI_MENU_COLOR_SLIDER_TRACK]    = { "ui_menu_color_slider_track",    "26 36 48 255" },
+    [UI_MENU_COLOR_SLIDER_FILL]     = { "ui_menu_color_slider_fill",     "48 86 124 220" },
+    [UI_MENU_COLOR_SLIDER_THUMB]    = { "ui_menu_color_slider_thumb",    "160 168 178 255" },
+    [UI_MENU_COLOR_SLIDER_BORDER]   = { "ui_menu_color_slider_border",   "95 143 190 180" },
+    [UI_MENU_COLOR_SORTED_HEADER]   = { "ui_menu_color_sorted_header_bg", "95 45 56 235" },
+    [UI_MENU_COLOR_TAB_TEXT]        = { "ui_menu_color_tab_text",        "185 195 205 255" },
+    [UI_MENU_COLOR_TAB_ACTIVE_TEXT] = { "ui_menu_color_tab_active_text", "255 255 255 255" },
+    [UI_MENU_COLOR_TAB_ACTIVE_BG]   = { "ui_menu_color_tab_active_bg",   "44 78 112 200" },
+    [UI_MENU_COLOR_TAB_INACTIVE_BG] = { "ui_menu_color_tab_inactive_bg", "8 12 18 180" },
+    [UI_MENU_COLOR_TITLE_UNDERLINE] = { "ui_menu_color_title_underline", "170 70 83 180" },
+    [UI_MENU_COLOR_PANEL_BORDER]    = { "ui_menu_color_panel_border",    "44 58 72 160" },
+    [UI_MENU_COLOR_PANEL_SHADOW]    = { "ui_menu_color_panel_shadow",    "0 0 0 120" },
+    [UI_MENU_COLOR_VALUE_BG]        = { "ui_menu_color_value_bg",        "18 26 36 180" },
+    [UI_MENU_COLOR_TAB_UNDERLINE]   = { "ui_menu_color_tab_underline",   "225 112 124 220" }
 };
 
 // ===========================================================================
@@ -561,42 +600,9 @@ static bool UI_ParseMenuColor(const char *s, color_t *color)
     return true;
 }
 
-static void ui_menu_style_changed(cvar_t *self)
+uiMenuStyleId_t UI_MenuStyleId(void)
 {
-    const char *value;
-
-    if (!Q_stricmp(self->string, "classic")) {
-        value = "0";
-    } else if (!Q_stricmp(self->string, "slate")) {
-        value = "1";
-    } else if (!Q_stricmp(self->string, "custom")) {
-        value = "2";
-    } else {
-        value = va("%d", Q_clip(self->integer, 0, UI_MENU_STYLE_COUNT - 1));
-    }
-
-    if (strcmp(self->string, value)) {
-        Cvar_SetByVar(self, value, FROM_CODE);
-    }
-}
-
-static uiMenuStyleId_t UI_MenuStyleId(void)
-{
-    if (!ui_menu_style) {
-        return UI_MENU_STYLE_SLATE;
-    }
-
-    if (!Q_stricmp(ui_menu_style->string, "classic")) {
-        return UI_MENU_STYLE_CLASSIC;
-    }
-    if (!Q_stricmp(ui_menu_style->string, "slate")) {
-        return UI_MENU_STYLE_SLATE;
-    }
-    if (!Q_stricmp(ui_menu_style->string, "custom")) {
-        return UI_MENU_STYLE_CUSTOM;
-    }
-
-    return Q_clip(ui_menu_style->integer, 0, UI_MENU_STYLE_COUNT - 1);
+    return UI_MENU_STYLE_CUSTOM;
 }
 
 static void UI_ApplyCustomColor(uiMenuColorId_t id, color_t *color)
@@ -634,43 +640,90 @@ static void UI_ApplyMenuStyle(void)
     uis.scrollbarColor = uis.color.normal.u32;
     uis.hintBackgroundColor = MakeColor(0, 0, 255, 255);
     uis.hintTextColor = MakeColor(255, 255, 255, 255);
+
+    uis.focusMarkerColor        = MakeColor(180, 180, 180, 160);
+    uis.valueColor              = MakeColor(15, 128, 235, 255);
+    uis.valueActiveColor        = MakeColor(15, 128, 235, 255);
+    uis.valueChangedColor      = MakeColor(225, 112, 124, 255);
+    uis.sliderTrackColor        = MakeColor(80, 80, 80, 110);
+    uis.sliderFillColor         = MakeColor(15, 128, 235, 255);
+    uis.sliderThumbColor        = MakeColor(255, 255, 255, 255);
+    uis.sliderBorderColor       = MakeColor(180, 180, 180, 160);
+    uis.sortedHeaderColor       = uis.color.normal.u32;
+    uis.tabTextColor            = uis.color.normal.u32;
+    uis.tabActiveTextColor      = uis.color.alternate.u32;
+    uis.tabActiveBgColor        = uis.color.focus.u32;
+    uis.tabInactiveBgColor      = uis.color.background.u32;
+
+    uis.titleUnderlineColor     = MakeColor(0, 0, 0, 0);
+    uis.panelBorderColor        = MakeColor(0, 0, 0, 0);
+    uis.panelShadowColor        = MakeColor(0, 0, 0, 0);
+    uis.valueBgColor            = MakeColor(0, 0, 0, 0);
+    uis.tabUnderlineColor       = MakeColor(0, 0, 0, 0);
+
     uis.styleFocusFill = false;
     uis.styleMenuBackground = false;
 
-    switch (UI_MenuStyleId()) {
-    case UI_MENU_STYLE_CLASSIC:
-        return;
-    case UI_MENU_STYLE_SLATE:
-        uis.color = ui_slateColorStyle;
-        uis.listHeaderColor = ui_slateListHeaderColor;
-        uis.scrollbarColor = ui_slateScrollbarColor;
-        uis.hintBackgroundColor = MakeColor(18, 20, 23, 235);
-        uis.hintTextColor = uis.color.normal.u32;
-        break;
-    case UI_MENU_STYLE_CUSTOM:
-        uis.color = ui_slateColorStyle;
-        uis.listHeaderColor = ui_slateListHeaderColor;
-        uis.scrollbarColor = ui_slateScrollbarColor;
-        uis.hintBackgroundColor = MakeColor(18, 20, 23, 235);
-        uis.hintTextColor = uis.color.normal.u32;
-        UI_ApplyCustomColor(UI_MENU_COLOR_BACKGROUND, &uis.color.background);
-        UI_ApplyCustomColor(UI_MENU_COLOR_TITLE, &uis.color.title);
-        UI_ApplyCustomColor(UI_MENU_COLOR_NORMAL, &uis.color.normal);
-        UI_ApplyCustomColor(UI_MENU_COLOR_SELECTABLE, &uis.color.selectable);
-        UI_ApplyCustomColor(UI_MENU_COLOR_ALTERNATE, &uis.color.alternate);
-        UI_ApplyCustomColor(UI_MENU_COLOR_ACTIVE, &uis.color.active);
-        UI_ApplyCustomColor(UI_MENU_COLOR_SELECTION, &uis.color.selection);
-        UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS, &uis.color.focus);
-        UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS_BORDER, &uis.color.focus_border);
-        UI_ApplyCustomColor(UI_MENU_COLOR_DISABLED, &uis.color.disabled);
-        UI_ApplyCustomColor32(UI_MENU_COLOR_LIST_HEADER, &uis.listHeaderColor);
-        UI_ApplyCustomColor32(UI_MENU_COLOR_SCROLLBAR, &uis.scrollbarColor);
-        UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_BACKGROUND, &uis.hintBackgroundColor);
-        UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_TEXT, &uis.hintTextColor);
-        break;
-    default:
-        return;
-    }
+    uis.color = ui_slateColorStyle;
+    uis.listHeaderColor = ui_slateListHeaderColor;
+    uis.scrollbarColor = ui_slateScrollbarColor;
+    uis.hintBackgroundColor = MakeColor(18, 20, 23, 235);
+    uis.hintTextColor = uis.color.normal.u32;
+
+    uis.focusMarkerColor        = MakeColor(180, 184, 190, 220);
+    uis.valueColor              = MakeColor(232, 235, 240, 255);
+    uis.valueActiveColor        = MakeColor(255, 255, 255, 255);
+    uis.valueChangedColor       = MakeColor(225, 112, 124, 255);
+    uis.sliderTrackColor        = MakeColor(50, 55, 62, 255);
+    uis.sliderFillColor         = MakeColor(95, 102, 112, 220);
+    uis.sliderThumbColor        = MakeColor(255, 255, 255, 255);
+    uis.sliderBorderColor       = MakeColor(180, 184, 190, 220);
+    uis.sortedHeaderColor       = ui_slateListHeaderColor;
+    uis.tabTextColor            = MakeColor(232, 235, 240, 255);
+    uis.tabActiveTextColor      = MakeColor(255, 255, 255, 255);
+    uis.tabActiveBgColor        = MakeColor(95, 102, 112, 220);
+    uis.tabInactiveBgColor      = MakeColor(28, 31, 34, 210);
+
+    uis.titleUnderlineColor     = MakeColor(170, 70, 83, 180);
+    uis.panelBorderColor        = MakeColor(44, 58, 72, 160);
+    uis.panelShadowColor        = MakeColor(0, 0, 0, 120);
+    uis.valueBgColor            = MakeColor(18, 26, 36, 180);
+    uis.tabUnderlineColor       = MakeColor(225, 112, 124, 220);
+
+    UI_ApplyCustomColor(UI_MENU_COLOR_BACKGROUND, &uis.color.background);
+    UI_ApplyCustomColor(UI_MENU_COLOR_TITLE, &uis.color.title);
+    UI_ApplyCustomColor(UI_MENU_COLOR_NORMAL, &uis.color.normal);
+    UI_ApplyCustomColor(UI_MENU_COLOR_SELECTABLE, &uis.color.selectable);
+    UI_ApplyCustomColor(UI_MENU_COLOR_ALTERNATE, &uis.color.alternate);
+    UI_ApplyCustomColor(UI_MENU_COLOR_ACTIVE, &uis.color.active);
+    UI_ApplyCustomColor(UI_MENU_COLOR_SELECTION, &uis.color.selection);
+    UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS, &uis.color.focus);
+    UI_ApplyCustomColor(UI_MENU_COLOR_FOCUS_BORDER, &uis.color.focus_border);
+    UI_ApplyCustomColor(UI_MENU_COLOR_DISABLED, &uis.color.disabled);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_LIST_HEADER, &uis.listHeaderColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SCROLLBAR, &uis.scrollbarColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_BACKGROUND, &uis.hintBackgroundColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_HINT_TEXT, &uis.hintTextColor);
+
+    UI_ApplyCustomColor32(UI_MENU_COLOR_FOCUS_MARKER, &uis.focusMarkerColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_VALUE, &uis.valueColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_VALUE_ACTIVE, &uis.valueActiveColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_VALUE_CHANGED, &uis.valueChangedColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SLIDER_TRACK, &uis.sliderTrackColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SLIDER_FILL, &uis.sliderFillColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SLIDER_THUMB, &uis.sliderThumbColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SLIDER_BORDER, &uis.sliderBorderColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_SORTED_HEADER, &uis.sortedHeaderColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TAB_TEXT, &uis.tabTextColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TAB_ACTIVE_TEXT, &uis.tabActiveTextColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TAB_ACTIVE_BG, &uis.tabActiveBgColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TAB_INACTIVE_BG, &uis.tabInactiveBgColor);
+
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TITLE_UNDERLINE, &uis.titleUnderlineColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_PANEL_BORDER, &uis.panelBorderColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_PANEL_SHADOW, &uis.panelShadowColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_VALUE_BG, &uis.valueBgColor);
+    UI_ApplyCustomColor32(UI_MENU_COLOR_TAB_UNDERLINE, &uis.tabUnderlineColor);
 
     uis.styleFocusFill = true;
     uis.styleMenuBackground = true;
@@ -701,9 +754,155 @@ uint32_t UI_MenuHintTextColor(void)
     return uis.hintTextColor;
 }
 
+uint32_t UI_MenuFocusMarkerColor(void)
+{
+    return uis.focusMarkerColor;
+}
+
+uint32_t UI_MenuValueColor(void)
+{
+    return uis.valueColor;
+}
+
+uint32_t UI_MenuValueActiveColor(void)
+{
+    return uis.valueActiveColor;
+}
+
+uint32_t UI_MenuValueChangedColor(void)
+{
+    return uis.valueChangedColor;
+}
+
+uint32_t UI_MenuSliderTrackColor(void)
+{
+    return uis.sliderTrackColor;
+}
+
+uint32_t UI_MenuSliderFillColor(void)
+{
+    return uis.sliderFillColor;
+}
+
+uint32_t UI_MenuSliderThumbColor(void)
+{
+    return uis.sliderThumbColor;
+}
+
+uint32_t UI_MenuSliderBorderColor(void)
+{
+    return uis.sliderBorderColor;
+}
+
+uint32_t UI_MenuSortedHeaderColor(void)
+{
+    return uis.sortedHeaderColor;
+}
+
+uint32_t UI_MenuTabTextColor(void)
+{
+    return uis.tabTextColor;
+}
+
+uint32_t UI_MenuTabActiveTextColor(void)
+{
+    return uis.tabActiveTextColor;
+}
+
+uint32_t UI_MenuTabActiveBgColor(void)
+{
+    return uis.tabActiveBgColor;
+}
+
+uint32_t UI_MenuTabInactiveBgColor(void)
+{
+    return uis.tabInactiveBgColor;
+}
+
 bool UI_MenuStyleFocusFill(void)
 {
     return uis.styleFocusFill;
+}
+
+int UI_MenuSpacing(void)
+{
+    const char *density;
+    char *end;
+    long offset;
+    int base = GENERIC_SPACING(CHAR_HEIGHT);
+
+    if (!ui_menu_density || !ui_menu_density->string || !ui_menu_density->string[0]) {
+        return base;
+    }
+
+    density = ui_menu_density->string;
+
+    if (Q_stricmp(density, "compact") == 0 ||
+        Q_stricmp(density, "dense") == 0 ||
+        Q_stricmp(density, "small") == 0) {
+        return base - 2;
+        }
+
+    if (Q_stricmp(density, "normal") == 0 ||
+        Q_stricmp(density, "default") == 0 ||
+        Q_stricmp(density, "medium") == 0) {
+        return base;
+        }
+
+    if (Q_stricmp(density, "spacious") == 0 ||
+        Q_stricmp(density, "large") == 0 ||
+        Q_stricmp(density, "big") == 0) {
+        return base + 8;
+        }
+
+    offset = strtol(density, &end, 10);
+
+    /*
+     * Only accept real numeric values.
+     * Prevents "abc" from behaving like 0.
+     */
+    if (end == density || *end != '\0') {
+        return base;
+    }
+
+    /*
+     * Clamp custom spacing offset.
+     * With base 10:
+     * -4 gives spacing 6
+     * 16 gives spacing 26
+     */
+    if (offset < -4) {
+        offset = -4;
+    } else if (offset > 16) {
+        offset = 16;
+    }
+
+    return base + (int)offset;
+}
+
+uint32_t UI_MenuTitleUnderlineColor(void)
+{
+    return uis.titleUnderlineColor;
+}
+
+uint32_t UI_MenuPanelBorderColor(void)
+{
+    return uis.panelBorderColor;
+}
+
+uint32_t UI_MenuPanelShadowColor(void)
+{
+    return uis.panelShadowColor;
+}
+
+uint32_t UI_MenuValueBgColor(void)
+{
+    return uis.valueBgColor;
+}
+
+uint32_t UI_MenuTabUnderlineColor(void)
+{
+    return uis.tabUnderlineColor;
 }
 
 static void UI_ResetMenuColors_f(void)
@@ -718,7 +917,7 @@ static void UI_ResetMenuColors_f(void)
         }
     }
 
-    Com_Printf("Custom menu colors reset to defaults.\n");
+    Com_Printf("Menu colors reset to defaults.\n");
 }
 
 static const char *ui_netmeter_cvars[] = {
@@ -802,6 +1001,10 @@ UI_Draw
 void UI_Draw(unsigned realtime)
 {
     int i;
+    static char prev_focus_width[32] = "";
+    static char prev_density[32] = "";
+    static float prev_scale = -1.0f;
+    bool cvar_changed = false;
 
     uis.realtime = realtime;
 
@@ -811,6 +1014,27 @@ void UI_Draw(unsigned realtime)
 
     if (!uis.activeMenu) {
         return;
+    }
+
+    if (ui_menu_focus_width && strcmp(ui_menu_focus_width->string, prev_focus_width) != 0) {
+        Q_strlcpy(prev_focus_width, ui_menu_focus_width->string, sizeof(prev_focus_width));
+        cvar_changed = true;
+    }
+    if (ui_menu_density && strcmp(ui_menu_density->string, prev_density) != 0) {
+        Q_strlcpy(prev_density, ui_menu_density->string, sizeof(prev_density));
+        cvar_changed = true;
+    }
+    if (ui_scale && ui_scale->value != prev_scale) {
+        prev_scale = ui_scale->value;
+        cvar_changed = true;
+    }
+    if (cvar_changed) {
+        for (i = 0; i < uis.menuDepth; i++) {
+            if (uis.layers[i]) {
+                uis.layers[i]->focusInitialized = false;
+                Menu_Layout(uis.layers[i]);
+            }
+        }
     }
 
     UI_ApplyMenuStyle();
@@ -1071,6 +1295,49 @@ static void cl_menu_cursor_changed(cvar_t *self)
     UI_SetCursor(self->string);
 }
 
+static const char *UI_NormalizeMenuFocusWidth(const char *value)
+{
+    if (!value || !value[0]) {
+        return "content";
+    }
+
+    if (!Q_strcasecmp(value, "full") ||
+        !Q_strcasecmp(value, "row") ||
+        strcmp(value, "0") == 0) {
+        return "full";
+    }
+
+    if (!Q_strcasecmp(value, "content") ||
+        !Q_strcasecmp(value, "item") ||
+        strcmp(value, "1") == 0) {
+        return "content";
+    }
+
+    if (!Q_strcasecmp(value, "text") ||
+        !Q_strcasecmp(value, "split") ||
+        strcmp(value, "2") == 0) {
+        return "text";
+    }
+
+    return "content";
+}
+
+static void ui_menu_focus_width_changed(cvar_t *self)
+{
+    const char *value = UI_NormalizeMenuFocusWidth(self->string);
+
+    if (strcmp(self->string, value) != 0) {
+        Cvar_SetByVar(self, value, FROM_CODE);
+    }
+}
+
+static void UI_MenuFocusWidth_g(genctx_t *ctx)
+{
+    Prompt_AddMatch(ctx, "full");
+    Prompt_AddMatch(ctx, "content");
+    Prompt_AddMatch(ctx, "text");
+}
+
 /*
 =================
 UI_Init
@@ -1085,15 +1352,27 @@ void UI_Init(void)
     ui_debug = Cvar_Get("ui_debug", "0", 0);
     ui_open = Cvar_Get("ui_open", "0", 0);
     ui_draw_layers = Cvar_Get("ui_draw_layers", "0", 0);
-    ui_menu_style = Cvar_Get("ui_menu_style", "1", CVAR_ARCHIVE);
-    ui_menu_style->changed = ui_menu_style_changed;
-    ui_menu_style_changed(ui_menu_style);
+
     for (i = 0; i < UI_MENU_COLOR_COUNT; i++) {
         ui_menu_custom_colors[i] =
             Cvar_Get(ui_menu_custom_color_defs[i].cvarName,
                      ui_menu_custom_color_defs[i].defaultValue,
                      CVAR_ARCHIVE);
     }
+
+    ui_menu_focus_width = Cvar_Get("ui_menu_focus_width", "content", CVAR_ARCHIVE);
+    ui_menu_focus_width->changed = ui_menu_focus_width_changed;
+    ui_menu_focus_width->generator = UI_MenuFocusWidth_g;
+    ui_menu_focus_width_changed(ui_menu_focus_width);
+
+    ui_menu_focus_padding_x = Cvar_Get("ui_menu_focus_padding_x", "12", CVAR_ARCHIVE);
+    ui_menu_focus_padding_y = Cvar_Get("ui_menu_focus_padding_y", "2", CVAR_ARCHIVE);
+    ui_menu_title_underline = Cvar_Get("ui_menu_title_underline", "1", CVAR_ARCHIVE);
+    ui_menu_value_chips = Cvar_Get("ui_menu_value_chips", "0", CVAR_ARCHIVE);
+    ui_menu_density = Cvar_Get("ui_menu_density", "normal", CVAR_ARCHIVE);
+    ui_menu_focus_lerp = Cvar_Get("ui_menu_focus_lerp", "0", CVAR_ARCHIVE);
+    ui_menu_focus_lerp_speed = Cvar_Get("ui_menu_focus_lerp_speed", "12", CVAR_ARCHIVE);
+
     cl_menu_cursor = Cvar_Get("cl_menu_cursor", "ch5", CVAR_ARCHIVE);
     cl_menu_cursor->changed = cl_menu_cursor_changed;
 
@@ -1120,6 +1399,19 @@ void UI_Init(void)
     uis.scrollbarColor          = uis.color.normal.u32;
     uis.hintBackgroundColor     = MakeColor(0, 0, 255, 255);
     uis.hintTextColor           = MakeColor(255, 255, 255, 255);
+    uis.focusMarkerColor        = MakeColor(180, 180, 180, 160);
+    uis.valueColor              = MakeColor(15, 128, 235, 255);
+    uis.valueActiveColor        = MakeColor(15, 128, 235, 255);
+    uis.valueChangedColor      = MakeColor(225, 112, 124, 255);
+    uis.sliderTrackColor        = MakeColor(80, 80, 80, 110);
+    uis.sliderFillColor         = MakeColor(15, 128, 235, 255);
+    uis.sliderThumbColor        = MakeColor(255, 255, 255, 255);
+    uis.sliderBorderColor       = MakeColor(180, 180, 180, 160);
+    uis.sortedHeaderColor       = uis.color.normal.u32;
+    uis.tabTextColor            = uis.color.normal.u32;
+    uis.tabActiveTextColor      = uis.color.alternate.u32;
+    uis.tabActiveBgColor        = uis.color.focus.u32;
+    uis.tabInactiveBgColor      = uis.color.background.u32;
     uis.styleFocusFill          = false;
     uis.styleMenuBackground     = false;
 
@@ -1149,6 +1441,7 @@ void UI_Shutdown(void)
     if (!uis.initialized) {
         return;
     }
+
     UI_ForceMenuOff();
 
     ui_scale->changed = NULL;

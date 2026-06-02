@@ -66,6 +66,20 @@ typedef enum {
 #define QMF_DISABLED        BIT(5)
 #define QMF_CUSTOM_COLOR    BIT(6)
 #define QMF_SHOW_VALUE      BIT(7)
+#define QMF_DEFER_COMMIT    BIT(8)
+
+
+typedef enum {
+    PLAQUE_LEFT,
+    PLAQUE_RIGHT,
+    PLAQUE_TOP,
+    PLAQUE_BOTTOM,
+    PLAQUE_CENTER,
+    PLAQUE_SCREEN_TOPLEFT,
+    PLAQUE_SCREEN_TOPRIGHT,
+    PLAQUE_SCREEN_BOTTOMLEFT,
+    PLAQUE_SCREEN_BOTTOMRIGHT
+} plaquePosition_t;
 
 typedef enum {
     QMS_NOTHANDLED,
@@ -87,7 +101,8 @@ typedef enum {
 
 #define GENERIC_SPACING(x)   ((x) + (x) / 4)
 
-#define MENU_SPACING    GENERIC_SPACING(CHAR_HEIGHT)
+int         UI_MenuSpacing(void);
+#define MENU_SPACING    UI_MenuSpacing()
 
 #define DOUBLE_CLICK_DELAY    300
 
@@ -132,6 +147,14 @@ typedef struct menuFrameWork_s {
 
     qhandle_t logo;
     vrect_t logo_rc;
+    plaquePosition_t plaquePosition;
+
+    float focusCurrentX;
+    float focusCurrentWidth;
+    float focusCurrentY;
+    float focusCurrentHeight;
+    unsigned int focusLastTime;
+    bool focusInitialized;
 
     bool (*push)(struct menuFrameWork_s *);
     void (*pop)(struct menuFrameWork_s *);
@@ -293,6 +316,10 @@ void PlayerModel_Free(void);
 
 #define NUM_CURSOR_FRAMES 15
 
+typedef enum {
+    UI_MENU_STYLE_CUSTOM,
+} uiMenuStyleId_t;
+
 typedef struct uiColorStyle_s {
     color_t background;
     color_t title;
@@ -335,6 +362,27 @@ typedef struct {
     uint32_t scrollbarColor;
     uint32_t hintBackgroundColor;
     uint32_t hintTextColor;
+
+    uint32_t focusMarkerColor;
+    uint32_t valueColor;
+    uint32_t valueActiveColor;
+    uint32_t valueChangedColor;
+    uint32_t sliderTrackColor;
+    uint32_t sliderFillColor;
+    uint32_t sliderThumbColor;
+    uint32_t sliderBorderColor;
+    uint32_t sortedHeaderColor;
+    uint32_t tabTextColor;
+    uint32_t tabActiveTextColor;
+    uint32_t tabActiveBgColor;
+    uint32_t tabInactiveBgColor;
+
+    uint32_t titleUnderlineColor;
+    uint32_t panelBorderColor;
+    uint32_t panelShadowColor;
+    uint32_t valueBgColor;
+    uint32_t tabUnderlineColor;
+
     bool styleFocusFill;
     bool styleMenuBackground;
 } uiStatic_t;
@@ -344,8 +392,16 @@ extern uiStatic_t   uis;
 extern list_t       ui_menus;
 
 extern cvar_t       *ui_debug;
-extern cvar_t       *ui_menu_style;
 extern cvar_t       *cl_menu_cursor;
+
+extern cvar_t       *ui_menu_focus_width;
+extern cvar_t       *ui_menu_focus_padding_x;
+extern cvar_t       *ui_menu_focus_padding_y;
+extern cvar_t       *ui_menu_title_underline;
+extern cvar_t       *ui_menu_value_chips;
+extern cvar_t       *ui_menu_density;
+extern cvar_t       *ui_menu_focus_lerp;
+extern cvar_t       *ui_menu_focus_lerp_speed;
 
 void        UI_SetCursor(const char *name);
 const char *UI_GetCursorTextureName(const char *name);
@@ -370,10 +426,32 @@ uint32_t    UI_MenuHintBackgroundColor(void);
 uint32_t    UI_MenuHintTextColor(void);
 bool        UI_MenuStyleFocusFill(void);
 
+uiMenuStyleId_t UI_MenuStyleId(void);
+uint32_t    UI_MenuFocusMarkerColor(void);
+uint32_t    UI_MenuValueColor(void);
+uint32_t    UI_MenuValueActiveColor(void);
+uint32_t    UI_MenuValueChangedColor(void);
+uint32_t    UI_MenuSliderTrackColor(void);
+uint32_t    UI_MenuSliderFillColor(void);
+uint32_t    UI_MenuSliderThumbColor(void);
+uint32_t    UI_MenuSliderBorderColor(void);
+uint32_t    UI_MenuSortedHeaderColor(void);
+uint32_t    UI_MenuTabTextColor(void);
+uint32_t    UI_MenuTabActiveTextColor(void);
+uint32_t    UI_MenuTabActiveBgColor(void);
+uint32_t    UI_MenuTabInactiveBgColor(void);
+uint32_t    UI_MenuTitleUnderlineColor(void);
+uint32_t    UI_MenuPanelBorderColor(void);
+uint32_t    UI_MenuPanelShadowColor(void);
+uint32_t    UI_MenuValueBgColor(void);
+uint32_t    UI_MenuTabUnderlineColor(void);
+
 void        UI_LoadScript(void);
 menuFrameWork_t *UI_FindMenu(const char *name);
 
+void        Menu_SetColor(uint32_t color);
 void        Menu_Init(menuFrameWork_t *menu);
+void        Menu_Layout(menuFrameWork_t *menu);
 void        Menu_Size(menuFrameWork_t *menu);
 void        Menu_Draw(menuFrameWork_t *menu);
 void        Menu_UpdateShowIf(menuFrameWork_t *menu);

@@ -167,15 +167,71 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
+| `cl_menu_cursor` | `ch5` | Texture cursor used by the in-game menu in exclusive fullscreen. Accepts `none`, `cross`, `dot`, `angle`, `ch4`, or `ch5`. |
 | `ui_colorpicker_r` | `255` | Red component used by the menu color picker. |
 | `ui_colorpicker_g` | `255` | Green component used by the menu color picker. |
 | `ui_colorpicker_b` | `255` | Blue component used by the menu color picker. |
 | `ui_colorpicker_a` | `255` | Alpha component used by the menu color picker. |
 | `ui_draw_layers` | `0` | Draws/debugs menu layers. |
-| `ui_external_menu` | `0` | Chooses built-in menu data for `game jump`; other games load external `q2pro.menu`. |
-| `ui_menu_style` | `0` | Selects menu style: classic, slate, or custom. |
-| `cl_menu_cursor` | `ch5` | In-game menu cursor texture/name. |
+| `ui_external_menu` | `0` | When `0`, `game jump` uses the compiled built-in menu. When `1`, or when using another game directory, the UI loads external `q2pro.menu`. |
+| `ui_menu_density` | `normal` | Controls menu row spacing. Named values are `compact`, `normal`, and `spacious`; numeric offsets are clamped from `-4` to `16`. |
+| `ui_menu_focus_width` | `content` | Focus highlight width style: `full`, `content`, or `text`. Numeric aliases `0`, `1`, and `2` are normalized to those names. |
+| `ui_menu_focus_padding_x` | `12` | Horizontal padding added around content-width and text-width focus highlights. |
+| `ui_menu_focus_padding_y` | `2` | Vertical padding added around focus highlights. |
+| `ui_menu_focus_lerp` | `0` | Smoothly slides the focus highlight row between items. |
+| `ui_menu_focus_lerp_speed` | `12` | Animation speed for focus highlight interpolation. |
+| `ui_menu_title_underline` | `1` | Draws a subtle line under menu titles. |
+| `ui_menu_value_chips` | `0` | Draws small background boxes behind menu values. |
 | `win_menu_cursor` | `arrow` | Windows system cursor used for menus. |
+
+### Menu color cvars
+
+All menu color cvars are archived RGBA strings in the form `R G B A`. The built-in q2jump menu exposes them through **Menu Setup -> Menu Colors**.
+
+| Cvar | Default | Description |
+| --- | --- | --- |
+| `ui_menu_color_panel_bg` | `8 12 18 230` | Main menu panel background. |
+| `ui_menu_color_title_text` | `225 112 124 255` | Menu title text. |
+| `ui_menu_color_text` | `210 216 224 255` | Default text. |
+| `ui_menu_color_item_text` | `210 216 224 255` | Selectable item text. |
+| `ui_menu_color_label_text` | `160 168 178 255` | Secondary labels and left-column text. |
+| `ui_menu_color_focus_text` | `255 255 255 255` | Text on focused controls. |
+| `ui_menu_color_selection_bg` | `44 78 112 200` | Selected list row background. |
+| `ui_menu_color_focus_bg` | `48 86 124 190` | Focus highlight background. |
+| `ui_menu_color_focus_edge` | `170 70 83 180` | Focus highlight edge/border. |
+| `ui_menu_color_disabled_text` | `86 90 98 255` | Disabled item text. |
+| `ui_menu_color_list_header_bg` | `82 40 50 235` | List column header background. |
+| `ui_menu_color_scrollbar_track` | `26 36 48 255` | Scrollbar track. |
+| `ui_menu_color_hint_bg` | `5 7 10 235` | Bottom hint/status bar background. |
+| `ui_menu_color_hint_text` | `185 195 205 255` | Bottom hint/status bar text. |
+| `ui_menu_color_focus_marker` | `170 70 83 220` | Focus marker/triangle accent. |
+| `ui_menu_color_value_text` | `220 224 230 255` | Value column text. |
+| `ui_menu_color_value_active_text` | `255 255 255 255` | Focused value column text. |
+| `ui_menu_color_value_changed_text` | `225 112 124 255` | Modified value text before commit. |
+| `ui_menu_color_slider_track` | `26 36 48 255` | Slider track. |
+| `ui_menu_color_slider_fill` | `48 86 124 220` | Slider filled range. |
+| `ui_menu_color_slider_thumb` | `160 168 178 255` | Slider thumb. |
+| `ui_menu_color_slider_border` | `95 143 190 180` | Slider thumb border. |
+| `ui_menu_color_sorted_header_bg` | `95 45 56 235` | Sorted list header background. |
+| `ui_menu_color_tab_text` | `185 195 205 255` | Inactive server-browser tab text. |
+| `ui_menu_color_tab_active_text` | `255 255 255 255` | Active server-browser tab text. |
+| `ui_menu_color_tab_active_bg` | `44 78 112 200` | Active server-browser tab background. |
+| `ui_menu_color_tab_inactive_bg` | `8 12 18 180` | Inactive server-browser tab background. |
+| `ui_menu_color_title_underline` | `170 70 83 180` | Menu title underline. |
+| `ui_menu_color_panel_border` | `44 58 72 160` | Panel and swatch border. |
+| `ui_menu_color_panel_shadow` | `0 0 0 120` | Panel and swatch drop shadow. |
+| `ui_menu_color_value_bg` | `18 26 36 180` | Value chip background. |
+| `ui_menu_color_tab_underline` | `225 112 124 220` | Active server-browser tab underline. |
+
+### Built-in menu script notes
+
+The q2jump build has a compiled menu string and uses it by default for `game jump`. External menu files still work when `ui_external_menu` is set to `1`.
+
+The menu script supports `style --live` for controls that should write cvars as the user changes them. Individual controls can use `--defer` to stay pending inside a live menu and commit only when the menu is closed. This is used by the video menu so safe settings update live, while refresh/restart-sensitive settings such as fullscreen mode, MSAA, hardware gamma, texture reload settings, and shader backend changes are applied only after leaving the menu.
+
+The `plaque` command accepts an optional position argument: `left`, `right`, `top`, `bottom`, `center`, `screen-topleft`, `screen-topright`, `screen-bottomleft`, or `screen-bottomright`.
+
+Virtual `--show-if` cvars provided by the UI are `ui_exclusive_fullscreen`, `ui_borderless_or_windowed`, and `ui_histogram_custom_width`.
 
 ## Video and Windowing
 

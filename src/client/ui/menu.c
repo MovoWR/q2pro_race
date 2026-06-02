@@ -19,13 +19,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "ui.h"
 #include "server/server.h"
 #include "src/jump/sh_menus.h"
+#include <math.h>
 
 extern cvar_t *cl_drawStrafeHelper;
 
 static bool Field_ParseColor(const char *s, color_t *color);
 static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t size);
 
-static void Menu_SetColor(uint32_t color)
+void Menu_SetColor(uint32_t color)
 {
     R_SetColor(color);
     R_SetAltColor(uis.color.alternate.u32);
@@ -177,12 +178,16 @@ static void Action_Draw(menuAction_t *a)
         Menu_SetColor(uis.color.active.u32);
         if ((a->generic.uiFlags & UI_CENTER) != UI_CENTER) {
             if ((uis.realtime >> 8) & 1) {
+                Menu_SetColor(UI_MenuFocusMarkerColor());
                 UI_DrawChar(a->generic.x - RCOLUMN_OFFSET / 2, a->generic.y, a->generic.uiFlags | UI_RIGHT, 13);
+                Menu_SetColor(uis.color.active.u32);
             }
         } else {
             flags |= UI_ALTCOLOR;
             if ((uis.realtime >> 8) & 1) {
+                Menu_SetColor(UI_MenuFocusMarkerColor());
                 UI_DrawChar(a->generic.x - strlen(a->generic.name) * CHAR_WIDTH / 2 - CHAR_WIDTH, a->generic.y, flags, 13);
+                Menu_SetColor(uis.color.active.u32);
             }
         }
     }
@@ -350,7 +355,9 @@ static void Keybind_Draw(menuKeybind_t *k)
         /*if(k->generic.parent->keywait) {
             UI_DrawChar(k->generic.x + RCOLUMN_OFFSET / 2, k->generic.y, k->generic.uiFlags | UI_RIGHT, '=');
         } else*/ if ((uis.realtime >> 8) & 1) {
+            Menu_SetColor(UI_MenuFocusMarkerColor());
             UI_DrawChar(k->generic.x + RCOLUMN_OFFSET / 2, k->generic.y, k->generic.uiFlags | UI_RIGHT, 13);
+            Menu_SetColor(uis.color.active.u32);
         }
     } else {
         if (k->generic.parent->keywait) {
@@ -589,6 +596,13 @@ static void Field_DrawColorSwatch(int x, int y, int w, int h,
         return;
     }
 
+    if (w >= 24 && h >= 24) {
+        uint32_t shadow_color = UI_MenuPanelShadowColor();
+        if (shadow_color & 0xff000000) {
+            R_DrawFill32(x + 2, y + 2, w, h, shadow_color);
+        }
+    }
+
     R_DrawFill32(x, y, w, h, border);
     R_DrawFill32(x + 1, y + 1, w - 2, h - 2, dark);
     R_DrawFill32(x + 1, y + 1, (w - 2) / 2, (h - 2) / 2, light);
@@ -599,6 +613,16 @@ static void Field_DrawColorSwatch(int x, int y, int w, int h,
         R_DrawFill32(x + 2, y + 2, w - 4, h - 4, color->u32);
     } else {
         R_DrawFill32(x + 2, y + 2, w - 4, h - 4, MakeColor(96, 0, 0, 220));
+    }
+
+    if (w >= 24 && h >= 24) {
+        uint32_t border_color = UI_MenuPanelBorderColor();
+        if (border_color & 0xff000000) {
+            R_DrawFill32(x, y, w, 1, border_color); // Top
+            R_DrawFill32(x, y + h - 1, w, 1, border_color); // Bottom
+            R_DrawFill32(x, y, 1, h, border_color); // Left
+            R_DrawFill32(x + w - 1, y, 1, h, border_color); // Right
+        }
     }
 }
 
@@ -1243,8 +1267,10 @@ static void SpinControl_Draw(menuSpinControl_t *s)
 
     if (s->generic.flags & QMF_HASFOCUS) {
         if ((uis.realtime >> 8) & 1) {
+            Menu_SetColor(UI_MenuFocusMarkerColor());
             UI_DrawChar(s->generic.x + RCOLUMN_OFFSET / 2, s->generic.y,
                         s->generic.uiFlags | UI_RIGHT, 13);
+            Menu_SetColor(uis.color.active.u32);
         }
     }
 
@@ -1252,6 +1278,26 @@ static void SpinControl_Draw(menuSpinControl_t *s)
         name = "???";
     else
         name = s->itemnames[s->curvalue];
+
+    if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
+        if (s->generic.flags & QMF_HASFOCUS) {
+            Menu_SetColor(UI_MenuValueActiveColor());
+        } else {
+            Menu_SetColor(UI_MenuValueColor());
+        }
+    }
+
+    if (ui_menu_value_chips && ui_menu_value_chips->integer) {
+        uint32_t bg_color = (s->generic.flags & QMF_HASFOCUS) ? uis.color.focus.u32 : UI_MenuValueBgColor();
+        if (bg_color & 0xff000000) {
+            int val_len = strlen(name) * CHAR_WIDTH;
+            int box_x = s->generic.x + RCOLUMN_OFFSET - 6;
+            int box_w = val_len + 12;
+            int box_y = s->generic.y - 2;
+            int box_h = CHAR_HEIGHT + 4;
+            R_DrawFill32(box_x, box_y, box_w, box_h, bg_color);
+        }
+    }
 
     UI_DrawString(s->generic.x + RCOLUMN_OFFSET, s->generic.y,
                   s->generic.uiFlags, name);
@@ -1276,12 +1322,23 @@ static void SpinControl_Draw(menuSpinControl_t *s)
 
         if (val) {
             Q_snprintf(value, sizeof(value), "[%s]", val);
+            if (ui_menu_value_chips && ui_menu_value_chips->integer) {
+                uint32_t bg_color = (s->generic.flags & QMF_HASFOCUS) ? uis.color.focus.u32 : UI_MenuValueBgColor();
+                if (bg_color & 0xff000000) {
+                    int raw_len = strlen(value) * CHAR_WIDTH;
+                    int raw_x = s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH - 6;
+                    int raw_w = raw_len + 12;
+                    int raw_y = s->generic.y - 2;
+                    int raw_h = CHAR_HEIGHT + 4;
+                    R_DrawFill32(raw_x, raw_y, raw_w, raw_h, bg_color);
+                }
+            }
             UI_DrawString(s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH,
                           s->generic.y, s->generic.uiFlags, value);
         }
     }
 
-    if (s->generic.flags & QMF_HASFOCUS) {
+    if (s->generic.flags & QMF_HASFOCUS || UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
         Menu_SetNormalColor();
     }
 }
@@ -1429,6 +1486,7 @@ static void Menu_CommitItem(menuCommon_t *item)
     case MTYPE_PAIRS:
         Pairs_Pop((menuSpinControl_t *)item);
         break;
+    case MTYPE_VALUES:
     case MTYPE_STRINGS:
         Strings_Pop((menuSpinControl_t *)item);
         break;
@@ -1448,7 +1506,8 @@ static void Menu_CommitItem(menuCommon_t *item)
 
 static void Menu_LiveCommit(menuCommon_t *item)
 {
-    if (item->parent && item->parent->live) {
+    if (item->parent && item->parent->live &&
+        !(item->flags & QMF_DEFER_COMMIT)) {
         Menu_CommitItem(item);
     }
 }
@@ -2026,11 +2085,22 @@ static void MenuList_Draw(menuList_t *l)
     int width, height;
     float pageFrac, prestepFrac;
     int barHeight;
+    int orig_x, orig_y, orig_width, orig_height;
 
     x = l->generic.rect.x;
     y = l->generic.rect.y;
     width = l->generic.rect.width;
     height = l->generic.rect.height;
+
+    orig_x = x;
+    orig_y = y;
+    orig_width = width;
+    orig_height = height;
+
+    uint32_t shadow_color = UI_MenuPanelShadowColor();
+    if (shadow_color & 0xff000000) {
+        R_DrawFill32(orig_x + 3, orig_y + 3, orig_width, orig_height, shadow_color);
+    }
 
     // draw header
     if (l->mlFlags & MLF_HEADER) {
@@ -2045,9 +2115,11 @@ static void MenuList_Draw(menuList_t *l)
 
             if (l->sortcol == j && l->sortdir) {
                 flags = 0;
-                if (l->generic.flags & QMF_HASFOCUS) {
-                    color = uis.color.active.u32;
-                    Menu_SetColor(color);
+                if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
+                    color = UI_MenuSortedHeaderColor();
+                } else if (l->generic.flags & QMF_HASFOCUS) {
+                    color = uis.color.focus.u32;
+                    Menu_SetColor(uis.color.active.u32);
                 }
             }
             R_DrawFill32(xx, y, l->columns[j].width - 1,
@@ -2101,11 +2173,7 @@ static void MenuList_Draw(menuList_t *l)
             continue;
         }
 
-        if (l->sortcol == j && l->sortdir) {
-            if (l->generic.flags & QMF_HASFOCUS) {
-                color = uis.color.active.u32;
-            }
-        }
+
         R_DrawFill32(xx, y, l->columns[j].width - 1,
                      height, color);
 
@@ -2126,7 +2194,8 @@ static void MenuList_Draw(menuList_t *l)
                     continue;
                 }
                 R_DrawFill32(xx, yy, l->columns[j].width - 1,
-                             MLIST_SPACING, uis.color.selection.u32);
+                             MLIST_SPACING,
+                             (l->generic.flags & QMF_HASFOCUS) ? uis.color.selection.u32 : uis.color.focus.u32);
                 xx += l->columns[j].width;
             }
         }
@@ -2161,6 +2230,14 @@ static void MenuList_Draw(menuList_t *l)
 
     if (l->mlFlags & MLF_COLOR) {
         Menu_SetNormalColor();
+    }
+
+    uint32_t border_color = UI_MenuPanelBorderColor();
+    if (border_color & 0xff000000) {
+        R_DrawFill32(orig_x, orig_y, orig_width, 1, border_color); // Top
+        R_DrawFill32(orig_x, orig_y + orig_height - 1, orig_width, 1, border_color); // Bottom
+        R_DrawFill32(orig_x, orig_y, 1, orig_height, border_color); // Left
+        R_DrawFill32(orig_x + orig_width - 1, orig_y, 1, orig_height, border_color); // Right
     }
 }
 
@@ -2371,7 +2448,9 @@ static void Slider_Draw(menuSlider_t *s)
 
     if (s->generic.flags & QMF_HASFOCUS) {
         if ((uis.realtime >> 8) & 1) {
+            Menu_SetColor(UI_MenuFocusMarkerColor());
             UI_DrawChar(s->generic.x + RCOLUMN_OFFSET / 2, s->generic.y, s->generic.uiFlags | UI_RIGHT, 13);
+            Menu_SetColor(uis.color.active.u32);
         }
     }
 
@@ -2382,21 +2461,61 @@ static void Slider_Draw(menuSlider_t *s)
         Menu_SetNormalColor();
     }
 
-    UI_DrawChar(s->generic.x + RCOLUMN_OFFSET, s->generic.y, flags | UI_LEFT, 128);
-
-    for (i = 0; i < SLIDER_RANGE; i++)
-        UI_DrawChar(RCOLUMN_OFFSET + s->generic.x + i * CHAR_WIDTH + CHAR_WIDTH, s->generic.y, flags | UI_LEFT, 129);
-
-    UI_DrawChar(RCOLUMN_OFFSET + s->generic.x + i * CHAR_WIDTH + CHAR_WIDTH, s->generic.y, flags | UI_LEFT, 130);
-
     pos = Q_clipf((s->curvalue - s->minvalue) / (s->maxvalue - s->minvalue), 0, 1);
 
-    UI_DrawChar(CHAR_WIDTH + RCOLUMN_OFFSET + s->generic.x + (SLIDER_RANGE - 1) * CHAR_WIDTH * pos, s->generic.y, flags | UI_LEFT, 131);
+    if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
+        int track_x = s->generic.x + RCOLUMN_OFFSET;
+        int track_w = (SLIDER_RANGE + 2) * CHAR_WIDTH;
+        int track_h = 4;
+        int track_y = s->generic.y + CHAR_HEIGHT / 2 - track_h / 2;
+
+        int thumb_x = s->generic.x + RCOLUMN_OFFSET + CHAR_WIDTH + (SLIDER_RANGE - 1) * CHAR_WIDTH * pos;
+        int thumb_w = CHAR_WIDTH;
+        int thumb_h = CHAR_HEIGHT;
+        int thumb_y = s->generic.y;
+
+        int fill_w = (thumb_x + thumb_w / 2) - track_x;
+
+        R_DrawFill32(track_x, track_y, track_w, track_h, UI_MenuSliderTrackColor());
+
+        if (fill_w > 0) {
+            R_DrawFill32(track_x, track_y, fill_w, track_h, UI_MenuSliderFillColor());
+        }
+
+        R_DrawFill32(thumb_x, thumb_y, thumb_w, thumb_h, UI_MenuSliderThumbColor());
+
+        uint32_t border_color = UI_MenuSliderBorderColor();
+        R_DrawFill32(thumb_x, thumb_y, 1, thumb_h, border_color); // Left
+        R_DrawFill32(thumb_x + thumb_w - 1, thumb_y, 1, thumb_h, border_color); // Right
+        R_DrawFill32(thumb_x, thumb_y, thumb_w, 1, border_color); // Top
+        R_DrawFill32(thumb_x, thumb_y + thumb_h - 1, thumb_w, 1, border_color); // Bottom
+    } else {
+        UI_DrawChar(s->generic.x + RCOLUMN_OFFSET, s->generic.y, flags | UI_LEFT, 128);
+
+        for (i = 0; i < SLIDER_RANGE; i++)
+            UI_DrawChar(RCOLUMN_OFFSET + s->generic.x + i * CHAR_WIDTH + CHAR_WIDTH, s->generic.y, flags | UI_LEFT, 129);
+
+        UI_DrawChar(RCOLUMN_OFFSET + s->generic.x + i * CHAR_WIDTH + CHAR_WIDTH, s->generic.y, flags | UI_LEFT, 130);
+
+        UI_DrawChar(CHAR_WIDTH + RCOLUMN_OFFSET + s->generic.x + (SLIDER_RANGE - 1) * CHAR_WIDTH * pos, s->generic.y, flags | UI_LEFT, 131);
+    }
 
     if (s->generic.flags & QMF_SHOW_VALUE) {
         Slider_ValueString(s, value, sizeof(value));
+        if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
+            if (s->modified) {
+                Menu_SetColor(UI_MenuValueChangedColor());
+            } else if (s->generic.flags & QMF_HASFOCUS) {
+                Menu_SetColor(UI_MenuValueActiveColor());
+            } else {
+                Menu_SetColor(UI_MenuValueColor());
+            }
+        }
         UI_DrawString(s->generic.x + RCOLUMN_OFFSET + 13 * CHAR_WIDTH,
                       s->generic.y, flags | UI_LEFT, value);
+        if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
+            Menu_SetNormalColor();
+        }
     }
 
     if (s->cvar &&
@@ -2703,7 +2822,7 @@ static void Menu_ClampHorizontal(menuFrameWork_t *menu)
     Menu_TranslateHorizontal(menu, dx);
 }
 
-static void Menu_Layout(menuFrameWork_t *menu)
+void Menu_Layout(menuFrameWork_t *menu)
 {
     void *item;
     int i;
@@ -2911,6 +3030,7 @@ void Menu_Init(menuFrameWork_t *menu)
     int i;
     bool focus = false;
 
+    menu->focusInitialized = false;
     menu->y1 = 0;
     menu->y2 = uis.height;
     menu->scrollOffset = 0;
@@ -2948,7 +3068,7 @@ void Menu_Init(menuFrameWork_t *menu)
 void Menu_Size(menuFrameWork_t *menu)
 {
     menuCommon_t *item;
-    int x, y, w, h, totalHeight;
+    int x, y, w = 0, h, totalHeight;
     int i, widest = -1;
     int visibleCount = 0;
 
@@ -3052,8 +3172,59 @@ void Menu_Size(menuFrameWork_t *menu)
     }
 
     if (menu->plaque) {
-        menu->plaque_rc.x = x - CURSOR_WIDTH - menu->plaque_rc.width;
-        menu->plaque_rc.y = (uis.height - h) / 2;
+        int gap = CURSOR_WIDTH;
+        int menu_x = x;
+        int menu_y = (uis.height - h) / 2;
+        int menu_w = w;
+        int menu_h = h;
+
+        switch (menu->plaquePosition) {
+        default:
+        case PLAQUE_LEFT:
+            menu->plaque_rc.x = menu_x - gap - menu->plaque_rc.width;
+            menu->plaque_rc.y = menu_y;
+            break;
+
+        case PLAQUE_RIGHT:
+            menu->plaque_rc.x = menu_x + menu_w + gap;
+            menu->plaque_rc.y = menu_y;
+            break;
+
+        case PLAQUE_TOP:
+            menu->plaque_rc.x = menu_x + (menu_w - menu->plaque_rc.width) / 2;
+            menu->plaque_rc.y = menu_y - gap - menu->plaque_rc.height;
+            break;
+
+        case PLAQUE_BOTTOM:
+            menu->plaque_rc.x = menu_x + (menu_w - menu->plaque_rc.width) / 2;
+            menu->plaque_rc.y = menu_y + menu_h + gap;
+            break;
+
+        case PLAQUE_CENTER:
+            menu->plaque_rc.x = menu_x + (menu_w - menu->plaque_rc.width) / 2;
+            menu->plaque_rc.y = menu_y + (menu_h - menu->plaque_rc.height) / 2;
+            break;
+
+        case PLAQUE_SCREEN_TOPLEFT:
+            menu->plaque_rc.x = gap;
+            menu->plaque_rc.y = gap;
+            break;
+
+        case PLAQUE_SCREEN_TOPRIGHT:
+            menu->plaque_rc.x = uis.width - menu->plaque_rc.width - gap;
+            menu->plaque_rc.y = gap;
+            break;
+
+        case PLAQUE_SCREEN_BOTTOMLEFT:
+            menu->plaque_rc.x = gap;
+            menu->plaque_rc.y = uis.height - menu->plaque_rc.height - gap;
+            break;
+
+        case PLAQUE_SCREEN_BOTTOMRIGHT:
+            menu->plaque_rc.x = uis.width - menu->plaque_rc.width - gap;
+            menu->plaque_rc.y = uis.height - menu->plaque_rc.height - gap;
+            break;
+        }
     }
 
     if (menu->logo) {
@@ -3431,10 +3602,30 @@ static uint32_t Menu_BackgroundColor(menuFrameWork_t *menu)
     return UI_MenuBackgroundColor(menu);
 }
 
+static void Menu_DrawFocusBox(int x, int y, int w, int h, int markerWidth)
+{
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    R_DrawFill32(x, y, w, h, uis.color.focus.u32);
+    if (markerWidth > 0 && w > markerWidth * 4) {
+        R_DrawFill32(x, y, markerWidth, h, uis.color.focus_border.u32);
+        R_DrawFill32(x + w - markerWidth, y, markerWidth, h, uis.color.focus_border.u32);
+    }
+}
+
 static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item)
 {
     vrect_t row;
     int markerWidth;
+    int padding_x = 0;
+    int padding_y = 0;
+    int base_h;
+    float target_x, target_w, target_y, target_h;
+
+    if (item->type == MTYPE_LIST) {
+        return;
+    }
 
     if (!(item->flags & QMF_HASFOCUS) || !UI_IsItemSelectable(item)) {
         return;
@@ -3445,33 +3636,106 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
 
     Menu_ApplyDefaultFocusStyle(menu);
 
-    row.x = menu->focusMenuWidth ? menu->mins[0] : 0;
-    row.width = menu->focusMenuWidth ? menu->maxs[0] - menu->mins[0] : uis.width;
-    row.x += menu->focusInset;
-    row.width -= menu->focusInset * 2;
-
-    row.height = menu->focusHeight > 0 ? menu->focusHeight :
-        (item->rect.height > CHAR_HEIGHT ? item->rect.height : CHAR_HEIGHT) + 2;
-    row.y = item->y + CHAR_HEIGHT / 2 - row.height / 2;
-
-    if (row.y < menu->y1) {
-        row.y = menu->y1;
+    if (ui_menu_focus_padding_x) {
+        padding_x = ui_menu_focus_padding_x->integer;
     }
-    if (row.y + row.height > menu->y2) {
-        row.y = menu->y2 - row.height;
+    if (ui_menu_focus_padding_y) {
+        padding_y = ui_menu_focus_padding_y->integer;
     }
 
+    const char *width_style = ui_menu_focus_width ? ui_menu_focus_width->string : "content";
+
+
+    base_h = menu->focusHeight > 0 ? menu->focusHeight :
+        (item->rect.height > CHAR_HEIGHT ? item->rect.height : CHAR_HEIGHT) + 1;
+
+    target_h = base_h + padding_y * 2;
+    target_y = item->y + CHAR_HEIGHT / 2 - base_h / 2 - padding_y;
+
+    if (target_y < menu->y1) {
+        target_y = menu->y1;
+    }
+    if (target_y + target_h > menu->y2) {
+        target_y = menu->y2 - target_h;
+    }
+
+    bool is_split = (item->type == MTYPE_SLIDER || item->type == MTYPE_SPINCONTROL ||
+                     item->type == MTYPE_FIELD || item->type == MTYPE_KEYBIND ||
+                     item->type == MTYPE_PAIRS || item->type == MTYPE_STRINGS ||
+                     item->type == MTYPE_VALUES || item->type == MTYPE_TOGGLE);
+
+    bool use_content_width = (strcmp(width_style, "content") == 0) ||
+                             (strcmp(width_style, "text") == 0 && !is_split);
+
+    if (use_content_width) {
+        target_x = item->rect.x - padding_x;
+        target_w = item->rect.width + 2 * padding_x;
+    } else {
+        target_x = menu->focusMenuWidth ? menu->mins[0] : 0;
+        target_w = menu->focusMenuWidth ? menu->maxs[0] - menu->mins[0] : uis.width;
+        target_x += menu->focusInset;
+        target_w -= menu->focusInset * 2;
+    }
+
+    unsigned int current_time = uis.realtime;
+    bool use_lerp = (ui_menu_focus_lerp && ui_menu_focus_lerp->integer );
+
+    if (!menu->focusInitialized || !use_lerp) {
+        menu->focusCurrentX = target_x;
+        menu->focusCurrentWidth = target_w;
+        menu->focusCurrentY = target_y;
+        menu->focusCurrentHeight = target_h;
+        menu->focusInitialized = true;
+    } else {
+        float dt = (current_time - menu->focusLastTime) / 1000.0f;
+        if (dt < 0.0f) dt = 0.0f;
+        if (dt > 0.1f) dt = 0.1f;
+
+        float speed = ui_menu_focus_lerp_speed ? ui_menu_focus_lerp_speed->value : 12.0f;
+        if (speed <= 0.0f) speed = 12.0f;
+
+        float factor = 1.0f - expf(-speed * dt);
+        menu->focusCurrentX += (target_x - menu->focusCurrentX) * factor;
+        menu->focusCurrentWidth += (target_w - menu->focusCurrentWidth) * factor;
+        menu->focusCurrentY += (target_y - menu->focusCurrentY) * factor;
+        menu->focusCurrentHeight += (target_h - menu->focusCurrentHeight) * factor;
+
+        if (fabsf(menu->focusCurrentX - target_x) < 0.1f) {
+            menu->focusCurrentX = target_x;
+        }
+        if (fabsf(menu->focusCurrentWidth - target_w) < 0.1f) {
+            menu->focusCurrentWidth = target_w;
+        }
+        if (fabsf(menu->focusCurrentY - target_y) < 0.1f) {
+            menu->focusCurrentY = target_y;
+        }
+        if (fabsf(menu->focusCurrentHeight - target_h) < 0.1f) {
+            menu->focusCurrentHeight = target_h;
+        }
+    }
+    menu->focusLastTime = current_time;
+
+    row.x = (int)menu->focusCurrentX;
+    row.width = (int)menu->focusCurrentWidth;
+    row.y = (int)menu->focusCurrentY;
+    row.height = (int)menu->focusCurrentHeight;
     markerWidth = menu->focusBorderWidth;
 
-    if (row.width <= 0 || row.height <= 0) {
+    if (row.height <= 0) {
         return;
     }
 
-    R_DrawFill32(row.x, row.y, row.width, row.height, uis.color.focus.u32);
-    if (markerWidth > 0 && row.width > markerWidth * 4) {
-        R_DrawFill32(row.x, row.y, markerWidth, row.height, uis.color.focus_border.u32);
-        R_DrawFill32(row.x + row.width - markerWidth, row.y,
-                     markerWidth, row.height, uis.color.focus_border.u32);
+    if (strcmp(width_style, "text") == 0 && is_split) {
+        int label_x = item->rect.x - padding_x;
+        int label_w = (item->x + LCOLUMN_OFFSET) - item->rect.x + 2 * padding_x;
+
+        int val_x = item->x + RCOLUMN_OFFSET - padding_x;
+        int val_w = (item->rect.x + item->rect.width) - (item->x + RCOLUMN_OFFSET) + 2 * padding_x;
+
+        Menu_DrawFocusBox(label_x, row.y, label_w, row.height, markerWidth);
+        Menu_DrawFocusBox(val_x, row.y, val_w, row.height, markerWidth);
+    } else {
+        Menu_DrawFocusBox(row.x, row.y, row.width, row.height, markerWidth);
     }
 }
 
@@ -3502,6 +3766,16 @@ void Menu_Draw(menuFrameWork_t *menu)
         UI_DrawString(Menu_TitleX(menu), menu->y1,
                       UI_CENTER, menu->title);
         R_ClearColor();
+
+        if (ui_menu_title_underline && ui_menu_title_underline->integer) {
+            uint32_t underline_color = UI_MenuTitleUnderlineColor();
+            if (underline_color & 0xff000000) {
+                int title_w = strlen(menu->title) * CHAR_WIDTH;
+                int line_x = Menu_TitleX(menu) - title_w / 2;
+                int line_y = menu->y1 + CHAR_HEIGHT + 1;
+                R_DrawFill32(line_x - 4, line_y, title_w + 8, 1, underline_color);
+            }
+        }
     }
 
 //
@@ -3853,6 +4127,7 @@ bool Menu_Push(menuFrameWork_t *menu)
         case MTYPE_PAIRS:
             Pairs_Push(item);
             break;
+        case MTYPE_VALUES:
         case MTYPE_STRINGS:
             Strings_Push(item);
             break;

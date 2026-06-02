@@ -46,6 +46,7 @@ static menuSound_t Activate(menuCommon_t *self)
 static const cmd_option_t o_common[] = {
     { "s:", "status" },
     { "v", "show-value" },
+    { "d", "defer" },
     { NULL }
 };
 
@@ -163,6 +164,9 @@ static void Parse_Spin(menuFrameWork_t *menu, menuType_t type)
         case 'v':
             flags |= QMF_SHOW_VALUE;
             break;
+        case 'd':
+            flags |= QMF_DEFER_COMMIT;
+            break;
         default:
             return;
         }
@@ -215,6 +219,9 @@ static void Parse_Pairs(menuFrameWork_t *menu)
         case 'v':
             flags |= QMF_SHOW_VALUE;
             break;
+        case 'd':
+            flags |= QMF_DEFER_COMMIT;
+            break;
         default:
             return;
         }
@@ -263,6 +270,9 @@ static void Parse_Range(menuFrameWork_t *menu)
             break;
         case 'v':
             flags |= QMF_SHOW_VALUE;
+            break;
+        case 'd':
+            flags |= QMF_DEFER_COMMIT;
             break;
         default:
             return;
@@ -495,6 +505,9 @@ static void Parse_Toggle(menuFrameWork_t *menu)
             break;
         case 'v':
             flags |= QMF_SHOW_VALUE;
+            break;
+        case 'd':
+            flags |= QMF_DEFER_COMMIT;
             break;
         default:
             return;
@@ -913,13 +926,69 @@ static void Parse_Color(void)
         Com_Printf("Unknown state '%s'\n", s);
     }
 }
+static qboolean Parse_PlaquePositionArg(const char *s, plaquePosition_t *out)
+{
+    if (!s || !s[0]) {
+        return qfalse;
+    }
 
+    if (!Q_stricmp(s, "left")) {
+        *out = PLAQUE_LEFT;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "right")) {
+        *out = PLAQUE_RIGHT;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "top")) {
+        *out = PLAQUE_TOP;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "bottom")) {
+        *out = PLAQUE_BOTTOM;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "center")) {
+        *out = PLAQUE_CENTER;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "screen-topleft")) {
+        *out = PLAQUE_SCREEN_TOPLEFT;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "screen-topright")) {
+        *out = PLAQUE_SCREEN_TOPRIGHT;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "screen-bottomleft")) {
+        *out = PLAQUE_SCREEN_BOTTOMLEFT;
+        return qtrue;
+    }
+
+    if (!Q_stricmp(s, "screen-bottomright")) {
+        *out = PLAQUE_SCREEN_BOTTOMRIGHT;
+        return qtrue;
+    }
+
+    return qfalse;
+}
 static void Parse_Plaque(menuFrameWork_t *menu)
 {
+    int i;
+
     if (Cmd_Argc() < 2) {
-        Com_Printf("Usage: %s <plaque> [logo]\n", Cmd_Argv(0));
+        Com_Printf("Usage: %s <plaque> [logo] [position]\n", Cmd_Argv(0));
         return;
     }
+
+    menu->plaquePosition = PLAQUE_LEFT;
 
     menu->plaque = R_RegisterPic(Cmd_Argv(1));
     if (menu->plaque) {
@@ -927,12 +996,25 @@ static void Parse_Plaque(menuFrameWork_t *menu)
                      &menu->plaque_rc.height, menu->plaque);
     }
 
-    if (Cmd_Argc() > 2) {
-        menu->logo = R_RegisterPic(Cmd_Argv(2));
-        if (menu->logo) {
-            R_GetPicSize(&menu->logo_rc.width,
-                         &menu->logo_rc.height, menu->logo);
+    for (i = 2; i < Cmd_Argc(); i++) {
+        const char *arg = Cmd_Argv(i);
+        plaquePosition_t pos;
+
+        if (Parse_PlaquePositionArg(arg, &pos)) {
+            menu->plaquePosition = pos;
+            continue;
         }
+
+        if (!menu->logo) {
+            menu->logo = R_RegisterPic(arg);
+            if (menu->logo) {
+                R_GetPicSize(&menu->logo_rc.width,
+                             &menu->logo_rc.height, menu->logo);
+            }
+            continue;
+        }
+
+        Com_Printf("Unknown plaque argument: %s\n", arg);
     }
 }
 
