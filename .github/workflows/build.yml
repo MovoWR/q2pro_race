@@ -75,6 +75,7 @@ jobs:
           mkdir artifacts/jump/pics
           cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
           cp jump/pics/prochars.png artifacts/jump/pics/
+          cp jump/pics/q2jump.png artifacts/jump/pics/
 
       - name: Set version env
         run: |
