@@ -76,6 +76,7 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float wishspeed,
                                         const float accel,
                                         const float frametime);
+void StrafeHelper_Clear(void);
 
 // StrafeHud
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,

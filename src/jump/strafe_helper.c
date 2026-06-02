@@ -54,6 +54,18 @@ static float vectorNorm(const float v[2]) {
     return sqrtf(dotProduct(v, v));
 }
 
+static bool isForwardOnlyWishdir(const float forward[3], const float wishdir[3]) {
+    const float wishdir_norm = vectorNorm(wishdir);
+    const float forward_norm = vectorNorm(forward);
+
+    if (wishdir_norm <= SH_EPSILON || forward_norm <= SH_EPSILON) {
+        return false;
+    }
+
+    return fabsf(crossProduct(wishdir, forward)) <= SH_EPSILON * wishdir_norm * forward_norm &&
+           dotProduct(wishdir, forward) > 0.0f;
+}
+
 static float safeAcosf(const float value) {
     return acosf(CLAMP(value, -1.0f, 1.0f));
 }
@@ -73,6 +85,10 @@ static void clearStrafeAngles(void) {
     sh.velocity_norm = 0.0f;
 
     sh_smoothing_initialized = false;
+}
+
+void StrafeHelper_Clear(void) {
+    clearStrafeAngles();
 }
 
 static float SH_SmoothingAmount(void) {
@@ -203,7 +219,8 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
     const float angle_sign = vectorAngleSign(wishdir, velocity);
     const float two_pi = 2.0f * (float) M_PI;
     sh.velocity_norm = vectorNorm(velocity);
-    if (sh.velocity_norm <= SH_EPSILON || wishdir_norm <= SH_EPSILON) {
+    if (sh.velocity_norm <= SH_EPSILON || wishdir_norm <= SH_EPSILON ||
+        isForwardOnlyWishdir(forward, wishdir)) {
         clearStrafeAngles();
         if (cl_strafehelperNerdStats->integer) {
             NerdStatsUpdate(velocity, wishdir, wishspeed, accel, frametime, forward_velocity_angle);

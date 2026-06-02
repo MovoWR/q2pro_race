@@ -2297,17 +2297,16 @@ void SCR_DrawStrafeHelper(void) {
         .height = cl_strafeHelperHeight->value,
         .y = cl_strafeHelperY->value,
     };
-        if (preview && !StrafeHelper_HasData()) {
-            StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
-        } else {
+    if (preview && !StrafeHelper_HasData()) {
+        StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
+    } else {
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.font_pic);
-        }
-        SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
-        if (cl.frame.ps.pmove.pm_type == PM_FREEZE)
-            {
-                OriginUpdate();
-            }
     }
+    SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
+    if (cl.frame.ps.pmove.pm_type == PM_FREEZE) {
+        OriginUpdate();
+    }
+}
 
 
 

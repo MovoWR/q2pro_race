@@ -43,6 +43,33 @@ static pml_t        pml;
 
 static const pmoveParams_t  *pmp;
 
+#if USE_CLIENT
+static bool PM_StrafeHelper_ShouldTrack(void)
+{
+    if (pm->s.pm_type != PM_NORMAL)
+        return false;
+    if (pml.ladder || pm->waterlevel >= 2)
+        return false;
+    if (pm->s.pm_flags & (PMF_TIME_TELEPORT | PMF_TIME_WATERJUMP))
+        return false;
+    if (!pm->cmd.sidemove)
+        return false;
+
+    return true;
+}
+
+static void PM_UpdateStrafeHelper(const vec3_t wishdir, float wishspeed, float accel)
+{
+    if (!PM_StrafeHelper_ShouldTrack()) {
+        StrafeHelper_Clear();
+        return;
+    }
+
+    StrafeHelper_SetAccelerationValues(pml.forward, pml.velocity, wishdir,
+                                       wishspeed, accel, pml.frametime);
+}
+#endif
+
 // movement parameters
 static const float  pm_stopspeed = 100;
 static const float  pm_duckspeed = 100;
@@ -315,8 +342,7 @@ static void PM_Accelerate(const vec3_t wishdir, float wishspeed, float accel)
 
 // q2pro_race strafe_helper
 #if USE_CLIENT
-    StrafeHelper_SetAccelerationValues(pml.forward, pml.velocity, wishdir,
-                                       wishspeed, accel, pml.frametime);
+    PM_UpdateStrafeHelper(wishdir, wishspeed, accel);
 #endif
 
 
@@ -337,6 +363,10 @@ static void PM_AirAccelerate(const vec3_t wishdir, float wishspeed, float accel)
 {
     int         i;
     float       addspeed, accelspeed, currentspeed, wishspd = wishspeed;
+
+#if USE_CLIENT
+    PM_UpdateStrafeHelper(wishdir, wishspeed, accel);
+#endif
 
     if (wishspd > 30)
         wishspd = 30;
@@ -1058,6 +1088,9 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
     PM_ClampAngles();
 
     if (pm->s.pm_type == PM_SPECTATOR) {
+#if USE_CLIENT
+        StrafeHelper_Clear();
+#endif
         pml.frametime = pmp->speedmult * pm->cmd.msec * 0.001f;
         PM_FlyMove();
         PM_SnapPosition();
@@ -1067,13 +1100,20 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
     pml.frametime = pm->cmd.msec * 0.001f;
 
     if (pm->s.pm_type >= PM_DEAD) {
+#if USE_CLIENT
+        StrafeHelper_Clear();
+#endif
         pm->cmd.forwardmove = 0;
         pm->cmd.sidemove = 0;
         pm->cmd.upmove = 0;
     }
 
-    if (pm->s.pm_type == PM_FREEZE)
+    if (pm->s.pm_type == PM_FREEZE) {
+#if USE_CLIENT
+        StrafeHelper_Clear();
+#endif
         return;     // no movement at all
+    }
 
     // set mins, maxs, and viewheight
     PM_CheckDuck();
@@ -1104,8 +1144,14 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
     }
 
     if (pm->s.pm_flags & PMF_TIME_TELEPORT) {
+#if USE_CLIENT
+        StrafeHelper_Clear();
+#endif
         // teleport pause stays exactly in place
     } else if (pm->s.pm_flags & PMF_TIME_WATERJUMP) {
+#if USE_CLIENT
+        StrafeHelper_Clear();
+#endif
         // waterjump has no control, but falls
         pml.velocity[2] -= pm->s.gravity * pml.frametime;
         if (pml.velocity[2] < 0) {
