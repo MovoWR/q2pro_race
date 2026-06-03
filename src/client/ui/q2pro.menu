@@ -231,6 +231,9 @@ begin menusetup
     pairs --show-value --status "Choose the menu color preset, or use your own custom palette." "color style" ui_menu_style classic 0 slate 1 custom 2
     action --status "Adjust the custom menu palette." --align "custom colors..." pushmenu menu_colors --show-if ui_menu_style 2
     values --status "Change OS cursor style for windowed and borderless menus." "system cursor" win_menu_cursor arrow cross hand ibeam wait no size --show-if ui_borderless_or_windowed 1
+    field --status "Optional path to a menu background overlay image." "bar background image" ui_menu_bar_image
+    range --show-value --status "Alpha/transparency of the menu bar overlay image." "bar overlay alpha" ui_menu_bar_image_alpha 0 1
+    strings --status "Display mode for the menu bar overlay image." "bar overlay mode" ui_menu_bar_image_mode cover contain screen stretch fill
     values --status "Texture cursor used in exclusive fullscreen menus." "menu cursor texture" cl_menu_cursor none cross dot angle ch4 ch5 --show-if ui_exclusive_fullscreen 1
     pairs --status "Choose the menu source used after the next UI restart. Built-in is available only when game is jump; other games load q2pro.menu." "menu source" ui_external_menu built-in 0 "external file" 1
 end
@@ -239,18 +242,42 @@ begin menu_colors
     title "Custom Menu Colors"
 
     style --live
+    blank
     field --picker --status "Whole menu panel background." "panel background" ui_menu_color_panel_bg
+    field --picker --status "Panel outline border." "panel border" ui_menu_color_panel_border
+    field --picker --status "Panel drop shadow." "panel shadow" ui_menu_color_panel_shadow
+    blank
     field --picker --status "Top menu title text." "title text" ui_menu_color_title_text
     field --picker --status "Default menu text." "normal text" ui_menu_color_text
-    field --picker --status "Unfocused selectable item text." "item text" ui_menu_color_item_text
     field --picker --status "Left-side labels and secondary text." "label text" ui_menu_color_label_text
+    field --picker --status "Unavailable item text." "disabled text" ui_menu_color_disabled_text
+    blank
+    field --picker --status "Unfocused selectable item text." "item text" ui_menu_color_item_text
     field --picker --status "Text on the currently focused control." "focused text" ui_menu_color_focus_text
-    field --picker --status "Selected row background in lists." "selected row" ui_menu_color_selection_bg
     field --picker --status "Focused row background marker." "focused row" ui_menu_color_focus_bg
     field --picker --status "Focused row side edge." "focused row edge" ui_menu_color_focus_edge
-    field --picker --status "Unavailable item text." "disabled text" ui_menu_color_disabled_text
+    field --picker --status "Focused item triangle marker." "focus marker" ui_menu_color_focus_marker
+    blank
+    field --picker --status "Value column/right-side text." "value text" ui_menu_color_value_text
+    field --picker --status "Focused value column text." "active value text" ui_menu_color_value_active_text
+    field --picker --status "Modified/unsaved value text." "changed value text" ui_menu_color_value_changed_text
+    blank
+    field --picker --status "Slider background track." "slider track" ui_menu_color_slider_track
+    field --picker --status "Slider active progress fill." "slider fill" ui_menu_color_slider_fill
+    field --picker --status "Slider active thumb/knob." "slider thumb" ui_menu_color_slider_thumb
+    field --picker --status "Slider active thumb outline/border." "slider border" ui_menu_color_slider_border
+    blank
     field --picker --status "List column header background." "list header" ui_menu_color_list_header_bg
+    field --picker --status "Sorted list column header background." "sorted list header" ui_menu_color_sorted_header_bg
+    field --picker --status "Selected row background in lists." "selected row" ui_menu_color_selection_bg
     field --picker --status "Scrollbar background track." "scrollbar track" ui_menu_color_scrollbar_track
+    blank
+    field --picker --status "Tab text in server browser." "tab text" ui_menu_color_tab_text
+    field --picker --status "Active tab text in server browser." "active tab text" ui_menu_color_tab_active_text
+    field --picker --status "Active tab background box in server browser." "active tab background" ui_menu_color_tab_active_bg
+    field --picker --status "Inactive tab background box in server browser." "inactive tab background" ui_menu_color_tab_inactive_bg
+    field --picker --status "Line under active server browser tab." "tab underline" ui_menu_color_tab_underline
+    blank
     field --picker --status "Bottom hint bar background." "hint background" ui_menu_color_hint_bg
     field --picker --status "Bottom hint bar text." "hint text" ui_menu_color_hint_text
     blank
