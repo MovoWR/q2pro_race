@@ -129,6 +129,7 @@ typedef struct menuFrameWork_s {
     qhandle_t image;
     color_t color;
     int y1, y2;
+    vrect_t panel_rc;
 
     int mins[2];
     int maxs[2];
@@ -155,6 +156,21 @@ typedef struct menuFrameWork_s {
     float focusCurrentHeight;
     unsigned int focusLastTime;
     bool focusInitialized;
+    float focusPrevX;
+    float focusPrevWidth;
+    float focusPrevY;
+    float focusPrevHeight;
+    float focusTargetX;
+    float focusTargetWidth;
+    float focusTargetY;
+    float focusTargetHeight;
+    unsigned int focusAnimStartTime;
+    unsigned int openTime;
+    unsigned int closeTime;
+    int prevFocusedIndex;
+    int currFocusedIndex;
+    qhandle_t bar_image_handle;
+    bool bar_image_loaded;
 
     bool (*push)(struct menuFrameWork_s *);
     void (*pop)(struct menuFrameWork_s *);
@@ -241,11 +257,6 @@ typedef struct menuList_s {
     int         curvalue;
     unsigned    clickTime;
 
-#if 0
-    char        scratch[8];
-    int         scratchCount;
-    unsigned    scratchTime;
-#endif
 
     int     drag_y;
 
@@ -377,10 +388,8 @@ typedef struct {
     uint32_t tabActiveBgColor;
     uint32_t tabInactiveBgColor;
 
-    uint32_t titleUnderlineColor;
     uint32_t panelBorderColor;
     uint32_t panelShadowColor;
-    uint32_t valueBgColor;
     uint32_t tabUnderlineColor;
 
     bool styleFocusFill;
@@ -397,11 +406,17 @@ extern cvar_t       *cl_menu_cursor;
 extern cvar_t       *ui_menu_focus_width;
 extern cvar_t       *ui_menu_focus_padding_x;
 extern cvar_t       *ui_menu_focus_padding_y;
-extern cvar_t       *ui_menu_title_underline;
-extern cvar_t       *ui_menu_value_chips;
 extern cvar_t       *ui_menu_density;
-extern cvar_t       *ui_menu_focus_lerp;
-extern cvar_t       *ui_menu_focus_lerp_speed;
+
+extern cvar_t       *ui_menu_bar_image;
+extern cvar_t       *ui_menu_bar_image_alpha;
+extern cvar_t       *ui_menu_bar_image_mode;
+
+extern cvar_t       *ui_menu_anim;
+extern cvar_t       *ui_menu_anim_focus_ms;
+
+extern cvar_t       *ui_menu_title_top_padding;
+extern cvar_t       *ui_menu_title_item_gap;
 
 void        UI_SetCursor(const char *name);
 const char *UI_GetCursorTextureName(const char *name);
@@ -440,10 +455,8 @@ uint32_t    UI_MenuTabTextColor(void);
 uint32_t    UI_MenuTabActiveTextColor(void);
 uint32_t    UI_MenuTabActiveBgColor(void);
 uint32_t    UI_MenuTabInactiveBgColor(void);
-uint32_t    UI_MenuTitleUnderlineColor(void);
 uint32_t    UI_MenuPanelBorderColor(void);
 uint32_t    UI_MenuPanelShadowColor(void);
-uint32_t    UI_MenuValueBgColor(void);
 uint32_t    UI_MenuTabUnderlineColor(void);
 
 void        UI_LoadScript(void);
@@ -479,3 +492,20 @@ void        Menu_FreeColorPicker(void);
 void M_Menu_PlayerConfig(void);
 void M_Menu_Demos(void);
 void M_Menu_Servers(void);
+
+extern menuFrameWork_t *ui_drawing_menu;
+extern int menu_drawing_item_index;
+
+void UI_SetColor_Wrapper(uint32_t color);
+void UI_SetAltColor_Wrapper(uint32_t color);
+void UI_ClearColor_Wrapper(void);
+void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color);
+
+float Menu_Ease01(float t);
+
+#ifndef UI_C_IMPLEMENTATION
+#define R_SetColor(color) UI_SetColor_Wrapper(color)
+#define R_SetAltColor(color) UI_SetAltColor_Wrapper(color)
+#define R_ClearColor() UI_ClearColor_Wrapper()
+#define R_DrawFill32(x, y, w, h, color) UI_DrawFill32_Wrapper(x, y, w, h, color)
+#endif
