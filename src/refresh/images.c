@@ -2463,16 +2463,12 @@ static void check_for_glow_map(image_t *image)
     size_t len;
     int ret;
 
-    // glow maps are not supported in legacy mode due to
-    // various corner cases that are not worth taking care of
     if (!gl_shaders->integer)
         return;
 
-    // use a temporary image_t to hold glow map stuff.
-    // it doesn't need to be registered.
     image_t temporary = {
         .type = type,
-        .flags = IF_TURBULENT,  // avoid post-processing
+        .flags = IF_TURBULENT,
     };
 
     COM_StripExtension(temporary.name, image->name, sizeof(temporary.name));
@@ -2481,7 +2477,6 @@ static void check_for_glow_map(image_t *image)
         return;
     temporary.baselen = len - 4;
 
-    // load the pic from disk
     glow_pic = NULL;
 
     ret = load_image_data(&temporary, IM_PCX, false, &glow_pic);
@@ -2490,9 +2485,6 @@ static void check_for_glow_map(image_t *image)
         return;
     }
 
-    // post-process data;
-    // - model glowmaps should be premultiplied
-    // - wal glowmaps just use the alpha, so the RGB channels are ignored
     if (type == IT_SKIN) {
         int size = temporary.upload_width * temporary.upload_height;
         byte *dst = glow_pic;
@@ -2525,9 +2517,31 @@ static image_t *find_or_load_image(const char *name, size_t len,
     Q_assert(len < MAX_QPATH);
     baselen = COM_FileExtension(name) - name;
 
-    // must have an extension and at least 1 char of base name
-    if (baselen < 1 || name[baselen] != '.') {
+    // must have at least 1 char of base name
+    if (baselen < 1) {
         ret = Q_ERR_INVALID_PATH;
+        goto fail;
+    }
+
+    // no extension: try all registered formats in order
+    if (name[baselen] != '.') {
+        char temp[MAX_QPATH];
+
+        Q_assert(baselen + 5 <= sizeof(temp));
+        memcpy(temp, name, baselen);
+
+        for (fmt = 0; fmt < IM_MAX; fmt++) {
+            size_t extlen = strlen(img_loaders[fmt].ext);
+
+            temp[baselen] = '.';
+            memcpy(temp + baselen + 1, img_loaders[fmt].ext, extlen + 1);
+
+            image = find_or_load_image(temp, baselen + 1 + extlen, type, flags);
+            if (image)
+                return image;
+        }
+
+        ret = Q_ERR(ENOENT);
         goto fail;
     }
 
@@ -2591,8 +2605,10 @@ static image_t *find_or_load_image(const char *name, size_t len,
 
     List_Append(&r_imageHash[hash], &image->entry);
 
-    // check for glow maps
-    if (r_glowmaps->integer && (type == IT_SKIN || type == IT_WALL))
+    // check for glow maps (PCX skins/walls only)
+    if (r_glowmaps->integer && (type == IT_SKIN || type == IT_WALL)
+        && image->baselen + 5 < MAX_QPATH
+        && !Q_stricmp(image->name + image->baselen + 1, "pcx"))
         check_for_glow_map(image);
 
     if (type == IT_SKY && flags & IF_CLASSIC_SKY) {

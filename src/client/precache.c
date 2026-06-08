@@ -119,14 +119,14 @@ void CL_LoadClientinfo(clientinfo_t *ci, const char *s)
 
     // skin file
     Q_concat(skin_filename, sizeof(skin_filename),
-             "players/", model_name, "/", skin_name, ".pcx");
+             "players/", model_name, "/", skin_name);
     ci->skin = R_RegisterSkin(skin_filename);
 
     // if we don't have the skin and the model was female,
     // see if athena skin exists
     if (!ci->skin && !Q_stricmp(model_name, "female")) {
         strcpy(skin_name, "athena");
-        strcpy(skin_filename, "players/female/athena.pcx");
+        strcpy(skin_filename, "players/female/athena");
         ci->skin = R_RegisterSkin(skin_filename);
     }
 
@@ -140,7 +140,7 @@ void CL_LoadClientinfo(clientinfo_t *ci, const char *s)
 
         // see if the skin exists for the male model
         Q_concat(skin_filename, sizeof(skin_filename),
-                 "players/male/", skin_name, ".pcx");
+                 "players/male/", skin_name);
         ci->skin = R_RegisterSkin(skin_filename);
     }
 
@@ -149,7 +149,7 @@ void CL_LoadClientinfo(clientinfo_t *ci, const char *s)
     if (!ci->skin) {
         // see if the skin exists for the male model
         strcpy(skin_name, "grunt");
-        strcpy(skin_filename, "players/male/grunt.pcx");
+        strcpy(skin_filename, "players/male/grunt");
         ci->skin = R_RegisterSkin(skin_filename);
     }
 

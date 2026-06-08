@@ -73,10 +73,18 @@ jobs:
           mkdir artifacts
           mkdir artifacts/jump
           mkdir artifacts/jump/pics
+          mkdir artifacts/jump/players
+          mkdir artifacts/jump/players/female
           cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
           cp jump/pics/prochars.png artifacts/jump/pics/
           cp jump/pics/conback.png artifacts/jump/pics/
           cp jump/pics/q2jump_background.png artifacts/jump/pics/
+          cp jump/players/female/ctf_b.pcx artifacts/jump/players/female/
+          cp jump/players/female/ctf_b.png artifacts/jump/players/female/
+          cp jump/players/female/ctf_b_i.pcx artifacts/jump/players/female/
+          cp jump/players/female/ctf_r.pcx artifacts/jump/players/female/
+          cp jump/players/female/ctf_r.png artifacts/jump/players/female/
+          cp jump/players/female/ctf_r_i.pcx artifacts/jump/players/female/
 
       - name: Set version env
         run: |

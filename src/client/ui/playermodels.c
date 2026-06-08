@@ -27,16 +27,16 @@ PLAYER MODELS
 =============================================================================
 */
 
-static bool IconOfSkinExists(char *skin, char **pcxfiles, int npcxfiles)
+static bool IconOfSkinExists(const char *skin, char **files, int nfiles)
 {
     int i;
     char scratch[MAX_QPATH];
 
     COM_StripExtension(scratch, skin, sizeof(scratch));
-    Q_strlcat(scratch, "_i.pcx", sizeof(scratch));
+    Q_strlcat(scratch, "_i", sizeof(scratch));
 
-    for (i = 0; i < npcxfiles; i++) {
-        if (Q_stricmp(pcxfiles[i], scratch) == 0)
+    for (i = 0; i < nfiles; i++) {
+        if (!FS_pathcmpn(files[i], scratch, strlen(scratch)))
             return true;
     }
 
@@ -80,11 +80,13 @@ void PlayerModel_Load(void)
 
     // go through the subdirectories
     for (i = 0; i < ndirs; i++) {
-        int k, s;
-        char **pcxnames;
+        int k;
+        char **allfiles;
         char **skinnames;
-        int npcxfiles;
+        int nfiles;
         int nskins = 0;
+        static const char *skin_exts[] = { ".pcx", ".png", ".jpg", ".tga" };
+        int ext;
 
         // verify the existence of tris.md2
         Q_concat(scratch, sizeof(scratch), "players/", dirnames[i], "/tris.md2");
@@ -92,41 +94,67 @@ void PlayerModel_Load(void)
             continue;
         }
 
-        // verify the existence of at least one pcx skin
-        Q_concat(scratch, sizeof(scratch), "players/", dirnames[i]);
-        pcxnames = (char **)FS_ListFiles(scratch, ".pcx", 0, &npcxfiles);
-        if (!pcxnames) {
+        // collect all supported image files in one list
+        allfiles = NULL;
+        nfiles = 0;
+
+        for (ext = 0; ext < q_countof(skin_exts); ext++) {
+            char **extfiles;
+            int nextfiles;
+
+            Q_concat(scratch, sizeof(scratch), "players/", dirnames[i]);
+            extfiles = (char **)FS_ListFiles(scratch, skin_exts[ext], 0, &nextfiles);
+            if (!extfiles || !nextfiles)
+                continue;
+
+            allfiles = FS_ReallocList(allfiles, nfiles + nextfiles);
+            memcpy(allfiles + nfiles, extfiles, nextfiles * sizeof(char *));
+            Z_Free(extfiles);
+            nfiles += nextfiles;
+        }
+
+        if (!allfiles) {
             continue;
         }
 
-        // count valid skins, which consist of a skin with a matching "_i" icon
-        for (k = 0; k < npcxfiles; k++) {
-            if (!strstr(pcxnames[k], "_i.pcx")) {
-                if (IconOfSkinExists(pcxnames[k], pcxnames, npcxfiles)) {
-                    nskins++;
-                }
+        // NULL-terminate the concatenated list for FS_FreeList
+        allfiles = FS_ReallocList(allfiles, nfiles + 1);
+        allfiles[nfiles] = NULL;
+
+        // copy the valid skins (deduplicated by base name)
+        skinnames = UI_Malloc(sizeof(char *) * (nfiles + 1));
+        nskins = 0;
+
+        for (k = 0; k < nfiles; k++) {
+            int t;
+
+            if (strstr(allfiles[k], "_i."))
+                continue;
+
+            if (!IconOfSkinExists(allfiles[k], allfiles, nfiles))
+                continue;
+
+            COM_StripExtension(scratch, allfiles[k], sizeof(scratch));
+
+            for (t = 0; t < nskins; t++) {
+                if (!Q_stricmp(skinnames[t], scratch))
+                    break;
             }
+            if (t < nskins)
+                continue;   // already added
+
+            skinnames[nskins++] = UI_CopyString(scratch);
         }
 
-        if (!nskins) {
-            FS_FreeList((void **)pcxnames);
-            continue;
-        }
-
-        skinnames = UI_Malloc(sizeof(char *) * (nskins + 1));
         skinnames[nskins] = NULL;
 
-        // copy the valid skins
-        for (s = 0, k = 0; k < npcxfiles; k++) {
-            if (!strstr(pcxnames[k], "_i.pcx")) {
-                if (IconOfSkinExists(pcxnames[k], pcxnames, npcxfiles)) {
-                    COM_StripExtension(scratch, pcxnames[k], sizeof(scratch));
-                    skinnames[s++] = UI_CopyString(scratch);
-                }
-            }
+        if (!nskins) {
+            FS_FreeList((void **)allfiles);
+            Z_Free(skinnames);
+            continue;
         }
 
-        FS_FreeList((void **)pcxnames);
+        FS_FreeList((void **)allfiles);
 
         // at this point we have a valid player model
         pmi = &uis.pmi[uis.numPlayerModels++];
