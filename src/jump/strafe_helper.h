@@ -117,3 +117,43 @@ void printKeyValueFloat(const char *label, float value);
 void printSectionHeader(const char *title);
 
 void printKeyValueGeneric(const char *label, const char *value);
+
+//
+// Cvar declarations (definitions + registration in sh_init.c)
+//
+extern cvar_t *cl_drawStrafeHelper;
+extern cvar_t *cl_strafeHelperCenter;
+extern cvar_t *cl_strafeHelperCenterMarker;
+extern cvar_t *cl_strafeHelperHeight;
+extern cvar_t *cl_strafeHelperScale;
+extern cvar_t *cl_strafeHelperY;
+extern cvar_t *cl_strafehelperUps;
+extern cvar_t *cl_strafehelperUpsScale;
+extern cvar_t *cl_strafehelperUpsY;
+extern cvar_t *cl_strafehelperUpsShadow;
+extern cvar_t *cl_strafehelperUpsHideZero;
+extern cvar_t *cl_strafehelperUpsColorMode;
+extern cvar_t *cl_strafehelperUpsColorGain;
+extern cvar_t *cl_strafehelperUpsColorLoss;
+extern cvar_t *cl_strafehelperUpsColorNeutral;
+extern cvar_t *cl_strafehelperUpsFormat;
+extern cvar_t *cl_strafehelperUps3D;
+extern cvar_t *cl_strafehelperAlpha;
+extern cvar_t *cl_strafehelperBarStyle;
+extern cvar_t *cl_strafehelperSmoothing;
+extern cvar_t *cl_strafehelperSmoothingMode;
+extern cvar_t *cl_strafehelperNerdStats;
+extern cvar_t *cl_strafehelper_center_width;
+extern cvar_t *cl_strafehelper_optimal_width;
+extern cvar_t *cl_strafehelper_optimal_outline;
+extern cvar_t *cl_strafehelper_color_accelerating;
+extern cvar_t *cl_strafehelper_color_optimal;
+extern cvar_t *cl_strafehelper_color_centermarker;
+extern cvar_t *cl_strafehelper_color_nerdstats;
+extern cvar_t *cl_race_color;
+extern cvar_t *cl_race_life;
+extern cvar_t *cl_race_width;
+extern cvar_t *cl_race_alpha;
+extern cvar_t *cl_input_keys;
+
+void SH_Init(void);

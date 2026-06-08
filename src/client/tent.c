@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "client.h"
 #include "common/mdfour.h"
+#include "src/jump/strafe_helper.h"
 
 qhandle_t   cl_sfx_ric1;
 qhandle_t   cl_sfx_ric2;

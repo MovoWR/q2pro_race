@@ -4,8 +4,7 @@
 extern "C" {
 #endif
 #pragma once
-#include "inc/shared/shared.h"
-#include "strafe_helper_customization.h"
+#include "shared/shared.h"
 #include <stdint.h>
 
 enum shc_ElementId {

@@ -69,12 +69,6 @@ void SH_Status_f(void);
 
 void SH_Hud_Help_f(void);
 
-void DebugTracking(void);
-
-void GrenadeTimer_Update(void);
-
-void GrenadeTimer_Add(float firing_time);
-
 void SH_SetPreset_f(void);
 
 bool SH_GetPresetColors(const char *name, const char **accelerating,

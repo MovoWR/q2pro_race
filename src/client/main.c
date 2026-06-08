@@ -109,49 +109,6 @@ extern cvar_t *gl_brightness;
 #endif
 
 
-// q2pro_race strafe_helper
-cvar_t *cl_drawStrafeHelper;
-cvar_t *cl_strafeHelperCenter;
-cvar_t *cl_strafeHelperCenterMarker;
-cvar_t *cl_strafeHelperHeight;
-cvar_t *cl_strafeHelperScale;
-cvar_t *cl_strafeHelperY;
-cvar_t *cl_strafehelperUps;
-cvar_t *cl_strafehelperUpsScale;
-cvar_t *cl_strafehelperUpsY;
-cvar_t *cl_strafehelperUpsShadow;
-cvar_t *cl_strafehelperUpsHideZero;
-cvar_t *cl_strafehelperUpsColorMode;
-cvar_t *cl_strafehelperUpsColorGain;
-cvar_t *cl_strafehelperUpsColorLoss;
-cvar_t *cl_strafehelperUpsColorNeutral;
-cvar_t *cl_strafehelperUpsFormat;
-cvar_t *cl_strafehelperUps3D;
-cvar_t *cl_strafehelperAlpha;
-cvar_t *cl_strafehelperBarStyle;
-cvar_t *cl_strafehelperSmoothing;
-cvar_t *cl_strafehelperSmoothingMode;
-cvar_t *cl_strafehelperNerdStats;
-
-
-// width
-cvar_t *cl_strafehelper_center_width;
-cvar_t *cl_strafehelper_optimal_width;
-cvar_t *cl_strafehelper_optimal_outline;
-// color settings
-cvar_t *cl_strafehelper_color_accelerating;
-cvar_t *cl_strafehelper_color_optimal;
-cvar_t *cl_strafehelper_color_centermarker;
-cvar_t *cl_strafehelper_color_nerdstats;
-// race line
-cvar_t *cl_race_color;
-cvar_t *cl_race_life;
-cvar_t *cl_race_width;
-cvar_t *cl_race_alpha;
-cvar_t *cl_input_keys;
-
-
-
 
 
 
@@ -3265,48 +3222,7 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_playerpos_y", CL_PlayerPosY_m);
     Cmd_AddMacro("cl_playerpos_x", CL_PlayerPosX_m);
 
-
-    // q2pro_race strafe_helper
-    cl_drawStrafeHelper = Cvar_Get("sh_draw", "1", CVAR_ARCHIVE);
-    cl_strafeHelperCenter = Cvar_Get("sh_center", "1", CVAR_ARCHIVE);
-    cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
-    cl_strafeHelperHeight = Cvar_Get("sh_height", "15", CVAR_ARCHIVE);
-    cl_strafeHelperScale = Cvar_Get("sh_scale", "1.500000", CVAR_ARCHIVE);
-    cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
-    cl_strafehelperUps = Cvar_Get("sh_ups", "1", CVAR_ARCHIVE);
-    cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1.250000", CVAR_ARCHIVE);
-    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "-5", CVAR_ARCHIVE);
-    cl_strafehelperUpsShadow = Cvar_Get("sh_ups_shadow", "1", CVAR_ARCHIVE);
-    cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "1", CVAR_ARCHIVE);
-    cl_strafehelperUpsColorMode = Cvar_Get("sh_ups_color_mode", "dynamic", CVAR_ARCHIVE);
-    cl_strafehelperUpsColorGain = Cvar_Get("sh_ups_color_gain", "0 255 0 255", CVAR_ARCHIVE);
-    cl_strafehelperUpsColorLoss = Cvar_Get("sh_ups_color_loss", "255 0 0 255", CVAR_ARCHIVE);
-    cl_strafehelperUpsColorNeutral = Cvar_Get("sh_ups_color_neutral", "255 255 255 255", CVAR_ARCHIVE);
-    cl_strafehelperUpsFormat = Cvar_Get("sh_ups_format", "plain", CVAR_ARCHIVE);
-    cl_strafehelperUps3D = Cvar_Get("sh_ups_3d", "0", CVAR_ARCHIVE);
-    cl_strafehelperAlpha = Cvar_Get("sh_alpha", "0.500000", CVAR_ARCHIVE);
-    cl_strafehelperBarStyle = Cvar_Get("sh_bar_style", "gradient", CVAR_ARCHIVE);
-    cl_strafehelperSmoothing = Cvar_Get("sh_smoothing", "0", CVAR_ARCHIVE);
-    cl_strafehelperSmoothingMode = Cvar_Get("sh_smoothing_mode", "1", CVAR_ARCHIVE);
-    // width
-    cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2", CVAR_ARCHIVE);
-    cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2", CVAR_ARCHIVE);
-    cl_strafehelper_optimal_outline = Cvar_Get("sh_optimal_outline", "1", CVAR_ARCHIVE);
-    // color settings
-    cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 0 128", CVAR_ARCHIVE);
-    cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "255 215 0 255", CVAR_ARCHIVE);
-    cl_strafehelper_color_centermarker = Cvar_Get("sh_color_centermarker", "255 255 255 255", CVAR_ARCHIVE);
-    cl_strafehelper_color_nerdstats = Cvar_Get("sh_color_nerdstats", "50 0 50 100", CVAR_ARCHIVE);
-    cl_strafehelperNerdStats = Cvar_Get("sh_nerdstats", "0", CVAR_ARCHIVE);
-
-
-    // race line
-    cl_race_width = Cvar_Get("race_width", "5", CVAR_ARCHIVE);
-    cl_race_color = Cvar_Get("race_color", "0 255 0", CVAR_ARCHIVE);
-    cl_race_alpha = Cvar_Get("race_alpha", "0.5", CVAR_ARCHIVE);
-    cl_race_life = Cvar_Get("race_life", "500", CVAR_ARCHIVE);
-
-    cl_input_keys = Cvar_Get("cl_input_keys", "", 0);
+    SH_Init();
 }
 
 static const cmdreg_t c_ignores[] = {

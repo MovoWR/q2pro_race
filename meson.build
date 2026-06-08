@@ -71,6 +71,7 @@ client_src = [
 ui_src = [
   'src/client/ui/demos.c',
   'src/client/ui/menu.c',
+  'src/client/ui/modelpreview.c',
   'src/client/ui/playerconfig.c',
   'src/client/ui/playermodels.c',
   'src/client/ui/script.c',
@@ -83,6 +84,7 @@ ui_src = [
   'src/jump/sh_nerdstats.c',
   'src/jump/sh_hud_menu.c',
   'src/jump/strafe_helper_customization.c',
+  'src/jump/sh_init.c',
 
 ]
 

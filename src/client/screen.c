@@ -1492,8 +1492,6 @@ void SCR_Init(void)
 
     scr_hit_marker_time = Cvar_Get("scr_hit_marker_time", "500", 0);
 
-    SH_NetMeter_Init();
-
     Cmd_Register(scr_cmds);
 
     scr_scale_changed(scr_scale);
