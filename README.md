@@ -1,6 +1,6 @@
 # q2pro_race
 
-`q2pro_race` is an enhanced fork of [Q2PRO](https://github.com/skullernet/q2pro) tuned for [q2jump](http://q2jump.net) race and jump play.
+`q2pro_race` is an enhanced fork of [Q2PRO](https://github.com/q2pro/q2pro) by skuller, tuned for [q2jump](http://q2jump.net) race and jump play.
 It incorporates work from [q2pro-speed](https://github.com/kugelrund/q2pro-speed) and [q2pro-jump](https://github.com/TotallyMehis/q2pro-jump), while continuing to track upstream Q2PRO changes.
 
 This fork focuses on practical race tooling: visual assist overlays, centered speed feedback, modular network diagnostics, an expanded in-game setup menu, and configuration improvements for advanced jump gameplay.
@@ -42,21 +42,31 @@ The NetMeter replaces the legacy static network bar with customizable diagnostic
 On-screen warnings call out network incidents that can affect a race run:
 
 * `PACKET LOSS`: incoming server-to-client dropped packets.
+* `CLIENT DROP`: prediction error / client-side disconnect.
 * `NETWORK JITTER`: high ping standard deviation.
 * `PING SPIKE`: sudden latency jumps compared with baseline.
 
 ### Dynamic FPS Binds
 
-Quickly change the frame-rate cap to match different run segments.
+Quickly change cl_maxfps to match different run segments.
 
 * **Press-and-release binds (`+fps` / `-fps`)**: hold a key to drop FPS and release it to restore, for example `bind space "+fps 60 120"`.
 * **Console shortcuts (`f20` to `f120`)**: set `cl_maxfps` instantly, for example `f60`.
+
+### Step Smoothing (`cl_step_smoothing_mode`)
+
+Controls how the camera interpolates when the player climbs stairs and steps. This is purely visual and does not affect movement physics or give any competitive advantage.
+
+* `q2pro` (default): standard Q2PRO stair smoothing.
+* `r1q2-1` / `r1q2-2` / `r1q2-3`: alternative smoothing styles from R1Q2, ranging from subtle to aggressive.
 
 ### Expanded Menu System
 
 The menu has been rebuilt around the race and jump workflow while keeping classic Q2PRO options available.
 
 * **Jump/Race setup pages**: strafe helper, UPS display, race line, NetMeter, network alerts, replay recording, FPS binds, mod binds, jump binds, and debug tools.
+* **Animated player model preview**: a 3D player model is rendered behind top-level menus, with configurable position presets, orbit rotation, and distance (`ui_menu_model*` cvars).
+* **Dropdown and bindfield widgets**: `select`, `select2`, `bindfields`, and `binds elect2` widget types replace old `values` menus with dropdown-based selection.
 * **Improved main flow**: multiplayer, jump server browsing, address book access, quick video tuning, and HUD/helper setup are easier to reach.
 * **Built-in menu fallback**: compiled menu data is available when `game` is `jump`; other games can continue to load external `q2pro.menu` data.
 * **Conditional visibility (`--show-if`)**: controls appear only when their related settings are active.
@@ -80,7 +90,7 @@ The menu has been rebuilt around the race and jump workflow while keeping classi
 
 ## Custom Cvars
 
-See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD, network, menu, recording, and video cvars added by this fork.
+See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD, network, menu and video cvars added by this fork.
 
 ## Install
 

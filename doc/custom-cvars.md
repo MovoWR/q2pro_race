@@ -11,6 +11,8 @@
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `cl_step_smoothing_mode` | `q2pro` | Selects the step smoothing behavior used by the client. |
+| `fps_default_hold` | `30` | Default FPS value assigned to new `fps_hold_*` slot cvars. |
+| `fps_default_release` | `120` | Default FPS value assigned to new `fps_release_*` slot cvars. |
 
 ## Strafe Helper HUD
 
@@ -96,7 +98,7 @@
 | `sh_netalert_color` | `1` | Alert color or severity-based color mode. |
 | `sh_netalert_alpha` | `1` | Alert text alpha. |
 | `sh_netalert_duration_ms` | `2000` | Alert lifetime in milliseconds. |
-| `sh_netalert_loss` | `1` | Enables packet loss alerts. |
+| `sh_netalert_loss` | `1` | Enables packet loss and client-drop alerts. |
 | `sh_netalert_jitter` | `1` | Enables jitter alerts. |
 | `sh_netalert_spike` | `1` | Enables ping spike alerts. |
 
@@ -167,21 +169,32 @@
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `cl_menu_cursor` | `ch5` | Texture cursor used by the in-game menu in exclusive fullscreen. Accepts `none`, `cross`, `dot`, `angle`, `ch4`, or `ch5`. |
+| `cl_menu_cursor` | `ch1` | Texture cursor used by the in-game menu in exclusive fullscreen. Accepts `none`, `cross`, `dot`, `angle`, `ch4`, or `ch5`. |
 | `ui_colorpicker_r` | `255` | Red component used by the menu color picker. |
 | `ui_colorpicker_g` | `255` | Green component used by the menu color picker. |
 | `ui_colorpicker_b` | `255` | Blue component used by the menu color picker. |
 | `ui_colorpicker_a` | `255` | Alpha component used by the menu color picker. |
 | `ui_draw_layers` | `0` | Draws/debugs menu layers. |
 | `ui_external_menu` | `0` | When `0`, `game jump` uses the compiled built-in menu. When `1`, or when using another game directory, the UI loads external `q2pro.menu`. |
-| `ui_menu_density` | `normal` | Controls menu row spacing. Named values are `compact`, `normal`, and `spacious`; numeric offsets are clamped from `-4` to `16`. |
-| `ui_menu_focus_width` | `content` | Focus highlight width style: `full`, `content`, or `text`. Numeric aliases `0`, `1`, and `2` are normalized to those names. |
-| `ui_menu_focus_padding_x` | `12` | Horizontal padding added around content-width and text-width focus highlights. |
-| `ui_menu_focus_padding_y` | `2` | Vertical padding added around focus highlights. |
-| `ui_menu_focus_lerp` | `0` | Smoothly slides the focus highlight row between items. |
-| `ui_menu_focus_lerp_speed` | `12` | Animation speed for focus highlight interpolation. |
-| `ui_menu_title_underline` | `1` | Draws a subtle line under menu titles. |
-| `ui_menu_value_chips` | `0` | Draws small background boxes behind menu values. |
+| `ui_menu_density` | `2` | Controls menu row spacing. Named values are `compact` (0), `normal` (1), and `spacious` (2); numeric offsets are clamped from `-4` to `16`. |
+| `ui_menu_focus_width` | `full` | Focus highlight width style: `full` or `content`. |
+| `ui_menu_focus_padding_x` | `14` | Horizontal padding added around content-width focus highlights. |
+| `ui_menu_focus_padding_y` | `3` | Vertical padding added around focus highlights. |
+| `ui_menu_bar_image` | `q2jump_background` | Background image for menu side bars. |
+| `ui_menu_bar_image_alpha` | `0.5` | Alpha/transparency for menu bar background image. |
+| `ui_menu_bar_image_mode` | `screen` | Menu bar image rendering mode (e.g. `screen` or `stretch`). |
+| `ui_menu_model` | `1` | Enables the animated player model behind top-level menus. |
+| `ui_menu_model_x` | `0.8125` | Horizontal center position of the menu background model, from `0` to `1`. |
+| `ui_menu_model_y` | `0.5` | Vertical center position of the menu background model, from `0` to `1`. |
+| `ui_menu_model_scale` | `1` | Size multiplier for the menu background model viewport. |
+| `ui_menu_model_yaw` | `200` | Yaw angle used by the menu background model. |
+| `ui_menu_model_distance` | `40` | Distance of the menu background model from the preview camera. Higher values make it smaller. |
+| `ui_menu_model_position` | `bottom` | Preset position for the menu background model. Selecting a preset updates `ui_menu_model_x` and `ui_menu_model_y`; moving either slider switches this to `custom`. |
+| `ui_menu_model_orbit` | `1` | Allows mouse movement over the model viewport to orbit the preview. |
+| `ui_menu_anim` | `1` | Enables menu focus highlight animation. |
+| `ui_menu_anim_focus_ms` | `70` | Duration in ms for menu focus highlight animation. |
+| `ui_menu_title_top_padding` | `12` | Top padding for menu title text. |
+| `ui_menu_title_item_gap` | `0` | Gap between menu title and first item. |
 | `win_menu_cursor` | `arrow` | Windows system cursor used for menus. |
 
 ### Menu color cvars
@@ -190,15 +203,15 @@ All menu color cvars are archived RGBA strings in the form `R G B A`. The built-
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `ui_menu_color_panel_bg` | `8 12 18 230` | Main menu panel background. |
+| `ui_menu_color_panel_bg` | `8 12 18 160` | Main menu panel background. |
 | `ui_menu_color_title_text` | `225 112 124 255` | Menu title text. |
 | `ui_menu_color_text` | `210 216 224 255` | Default text. |
 | `ui_menu_color_item_text` | `210 216 224 255` | Selectable item text. |
 | `ui_menu_color_label_text` | `160 168 178 255` | Secondary labels and left-column text. |
 | `ui_menu_color_focus_text` | `255 255 255 255` | Text on focused controls. |
 | `ui_menu_color_selection_bg` | `44 78 112 200` | Selected list row background. |
-| `ui_menu_color_focus_bg` | `48 86 124 190` | Focus highlight background. |
-| `ui_menu_color_focus_edge` | `170 70 83 180` | Focus highlight edge/border. |
+| `ui_menu_color_focus_bg` | `0 0 0 0` | Focus highlight background. |
+| `ui_menu_color_focus_edge` | `90 130 170 100` | Focus highlight edge/border. |
 | `ui_menu_color_disabled_text` | `86 90 98 255` | Disabled item text. |
 | `ui_menu_color_list_header_bg` | `82 40 50 235` | List column header background. |
 | `ui_menu_color_scrollbar_track` | `26 36 48 255` | Scrollbar track. |
@@ -217,19 +230,27 @@ All menu color cvars are archived RGBA strings in the form `R G B A`. The built-
 | `ui_menu_color_tab_active_text` | `255 255 255 255` | Active server-browser tab text. |
 | `ui_menu_color_tab_active_bg` | `44 78 112 200` | Active server-browser tab background. |
 | `ui_menu_color_tab_inactive_bg` | `8 12 18 180` | Inactive server-browser tab background. |
-| `ui_menu_color_title_underline` | `170 70 83 180` | Menu title underline. |
 | `ui_menu_color_panel_border` | `44 58 72 160` | Panel and swatch border. |
 | `ui_menu_color_panel_shadow` | `0 0 0 120` | Panel and swatch drop shadow. |
-| `ui_menu_color_value_bg` | `18 26 36 180` | Value chip background. |
 | `ui_menu_color_tab_underline` | `225 112 124 220` | Active server-browser tab underline. |
 
 ### Built-in menu script notes
 
 The q2jump build has a compiled menu string and uses it by default for `game jump`. External menu files still work when `ui_external_menu` is set to `1`.
 
-The menu script supports `style --live` for controls that should write cvars as the user changes them. Individual controls can use `--defer` to stay pending inside a live menu and commit only when the menu is closed. This is used by the video menu so safe settings update live, while refresh/restart-sensitive settings such as fullscreen mode, MSAA, hardware gamma, texture reload settings, and shader backend changes are applied only after leaving the menu.
+The menu script supports `style --live` for controls that should write cvars as the user changes them. Individual controls can use `--defer` to stay pending inside a live menu and commit only when the menu is closed. This is used by the video menu so safe settings update live, while refresh-sensitive settings (MSAA, hardware gamma, texture reload, shader backend) apply only after leaving.
 
 The `plaque` command accepts an optional position argument: `left`, `right`, `top`, `bottom`, `center`, `screen-topleft`, `screen-topright`, `screen-bottomleft`, or `screen-bottomright`.
+
+The top-level `style` and `focus` commands apply defaults to all subsequent `begin` menus. They accept the same flags as per-menu `style`/`focus` (`--compact`, `--center`, `--transparent`, `--live`, `--border`, `--inset`, `--height`, etc.). Per-menu `style` or `focus` overrides these defaults.
+
+Actions and bindings support `--align` to set the label text to an alternate status string in the right column.
+
+Custom color pickers work for any `sh_*` (strafe helper), `ui_menu_color_*`, and `race_color` cvars.
+
+The `ui_reset_netmeter_settings` command restores all network bar, alert, and threshold settings to their defaults.
+
+Strafe helper color presets are selected with `sh hud preset <name>` and show colored swatches in the menu list.
 
 Virtual `--show-if` cvars provided by the UI are `ui_exclusive_fullscreen`, `ui_borderless_or_windowed`, and `ui_histogram_custom_width`.
 
