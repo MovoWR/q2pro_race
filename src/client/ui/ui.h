@@ -412,6 +412,15 @@ extern cvar_t       *ui_menu_bar_image;
 extern cvar_t       *ui_menu_bar_image_alpha;
 extern cvar_t       *ui_menu_bar_image_mode;
 
+extern cvar_t       *ui_menu_model;
+extern cvar_t       *ui_menu_model_orbit;
+extern cvar_t       *ui_menu_model_position;
+extern cvar_t       *ui_menu_model_x;
+extern cvar_t       *ui_menu_model_y;
+extern cvar_t       *ui_menu_model_scale;
+extern cvar_t       *ui_menu_model_yaw;
+extern cvar_t       *ui_menu_model_distance;
+
 extern cvar_t       *ui_menu_anim;
 extern cvar_t       *ui_menu_anim_focus_ms;
 
@@ -502,6 +511,14 @@ void UI_ClearColor_Wrapper(void);
 void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color);
 
 float Menu_Ease01(float t);
+
+void UI_DrawMenuBackgroundModel(const menuFrameWork_t *menu);
+void UI_ModelPreview_MenuItemFocused(const menuFrameWork_t *menu,
+                                     const menuCommon_t *item);
+void UI_ModelPreview_MouseMove(const menuFrameWork_t *menu, int x, int y);
+bool UI_ModelPreview_MouseDown(const menuFrameWork_t *menu, int x, int y);
+void UI_ModelPreview_MouseUp(void);
+void UI_ModelPreview_Shutdown(void);
 
 #ifndef UI_C_IMPLEMENTATION
 #define R_SetColor(color) UI_SetColor_Wrapper(color)

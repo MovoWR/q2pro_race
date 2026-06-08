@@ -3598,10 +3598,6 @@ static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t s
     return buffer;
 }
 
-static uint32_t Menu_BackgroundColor(menuFrameWork_t *menu)
-{
-    return UI_MenuBackgroundColor(menu);
-}
 
 static void Menu_GetItemContentRect(const menuCommon_t *item, vrect_t *rect)
 {
@@ -3937,6 +3933,8 @@ void Menu_Draw(menuFrameWork_t *menu)
         }
     }
 
+    UI_DrawMenuBackgroundModel(menu);
+
 //
 // 4. Draw menu background strip (translucent overlay for readability)
 //
@@ -3945,7 +3943,7 @@ void Menu_Draw(menuFrameWork_t *menu)
                             menu->y2 - menu->y1, menu->image);
     } else {
         R_DrawFill32(0, menu->y1, uis.width,
-                     menu->y2 - menu->y1, Menu_BackgroundColor(menu));
+                     menu->y2 - menu->y1, UI_MenuBackgroundColor(menu));
     }
 
 //

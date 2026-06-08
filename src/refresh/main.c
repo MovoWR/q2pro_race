@@ -1276,8 +1276,7 @@ bool R_Init(bool total)
         GL_PostInit();
         return true;
     }
-
-    Com_Printf("------- R_Init -------\n");
+    Com_LPrintf(PRINT_NOTICE,"--------------- R_Init ---------------\n");
     Com_Printf("Using video driver: %s\n", vid->name);
 
     // initialize OS-specific parts of OpenGL
@@ -1307,7 +1306,7 @@ bool R_Init(bool total)
 
     GL_ShowErrors(__func__);
 
-    Com_Printf("----------------------\n");
+ //   Com_LPrintf(PRINT_NOTICE,"\n--------------------------------------\n");
 
     return true;
 
@@ -1424,6 +1423,11 @@ void R_BeginRegistration(const char *name)
     glr.viewcluster1 = glr.viewcluster2 = -2;
 
     GL_LoadWorld(name);
+}
+
+unsigned R_RegistrationSequence(void)
+{
+    return r_registration_sequence;
 }
 
 /*
