@@ -29,6 +29,14 @@ PLAYER CONFIG MENU
 
 #define ID_MODEL 103
 #define ID_SKIN    104
+#define ID_ANIMATION 105
+#define ID_ROTATION 106
+
+typedef struct {
+    const char *name;
+    int firstFrame;
+    int lastFrame;
+} playerAnimation_t;
 
 typedef struct {
     menuFrameWork_t     menu;
@@ -36,12 +44,15 @@ typedef struct {
     menuSpinControl_t   model;
     menuSpinControl_t   skin;
     menuSpinControl_t   hand;
+    menuSpinControl_t   animation;
+    menuSlider_t        rotation;
 
     refdef_t    refdef;
     entity_t    entities[2];
 
     unsigned    time;
     unsigned    oldTime;
+    int         animationFrame;
 
     char *pmnames[MAX_PLAYERMODELS + 1];
 } m_player_t;
@@ -55,19 +66,64 @@ static const char *const handedness[] = {
     NULL
 };
 
-static uint32_t OpaqueBackgroundColor(color_t color)
-{
-    int alpha = color.u8[3];
+static const playerAnimation_t playerAnimations[] = {
+    { "stand",          0,  39 },
+    { "run",           40,  45 },
+    { "attack",        46,  53 },
+    { "pain",          54,  65 },
+    { "jump",          66,  71 },
+    { "flip",          72,  83 },
+    { "salute",        84,  94 },
+    { "taunt",         95, 111 },
+    { "wave",         112, 122 },
+    { "point",        123, 134 },
+    { "crouch",       135, 153 },
+    { "crouch walk",  154, 159 },
+    { "crouch attack", 160, 168 },
+    { "crouch pain",  169, 177 },
+    { "death 1",      178, 183 },
+    { "death 2",      184, 189 },
+    { "death 3",      190, 197 },
+    { NULL, 0, 0 }
+};
 
-    if (alpha == 255) {
-        return color.u32;
+static char *animationNames[q_countof(playerAnimations)];
+
+static const playerAnimation_t *CurrentAnimation(void)
+{
+    int index = m_player.animation.curvalue;
+    int numAnimations = q_countof(playerAnimations) - 1;
+
+    if (index < 0 || index >= numAnimations) {
+        index = 0;
     }
 
-    color.u8[0] = color.u8[0] * alpha / 255;
-    color.u8[1] = color.u8[1] * alpha / 255;
-    color.u8[2] = color.u8[2] * alpha / 255;
-    color.u8[3] = 255;
-    return color.u32;
+    return &playerAnimations[index];
+}
+
+static void RestartAnimation(void)
+{
+    const playerAnimation_t *animation = CurrentAnimation();
+    int i;
+
+    m_player.time = uis.realtime;
+    m_player.oldTime = m_player.time;
+    m_player.animationFrame = animation->firstFrame;
+
+    for (i = 0; i < q_countof(m_player.entities); i++) {
+        m_player.entities[i].oldframe = animation->firstFrame;
+        m_player.entities[i].frame = animation->firstFrame;
+    }
+}
+
+static void ApplyRotation(void)
+{
+    int i;
+    float yaw = m_player.rotation.curvalue;
+
+    for (i = 0; i < q_countof(m_player.entities); i++) {
+        m_player.entities[i].angles[YAW] = yaw;
+    }
 }
 
 static void ReloadMedia(void)
@@ -85,7 +141,7 @@ static void ReloadMedia(void)
 
     m_player.refdef.num_entities++;
 
-    Q_concat(scratch, sizeof(scratch), "players/", model, "/", skin, ".pcx");
+    Q_concat(scratch, sizeof(scratch), "players/", model, "/", skin);
     m_player.entities[0].skin = R_RegisterSkin(scratch);
 
     if (!uis.weaponModel[0])
@@ -101,6 +157,7 @@ static void ReloadMedia(void)
 
 static void RunFrame(void)
 {
+    const playerAnimation_t *animation = CurrentAnimation();
     int frame;
     int i;
 
@@ -112,7 +169,11 @@ static void RunFrame(void)
             m_player.time = uis.realtime;
         }
 
-        frame = (m_player.time / 120) % 40;
+        frame = m_player.animationFrame + 1;
+        if (frame > animation->lastFrame || frame < animation->firstFrame) {
+            frame = animation->firstFrame;
+        }
+        m_player.animationFrame = frame;
 
         for (i = 0; i < m_player.refdef.num_entities; i++) {
             m_player.entities[i].oldframe = m_player.entities[i].frame;
@@ -141,10 +202,11 @@ static void Draw(menuFrameWork_t *self)
         m_player.entities[i].backlerp = backlerp;
     }
 
+    ApplyRotation();
+
     Menu_Draw(self);
 
     R_RenderFrame(&m_player.refdef);
-
     R_SetScale(uis.scale);
 }
 
@@ -153,14 +215,14 @@ static void Size(menuFrameWork_t *self)
     int w = uis.width / uis.scale;
     int h = uis.height / uis.scale;
     int x = uis.width / 2;
-    int y = uis.height / 2 - MENU_SPACING * 5 / 2;
+    int y = uis.height / 2 - MENU_SPACING * 7 / 2;
 
-    m_player.refdef.x = w / 2;
-    m_player.refdef.y = h / 10;
-    m_player.refdef.width = w / 2;
-    m_player.refdef.height = h - h / 5;
+    m_player.refdef.x = w * 5 / 8;
+    m_player.refdef.y = h / 8;
+    m_player.refdef.width = w * 3 / 8;
+    m_player.refdef.height = h * 3 / 4;
 
-    m_player.refdef.fov_x = 90;
+    m_player.refdef.fov_x = 100;
     m_player.refdef.fov_y = V_CalcFov(m_player.refdef.fov_x,
                                       m_player.refdef.width, m_player.refdef.height);
 
@@ -196,6 +258,14 @@ static void Size(menuFrameWork_t *self)
 
     m_player.hand.generic.x     = x;
     m_player.hand.generic.y     = y;
+    y += MENU_SPACING;
+
+    m_player.animation.generic.x = x;
+    m_player.animation.generic.y = y;
+    y += MENU_SPACING;
+
+    m_player.rotation.generic.x  = x;
+    m_player.rotation.generic.y  = y;
 }
 
 static menuSound_t Change(menuCommon_t *self)
@@ -209,6 +279,12 @@ static menuSound_t Change(menuCommon_t *self)
         // fall through
     case ID_SKIN:
         ReloadMedia();
+        break;
+    case ID_ANIMATION:
+        RestartAnimation();
+        break;
+    case ID_ROTATION:
+        ApplyRotation();
         break;
     default:
         break;
@@ -286,6 +362,10 @@ static bool Push(menuFrameWork_t *self)
     if (m_player.hand.curvalue < 0 || m_player.hand.curvalue > 2)
         m_player.hand.curvalue = 0;
 
+    m_player.animation.curvalue = 0;
+    m_player.rotation.curvalue = 260.0f;
+    ApplyRotation();
+
     m_player.menu.banner = R_RegisterPic("m_banner_plauer_setup");
     if (m_player.menu.banner) {
         R_GetPicSize(&m_player.menu.banner_rc.width,
@@ -298,8 +378,7 @@ static bool Push(menuFrameWork_t *self)
     ReloadMedia();
 
     // set up oldframe correctly
-    m_player.time = uis.realtime - 120;
-    m_player.oldTime = m_player.time;
+    RestartAnimation();
     RunFrame();
 
     return true;
@@ -313,8 +392,9 @@ static void Free(menuFrameWork_t *self)
 
 void M_Menu_PlayerConfig(void)
 {
-    static const vec3_t origin = { 40.0f, 0.0f, 0.0f };
+    static const vec3_t origin = { 56.0f, 0.0f, 0.0f };
     static const vec3_t angles = { 0.0f, 260.0f, 0.0f };
+    int i;
 
     m_player.menu.name = "players";
     m_player.menu.push = Push;
@@ -322,9 +402,9 @@ void M_Menu_PlayerConfig(void)
     m_player.menu.size = Size;
     m_player.menu.draw = Draw;
     m_player.menu.free = Free;
-    m_player.menu.image = uis.backgroundHandle;
-    m_player.menu.color.u32 = OpaqueBackgroundColor(uis.color.background);
-    m_player.menu.transparent = false;
+    m_player.menu.image = 0;
+    m_player.menu.color = uis.color.background;
+    m_player.menu.transparent = true;
 
     m_player.entities[0].flags = RF_FULLBRIGHT;
     VectorCopy(angles, m_player.entities[0].angles);
@@ -359,10 +439,32 @@ void M_Menu_PlayerConfig(void)
     m_player.hand.generic.name = "handedness";
     m_player.hand.itemnames = (char **)handedness;
 
+    for (i = 0; i < q_countof(playerAnimations); i++) {
+        animationNames[i] = (char *)playerAnimations[i].name;
+    }
+
+    m_player.animation.generic.type = MTYPE_SPINCONTROL;
+    m_player.animation.generic.id = ID_ANIMATION;
+    m_player.animation.generic.name = "animation";
+    m_player.animation.generic.change = Change;
+    m_player.animation.itemnames = animationNames;
+
+    m_player.rotation.generic.type = MTYPE_SLIDER;
+    m_player.rotation.generic.id = ID_ROTATION;
+    m_player.rotation.generic.name = "rotation";
+    m_player.rotation.generic.flags = QMF_SHOW_VALUE;
+    m_player.rotation.generic.change = Change;
+    m_player.rotation.minvalue = 0.0f;
+    m_player.rotation.maxvalue = 360.0f;
+    m_player.rotation.step = 5.0f;
+    m_player.rotation.curvalue = 260.0f;
+
     Menu_AddItem(&m_player.menu, &m_player.name);
     Menu_AddItem(&m_player.menu, &m_player.model);
     Menu_AddItem(&m_player.menu, &m_player.skin);
     Menu_AddItem(&m_player.menu, &m_player.hand);
+    Menu_AddItem(&m_player.menu, &m_player.animation);
+    Menu_AddItem(&m_player.menu, &m_player.rotation);
 
     List_Append(&ui_menus, &m_player.menu.entry);
 }

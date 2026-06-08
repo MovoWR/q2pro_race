@@ -19,6 +19,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "ui.h"
 #include "common/files.h"
 
+bool ui_builtin_menu_active = false;
+
 static menuSound_t Activate(menuCommon_t *self)
 {
     switch (self->type) {
@@ -348,6 +350,82 @@ static void Parse_Action(menuFrameWork_t *menu)
     Menu_AddItem(menu, a);
 }
 
+static void Parse_ActionSelect(menuFrameWork_t *menu)
+{
+    static const cmd_option_t o_action[] = {
+        { "a", "align" },
+        { "v", "show-value" },
+        { "s:", "status" },
+        { NULL }
+    };
+    menuSpinControl_t *s;
+    int uiFlags = UI_CENTER;
+    char state_name[MAX_QPATH];
+    int flags = 0;
+    char *status = NULL;
+    char *name, *command_name;
+    int c, i, numItems;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
+
+    while ((c = Cmd_ParseOptions(o_action)) != -1) {
+        switch (c) {
+        case 'a':
+            uiFlags = UI_LEFT | UI_ALTCOLOR;
+            break;
+        case 'v':
+            flags |= QMF_SHOW_VALUE;
+            break;
+        case 's':
+            status = cmd_optarg;
+            break;
+        default:
+            return;
+        }
+    }
+
+    numItems = Cmd_Argc() - (cmd_optind + 2);
+    if (numItems < 1) {
+        Com_Printf("Usage: %s <name> <command_name> <command_value> [...]\n", Cmd_Argv(0));
+        return;
+    }
+
+    name = Cmd_Argv(cmd_optind);
+    command_name = Cmd_Argv(cmd_optind + 1);
+
+    if (Q_snprintf(state_name, sizeof(state_name), "ui_action_select_%s",
+                   command_name) >= sizeof(state_name)) {
+        Com_Printf("action_select command name is too long: %s\n", command_name);
+        return;
+    }
+
+    s = UI_Mallocz(sizeof(*s));
+    s->generic.type = MTYPE_ACTION_SELECT;
+    s->generic.name = UI_CopyString(name);
+    s->generic.status = UI_CopyString(status);
+    s->generic.flags = flags;
+    s->generic.uiFlags = uiFlags;
+    s->cmd = UI_CopyString(command_name);
+    s->cvar = Cvar_Get(state_name, Cmd_Argv(cmd_optind + 2),
+                       CVAR_PRIVATE | CVAR_NOARCHIVE);
+
+    cmd_optind += 2;
+    if (strchr(Cmd_ArgsFrom(cmd_optind), '$')) {
+        long_args_hack(s, numItems);
+    } else {
+        s->itemnames = UI_Mallocz(sizeof(char *) * (numItems + 1));
+        for (i = 0; i < numItems; i++) {
+            s->itemnames[i] = UI_CopyString(Cmd_Argv(cmd_optind + i));
+        }
+        s->numItems = numItems;
+    }
+
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
+    Menu_AddItem(menu, s);
+}
+
 static void Parse_Bitmap(menuFrameWork_t *menu)
 {
     static const cmd_option_t o_bitmap[] = {
@@ -445,6 +523,181 @@ static void Parse_Bind(menuFrameWork_t *menu)
     Menu_AddItem(menu, k);
 }
 
+static void Parse_Select(menuFrameWork_t *menu)
+{
+    static const cmd_option_t o_select[] = {
+        { "s:", "status" },
+        { "d", "defer" },
+        { "v", "show-value" },
+        { NULL }
+    };
+    menuSelect_t *s;
+    const char *status = NULL;
+    int c, numItems, i;
+    bool deferCommit = false;
+    bool showValue = false;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
+
+    while ((c = Cmd_ParseOptions(o_select)) != -1) {
+        switch (c) {
+        case 's':
+            status = cmd_optarg;
+            break;
+        case 'd':
+            deferCommit = true;
+            break;
+        case 'v':
+            showValue = true;
+            break;
+        default:
+            return;
+        }
+    }
+
+    numItems = Cmd_Argc() - cmd_optind - 2;
+    if (numItems < 1) {
+        Com_Printf("Usage: %s <name> <cvar> <value1> [value2 ...]\n", Cmd_Argv(0));
+        return;
+    }
+
+    s = UI_Mallocz(sizeof(*s));
+    s->generic.type = MTYPE_SELECT;
+    s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
+    s->generic.uiFlags = UI_CENTER;
+    if (showValue) s->generic.flags |= QMF_SHOW_VALUE;
+    if (deferCommit) s->generic.flags |= QMF_DEFER_COMMIT;
+    s->cvar = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
+    s->numItems = numItems;
+    s->curvalue = -1;
+    s->hoverIndex = -1;
+    s->itemnames = Z_Malloc(numItems * sizeof(*s->itemnames));
+    s->itemRects = Z_Malloc(numItems * sizeof(*s->itemRects));
+
+    if (status) {
+        s->generic.status = UI_CopyString(status);
+    }
+
+    for (i = 0; i < numItems; i++) {
+        s->itemnames[i] = UI_CopyString(Cmd_Argv(cmd_optind + 2 + i));
+    }
+
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
+    Menu_AddItem(menu, s);
+}
+
+static void Parse_Select2(menuFrameWork_t *menu)
+{
+    static const cmd_option_t o_sel2[] = {
+        { "s:", "status" },
+        { NULL }
+    };
+    menuSelect2_t *s;
+    const char *status = NULL;
+    int c, i, split, n1, n2;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
+
+    while ((c = Cmd_ParseOptions(o_sel2)) != -1) {
+        switch (c) {
+        case 's':
+            status = cmd_optarg;
+            break;
+        default:
+            return;
+        }
+    }
+
+    /* Syntax: select2 <name> <cvar1> <v1> <v2> ... : <cvar2> <v1> <v2> ... */
+    split = -1;
+    for (i = cmd_optind + 2; i < Cmd_Argc(); i++) {
+        if (!strcmp(Cmd_Argv(i), ":")) {
+            split = i;
+            break;
+        }
+    }
+    if (split < 0) {
+        Com_Printf("Usage: %s <name> <cvar1> <v1> ... : <cvar2> <v1> ...\n", Cmd_Argv(0));
+        return;
+    }
+
+    n1 = split - cmd_optind - 2;
+    n2 = Cmd_Argc() - split - 2;
+    if (n1 < 1 || n2 < 1) {
+        Com_Printf("Usage: %s <name> <cvar1> <v1> ... : <cvar2> <v1> ...\n", Cmd_Argv(0));
+        return;
+    }
+
+    s = UI_Mallocz(sizeof(*s));
+    s->generic.type = MTYPE_SELECT2;
+    s->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
+    s->generic.uiFlags = UI_CENTER;
+    s->openIdx = -1;
+    s->hoverIndex = -1;
+
+    s->cvar[0] = Cvar_WeakGet(Cmd_Argv(cmd_optind + 1));
+    s->numItems[0] = n1;
+    s->itemnames[0] = Z_Malloc(n1 * sizeof(char *));
+    for (i = 0; i < n1; i++)
+        s->itemnames[0][i] = UI_CopyString(Cmd_Argv(cmd_optind + 2 + i));
+
+    s->cvar[1] = Cvar_WeakGet(Cmd_Argv(split + 1));
+    s->numItems[1] = n2;
+    s->itemnames[1] = Z_Malloc(n2 * sizeof(char *));
+    for (i = 0; i < n2; i++)
+        s->itemnames[1][i] = UI_CopyString(Cmd_Argv(split + 2 + i));
+
+    if (status)
+        s->generic.status = UI_CopyString(status);
+
+    SetShowIf(&s->generic, show_if_cvar, show_if_value);
+    Menu_AddItem(menu, s);
+}
+static void Parse_BindSelect2(menuFrameWork_t *menu)
+{
+    static const cmd_option_t o_bs2[] = {{"s:","status"},{"S:","altstatus"},{NULL}};
+    menuBindSelect2_t *bs;
+    const char *status = "Enter to bind  |  Click selects to open  |  Tab to switch  |  L/R to adjust";
+    const char *altstatus = "Press the desired key, Escape to cancel";
+    int c, i, split, n1, n2;
+    char *show_if_cvar = NULL;
+    char *show_if_value = NULL;
+
+    ParseShowIf(&show_if_cvar, &show_if_value);
+
+    while ((c = Cmd_ParseOptions(o_bs2)) != -1) {
+        switch (c) { case 's': status = cmd_optarg; break; case 'S': altstatus = cmd_optarg; break; default: return; }
+    }
+    split = -1;
+    for (i = cmd_optind + 3; i < Cmd_Argc(); i++) { if (!strcmp(Cmd_Argv(i), ":")) { split = i; break; } }
+    if (split < 0) { Com_Printf("Usage: %s <name> <cmd> <cvar1> <v1> ... : <cvar2> <v1> ...\n", Cmd_Argv(0)); return; }
+    n1 = split - cmd_optind - 3; n2 = Cmd_Argc() - split - 2;
+    if (n1 < 1 || n2 < 1) { Com_Printf("Usage: %s <name> <cmd> <cvar1> <v1> ... : <cvar2> <v1> ...\n", Cmd_Argv(0)); return; }
+    bs = UI_Mallocz(sizeof(*bs));
+    bs->generic.type = MTYPE_BINDSELECT2;
+    bs->generic.name = UI_CopyString(Cmd_Argv(cmd_optind));
+    bs->generic.uiFlags = UI_CENTER;
+    bs->generic.status = UI_CopyString(status);
+    bs->cmd = UI_CopyString(Cmd_Argv(cmd_optind + 1));
+    bs->legacycmd = UI_CopyString(Cmd_ArgsFrom(cmd_optind + 1));
+    bs->altstatus = UI_CopyString(altstatus);
+    bs->openIdx = -1; bs->hoverIndex = -1;
+    bs->cvar[0] = Cvar_WeakGet(Cmd_Argv(cmd_optind + 2));
+    bs->numItems[0] = n1;
+    bs->itemnames[0] = Z_Malloc(n1 * sizeof(char *));
+    for (i = 0; i < n1; i++) bs->itemnames[0][i] = UI_CopyString(Cmd_Argv(cmd_optind + 3 + i));
+    bs->cvar[1] = Cvar_WeakGet(Cmd_Argv(split + 1));
+    bs->numItems[1] = n2;
+    bs->itemnames[1] = Z_Malloc(n2 * sizeof(char *));
+    for (i = 0; i < n2; i++) bs->itemnames[1][i] = UI_CopyString(Cmd_Argv(split + 2 + i));
+    bs->itemRects = Z_Malloc((n1 > n2 ? n1 : n2) * sizeof(vrect_t));
+    SetShowIf(&bs->generic, show_if_cvar, show_if_value);
+    Menu_AddItem(menu, bs);
+}
 static void Parse_Savegame(menuFrameWork_t *menu, menuType_t type)
 {
     menuAction_t *a;
@@ -1109,10 +1362,18 @@ static bool Parse_Buffer(const char *path, char *data, int depth)
                     Parse_Range(menu);
                 } else if (!strcmp(cmd, "action")) {
                     Parse_Action(menu);
+                } else if (!strcmp(cmd, "action_select")) {
+                    Parse_ActionSelect(menu);
                 } else if (!strcmp(cmd, "bitmap")) {
                     Parse_Bitmap(menu);
                 } else if (!strcmp(cmd, "bind")) {
                     Parse_Bind(menu);
+                } else if (!strcmp(cmd, "select")) {
+                    Parse_Select(menu);
+                } else if (!strcmp(cmd, "select2")) {
+                    Parse_Select2(menu);
+                } else if (!strcmp(cmd, "bindselect2")) {
+                    Parse_BindSelect2(menu);
                 } else if (!strcmp(cmd, "savegame")) {
                     Parse_Savegame(menu, MTYPE_SAVEGAME);
                 } else if (!strcmp(cmd, "loadgame")) {
@@ -1264,7 +1525,9 @@ void UI_LoadScript(void)
 
     memset(&ui_menu_defaults, 0, sizeof(ui_menu_defaults));
 
-    if (UI_ShouldUseBuiltinMenu(ui_external_menu)) {
+    ui_builtin_menu_active = UI_ShouldUseBuiltinMenu(ui_external_menu);
+
+    if (ui_builtin_menu_active) {
         Parse_BuiltinMenu();
     } else {
         Parse_File("q2pro.menu", 0);

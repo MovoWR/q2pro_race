@@ -1108,19 +1108,27 @@ static menuSound_t Keydown(menuFrameWork_t *self, int key)
         return QMS_SILENT;
 
     case K_TAB:
-        if (Key_IsDown(K_SHIFT)) {
-            active_tab = (active_tab + 2) % 3;
+        if (ui_builtin_menu_active) {
+            if (Key_IsDown(K_SHIFT)) {
+                active_tab = (active_tab + 2) % 3;
+            } else {
+                active_tab = (active_tab + 1) % 3;
+            }
         } else {
-            active_tab = (active_tab + 1) % 3;
+            if (Key_IsDown(K_SHIFT)) {
+                active_tab = (active_tab == 1) ? 2 : 1;
+            } else {
+                active_tab = (active_tab == 2) ? 1 : 2;
+            }
         }
         SwitchToTab(active_tab);
         return QMS_BEEP;
 
     case '1':
-        SwitchToTab(0);
+        SwitchToTab(ui_builtin_menu_active ? 0 : 1);
         return QMS_BEEP;
     case '2':
-        SwitchToTab(1);
+        SwitchToTab(ui_builtin_menu_active ? 1 : 2);
         return QMS_BEEP;
     case '3':
         SwitchToTab(2);
@@ -1129,19 +1137,33 @@ static menuSound_t Keydown(menuFrameWork_t *self, int key)
     case K_MOUSE1:
         if (uis.mouseCoords[1] >= CHAR_HEIGHT && uis.mouseCoords[1] <= CHAR_HEIGHT + CHAR_HEIGHT) {
             int x = uis.mouseCoords[0];
-            int tab1_x = 2 * CHAR_WIDTH;
-            int tab2_x = tab1_x + 19 * CHAR_WIDTH;
-            int tab3_x = tab2_x + 18 * CHAR_WIDTH;
 
-            if (x >= tab1_x && x < tab1_x + 16 * CHAR_WIDTH) {
-                SwitchToTab(0);
-                return QMS_BEEP;
-            } else if (x >= tab2_x && x < tab2_x + 15 * CHAR_WIDTH) {
-                SwitchToTab(1);
-                return QMS_BEEP;
-            } else if (x >= tab3_x && x < tab3_x + 16 * CHAR_WIDTH) {
-                SwitchToTab(2);
-                return QMS_BEEP;
+            if (ui_builtin_menu_active) {
+                int tab1_x = 2 * CHAR_WIDTH;
+                int tab2_x = tab1_x + 19 * CHAR_WIDTH;
+                int tab3_x = tab2_x + 18 * CHAR_WIDTH;
+
+                if (x >= tab1_x && x < tab1_x + 16 * CHAR_WIDTH) {
+                    SwitchToTab(0);
+                    return QMS_BEEP;
+                } else if (x >= tab2_x && x < tab2_x + 15 * CHAR_WIDTH) {
+                    SwitchToTab(1);
+                    return QMS_BEEP;
+                } else if (x >= tab3_x && x < tab3_x + 16 * CHAR_WIDTH) {
+                    SwitchToTab(2);
+                    return QMS_BEEP;
+                }
+            } else {
+                int tab1_x = 2 * CHAR_WIDTH;
+                int tab2_x = tab1_x + 18 * CHAR_WIDTH;
+
+                if (x >= tab1_x && x < tab1_x + 15 * CHAR_WIDTH) {
+                    SwitchToTab(1);
+                    return QMS_BEEP;
+                } else if (x >= tab2_x && x < tab2_x + 16 * CHAR_WIDTH) {
+                    SwitchToTab(2);
+                    return QMS_BEEP;
+                }
             }
         }
         return QMS_NOTHANDLED;
@@ -1157,22 +1179,45 @@ static void DrawTabs(void)
     int x = 2 * CHAR_WIDTH;
 
     if (UI_MenuStyleId() == UI_MENU_STYLE_CUSTOM) {
-        int tab_w[3] = { 16 * CHAR_WIDTH, 15 * CHAR_WIDTH, 16 * CHAR_WIDTH };
-        const char *tab_text[3] = { "[ Jump Servers ]", "[ All Servers ]", "[ Address Book ]" };
+        if (ui_builtin_menu_active) {
+            int tab_w[3] = { 16 * CHAR_WIDTH, 15 * CHAR_WIDTH, 16 * CHAR_WIDTH };
+            const char *tab_text[3] = { "[ Jump Servers ]", "[ All Servers ]", "[ Address Book ]" };
 
-        for (int i = 0; i < 3; i++) {
-            int tx = (i == 0) ? (2 * CHAR_WIDTH) : (i == 1 ? 21 * CHAR_WIDTH : 39 * CHAR_WIDTH);
-            uint32_t bg_color = (active_tab == i) ? UI_MenuTabActiveBgColor() : UI_MenuTabInactiveBgColor();
-            R_DrawFill32(tx, y - 2, tab_w[i], CHAR_HEIGHT + 4, bg_color);
+            for (int i = 0; i < 3; i++) {
+                int tx = (i == 0) ? (2 * CHAR_WIDTH) : (i == 1 ? 21 * CHAR_WIDTH : 39 * CHAR_WIDTH);
+                uint32_t bg_color = (active_tab == i) ? UI_MenuTabActiveBgColor() : UI_MenuTabInactiveBgColor();
+                R_DrawFill32(tx, y - 2, tab_w[i], CHAR_HEIGHT + 4, bg_color);
 
-            uint32_t text_color = (active_tab == i) ? UI_MenuTabActiveTextColor() : UI_MenuTabTextColor();
-            Menu_SetColor(text_color);
-            UI_DrawString(tx, y, UI_LEFT, tab_text[i]);
+                uint32_t text_color = (active_tab == i) ? UI_MenuTabActiveTextColor() : UI_MenuTabTextColor();
+                Menu_SetColor(text_color);
+                UI_DrawString(tx, y, UI_LEFT, tab_text[i]);
 
-            if (active_tab == i) {
-                uint32_t underline_color = UI_MenuTabUnderlineColor();
-                if (underline_color & 0xff000000) {
-                    R_DrawFill32(tx, y + CHAR_HEIGHT + 1, tab_w[i], 2, underline_color);
+                if (active_tab == i) {
+                    uint32_t underline_color = UI_MenuTabUnderlineColor();
+                    if (underline_color & 0xff000000) {
+                        R_DrawFill32(tx, y + CHAR_HEIGHT + 1, tab_w[i], 2, underline_color);
+                    }
+                }
+            }
+        } else {
+            int tab_w[2] = { 15 * CHAR_WIDTH, 16 * CHAR_WIDTH };
+            const char *tab_text[2] = { "[ All Servers ]", "[ Address Book ]" };
+            int disp_tab[2] = { 1, 2 };
+
+            for (int i = 0; i < 2; i++) {
+                int tx = (i == 0) ? (2 * CHAR_WIDTH) : (20 * CHAR_WIDTH);
+                uint32_t bg_color = (active_tab == disp_tab[i]) ? UI_MenuTabActiveBgColor() : UI_MenuTabInactiveBgColor();
+                R_DrawFill32(tx, y - 2, tab_w[i], CHAR_HEIGHT + 4, bg_color);
+
+                uint32_t text_color = (active_tab == disp_tab[i]) ? UI_MenuTabActiveTextColor() : UI_MenuTabTextColor();
+                Menu_SetColor(text_color);
+                UI_DrawString(tx, y, UI_LEFT, tab_text[i]);
+
+                if (active_tab == disp_tab[i]) {
+                    uint32_t underline_color = UI_MenuTabUnderlineColor();
+                    if (underline_color & 0xff000000) {
+                        R_DrawFill32(tx, y + CHAR_HEIGHT + 1, tab_w[i], 2, underline_color);
+                    }
                 }
             }
         }
@@ -1180,9 +1225,11 @@ static void DrawTabs(void)
 
         R_DrawFill32(0, CHAR_HEIGHT + CHAR_HEIGHT + 2, uis.width, 1, UI_MenuTabActiveBgColor());
     } else {
-        // Draw Tab 0: [ Jump Servers ]
-        UI_DrawString(x, y, UI_LEFT | (active_tab == 0 ? UI_ALTCOLOR : 0), "[ Jump Servers ]");
-        x += 19 * CHAR_WIDTH;
+        if (ui_builtin_menu_active) {
+            // Draw Tab 0: [ Jump Servers ]
+            UI_DrawString(x, y, UI_LEFT | (active_tab == 0 ? UI_ALTCOLOR : 0), "[ Jump Servers ]");
+            x += 19 * CHAR_WIDTH;
+        }
 
         // Draw Tab 1: [ All Servers ]
         UI_DrawString(x, y, UI_LEFT | (active_tab == 1 ? UI_ALTCOLOR : 0), "[ All Servers ]");
@@ -1227,21 +1274,38 @@ static bool Push(menuFrameWork_t *self)
     const char *args = COM_StripQuotes(Cmd_RawArgsFrom(2));
 
     if (strncmp(args, "@jump", 5) == 0 && (args[5] == 0 || args[5] == ' ')) {
-        m_servers.jump_only = true;
-        args += 5;
-        while (*args == ' ')
-            args++;
-        active_tab = 0;
+        if (ui_builtin_menu_active) {
+            m_servers.jump_only = true;
+            args += 5;
+            while (*args == ' ')
+                args++;
+            if (!*args)
+                args = "+http://q2servers.com/?raw=2&mod=jump";
+            active_tab = 0;
+        } else {
+            args += 5;
+            while (*args == ' ')
+                args++;
+            if (!*args)
+                args = "+http://q2servers.com/?raw=2";
+            m_servers.jump_only = false;
+            active_tab = 1;
+        }
         m_servers.args = UI_CopyString(args);
     } else if (strstr(args, "favorites://") || strstr(args, "servers.lst")) {
         m_servers.jump_only = false;
         active_tab = 2;
         m_servers.args = UI_CopyString(args);
     } else if (!*args) {
-        // No arguments: default to JUMP servers!
-        m_servers.jump_only = true;
-        active_tab = 0;
-        m_servers.args = UI_CopyString("+http://q2servers.com/?raw=2&mod=jump");
+        if (ui_builtin_menu_active) {
+            m_servers.jump_only = true;
+            active_tab = 0;
+            m_servers.args = UI_CopyString("+http://q2servers.com/?raw=2&mod=jump");
+        } else {
+            m_servers.jump_only = false;
+            active_tab = 1;
+            m_servers.args = UI_CopyString("+http://q2servers.com/?raw=2");
+        }
     } else {
         m_servers.jump_only = false;
         active_tab = 1;

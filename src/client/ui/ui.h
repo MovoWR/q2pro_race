@@ -55,7 +55,12 @@ typedef enum {
     MTYPE_KEYBIND,
     MTYPE_BITMAP,
     MTYPE_SAVEGAME,
-    MTYPE_LOADGAME
+    MTYPE_LOADGAME,
+    MTYPE_SELECT,
+    MTYPE_SELECT2,
+    MTYPE_BINDSELECT2,
+    MTYPE_BINDFIELDS,
+    MTYPE_ACTION_SELECT
 } menuType_t;
 
 #define QMF_LEFT_JUSTIFY    BIT(0)
@@ -213,6 +218,65 @@ typedef struct {
     bool colorPickerOnly;
 } menuField_t;
 
+typedef struct menuSelect_s {
+    menuCommon_t generic;
+    cvar_t *cvar;
+    int numItems;
+    char **itemnames;
+    rect_t *itemRects;
+    int curvalue;
+    int hoverIndex;
+    bool open;
+    int dropWidth;
+    rect_t dropRect;
+} menuSelect_t;
+
+typedef struct menuSelect2_s {
+    menuCommon_t generic;
+    cvar_t *cvar[2];
+    int numItems[2];
+    char **itemnames[2];
+    rect_t *itemRects;
+    int curvalue[2];
+    int hoverIndex;
+    bool open;
+    int openIdx;
+    int colWidth[2];
+    rect_t dropRect;
+} menuSelect2_t;
+
+typedef struct menuBindSelect2_s {
+    menuCommon_t generic;
+    char *cmd;
+    char binding[32];
+    char altbinding[32];
+    char *altstatus;
+    cvar_t *cvar[2];
+    int numItems[2];
+    char **itemnames[2];
+    rect_t *itemRects;
+    int curvalue[2];
+    int hoverIndex;
+    bool open;
+    int openIdx;
+    int colWidth[3];
+    rect_t dropRect;
+    int focusPart;
+} menuBindSelect2_t;
+
+typedef struct menuBindFields_s {
+    menuCommon_t generic;
+    char *cmd;
+    char binding[32];
+    char altbinding[32];
+    char *altstatus;
+    int numFields;
+    int *fieldWidths;
+    inputField_t *fields;
+    cvar_t **cvars;
+    int focusPart;
+} menuBindFields_t;
+
 #define SLIDER_RANGE 10
 
 typedef struct {
@@ -368,7 +432,7 @@ typedef struct {
 
     qhandle_t bitmapCursors[NUM_CURSOR_FRAMES];
 
-    uiColorStyle_t color, baseColor;
+    uiColorStyle_t color;
     uint32_t listHeaderColor;
     uint32_t scrollbarColor;
     uint32_t hintBackgroundColor;
@@ -404,6 +468,10 @@ extern cvar_t       *ui_debug;
 extern cvar_t       *cl_menu_cursor;
 
 extern cvar_t       *ui_menu_focus_width;
+
+bool Menu_HandleOpenSelect(void);
+
+extern bool ui_builtin_menu_active;
 extern cvar_t       *ui_menu_focus_padding_x;
 extern cvar_t       *ui_menu_focus_padding_y;
 extern cvar_t       *ui_menu_density;
