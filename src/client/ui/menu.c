@@ -17,14 +17,25 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "ui.h"
+#include "common/utils.h"
 #include "server/server.h"
 #include "src/jump/sh_menus.h"
-#include <math.h>
 
 extern cvar_t *cl_drawStrafeHelper;
 
 static bool Field_ParseColor(const char *s, color_t *color);
 static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t size);
+static void Keybind_Remove(const char *cmd);
+static void Keybind_Update(menuFrameWork_t *menu);
+static void BindFields_Update(menuFrameWork_t *menu);
+static void BindFields_Remove(const char *cmd);
+static void BindSelect2_Remove(menuBindSelect2_t *bs);
+static void BindSelect2_Update(menuFrameWork_t *menu);
+static void BindSelect2_Push(menuBindSelect2_t *bs);
+static void BindSelect2_Init(menuBindSelect2_t *bs);
+static void BindFields_Push(menuBindFields_t *bf);
+static void Keybind_Push(menuKeybind_t *k);
+static void Keybind_Init(menuKeybind_t *k);
 
 void Menu_SetColor(uint32_t color)
 {
@@ -90,7 +101,7 @@ static bool Action_PresetColorStrings(menuAction_t *a, const char **accelerating
     }
 
     name = a->cmd + sizeof(prefix) - 1;
-    if (!*name || !_stricmp(name, "random")) {
+    if (!*name || !Q_stricmp(name, "random")) {
         return false;
     }
 
@@ -174,6 +185,7 @@ static void Action_Draw(menuAction_t *a)
     int flags;
 
     flags = a->generic.uiFlags;
+
     if (a->generic.flags & QMF_HASFOCUS) {
         Menu_SetColor(uis.color.active.u32);
         if ((a->generic.uiFlags & UI_CENTER) == UI_CENTER) {
@@ -416,31 +428,61 @@ static void Keybind_Remove(const char *cmd)
 
 static bool keybind_cb(void *arg, int key)
 {
-    menuKeybind_t *k = arg;
-    menuFrameWork_t *menu = k->generic.parent;
+    menuCommon_t *item = arg;
+    menuFrameWork_t *menu = item->parent;
 
-    // console key is hardcoded
-    if (key == '`') {
-        UI_StartSound(QMS_BEEP);
-        return false;
-    }
+    if (key == '`') { UI_StartSound(QMS_BEEP); return false; }
 
-    // menu key is hardcoded
     if (key != K_ESCAPE) {
-        if (k->altbinding[0]) {
-            Keybind_Remove(k->cmd);
+        if (item->type == MTYPE_KEYBIND) {
+            menuKeybind_t *k = (menuKeybind_t *)item;
+            if (k->altbinding[0]) BindFields_Remove(k->cmd);
+            Key_SetBinding(key, k->cmd);
+            Keybind_Update(menu);
+        } else if (item->type == MTYPE_BINDFIELDS) {
+            menuBindFields_t *bf = (menuBindFields_t *)item;
+            if (bf->altbinding[0]) BindFields_Remove(bf->cmd);
+            Key_SetBinding(key, bf->cmd);
+            BindFields_Update(menu);
+        } else if (item->type == MTYPE_BINDSELECT2) {
+            menuBindSelect2_t *bs = (menuBindSelect2_t *)item;
+            if (bs->altbinding[0]) BindSelect2_Remove(bs);
+            Key_SetBinding(key, bs->cmd);
+            BindSelect2_Update(menu);
         }
-        Key_SetBinding(key, k->cmd);
     }
-
-    Keybind_Update(menu);
 
     menu->keywait = false;
-    menu->status = k->generic.status;
+    menu->status = item->status;
     Key_WaitKey(NULL, NULL);
-
     UI_StartSound(QMS_OUT);
     return false;
+}
+
+static void BindFields_Update(menuFrameWork_t *menu)
+{
+    int i;
+    for (i = 0; i < menu->nitems; i++) {
+        if (((menuCommon_t *)menu->items[i])->type == MTYPE_BINDFIELDS) {
+            BindFields_Push(menu->items[i]);
+        }
+    }
+}
+
+static void BindFields_Push(menuBindFields_t *bf)
+{
+    int key = Key_EnumBindings(0, bf->cmd);
+    int i;
+    bf->altbinding[0] = 0;
+    if (key == -1) strcpy(bf->binding, "???");
+    else { Q_strlcpy(bf->binding, Key_KeynumToString(key), sizeof(bf->binding));
+        key = Key_EnumBindings(key + 1, bf->cmd);
+        if (key != -1) Q_strlcpy(bf->altbinding, Key_KeynumToString(key), sizeof(bf->altbinding)); }
+    for (i = 0; i < bf->numFields; i++) {
+        IF_Init(&bf->fields[i], bf->fieldWidths[i], bf->fieldWidths[i]);
+        if (bf->cvars[i]) IF_Replace(&bf->fields[i], bf->cvars[i]->string);
+    }
+    bf->focusPart = 0;
 }
 
 static menuSound_t Keybind_DoEnter(menuKeybind_t *k)
@@ -468,6 +510,979 @@ static menuSound_t Keybind_Key(menuKeybind_t *k, int key)
     }
 
     return QMS_NOTHANDLED;
+}
+
+/*
+===================================================================
+
+SELECT FIELD
+
+===================================================================
+*/
+
+static menuSelect_t *g_openSelect; /* only one dropdown open at a time */
+
+static menuSound_t Select_MouseMove(menuSelect_t *s);
+static menuSound_t Select2_MouseMove(menuSelect2_t *s);
+static menuSound_t BindSelect2_MouseMove(menuBindSelect2_t *s);
+
+static bool SelectAnyIsOpen(void)
+{
+    if (!g_openSelect)
+        return false;
+    if (g_openSelect->generic.type == MTYPE_SELECT)
+        return g_openSelect->open;
+    if (g_openSelect->generic.type == MTYPE_SELECT2)
+        return ((menuSelect2_t *)g_openSelect)->open;
+    if (g_openSelect->generic.type == MTYPE_BINDSELECT2)
+        return ((menuBindSelect2_t *)g_openSelect)->open;
+    return false;
+}
+
+static void SelectAnyMouseMove(void)
+{
+    if (!g_openSelect)
+        return;
+    if (g_openSelect->generic.type == MTYPE_SELECT && g_openSelect->open)
+        Select_MouseMove(g_openSelect);
+    else if (g_openSelect->generic.type == MTYPE_SELECT2)
+        Select2_MouseMove((menuSelect2_t *)g_openSelect);
+    else if (g_openSelect->generic.type == MTYPE_BINDSELECT2)
+        BindSelect2_MouseMove((menuBindSelect2_t *)g_openSelect);
+}
+
+static void Select_Push(menuSelect_t *s)
+{
+    int i, val = s->cvar->integer;
+    bool numeric = COM_IsFloat(s->cvar->string);
+
+    s->open = false;
+    s->hoverIndex = -1;
+    s->curvalue = -1;
+
+    for (i = 0; i < s->numItems; i++) {
+        if (!strcmp(s->itemnames[i], s->cvar->string) ||
+            (numeric && COM_IsFloat(s->itemnames[i]) && Q_atoi(s->itemnames[i]) == val)) {
+            s->curvalue = i;
+            break;
+        }
+    }
+    if (s->curvalue < 0 && s->numItems > 0)
+        s->curvalue = 0;
+}
+
+static void Select_Pop(menuSelect_t *s)
+{
+    if (s->open) {
+        if (g_openSelect == s)
+            g_openSelect = NULL;
+        s->open = false;
+    }
+    if (s->curvalue >= 0 && s->curvalue < s->numItems) {
+        Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
+    }
+}
+
+static void Select_Init(menuSelect_t *s)
+{
+    int i, maxWidth = 0, len;
+
+    s->generic.uiFlags &= ~(UI_LEFT | UI_RIGHT);
+
+    s->generic.rect.x = s->generic.x + LCOLUMN_OFFSET;
+    s->generic.rect.y = s->generic.y;
+
+    UI_StringDimensions(&s->generic.rect,
+                        s->generic.uiFlags | UI_RIGHT, s->generic.name);
+
+    for (i = 0; i < s->numItems; i++) {
+        len = strlen(s->itemnames[i]);
+        if (maxWidth < len) maxWidth = len;
+    }
+    if (maxWidth < 4) maxWidth = 4;
+
+    s->dropWidth = maxWidth * CHAR_WIDTH + CHAR_WIDTH * 2;
+    s->generic.rect.width += (RCOLUMN_OFFSET - LCOLUMN_OFFSET) +
+                              maxWidth * CHAR_WIDTH + CHAR_WIDTH * 2;
+}
+
+static void Select_CloseOther(void)
+{
+    if (!g_openSelect)
+        return;
+    if (g_openSelect->generic.type == MTYPE_SELECT) {
+        g_openSelect->open = false;
+        g_openSelect->hoverIndex = -1;
+    } else if (g_openSelect->generic.type == MTYPE_SELECT2) {
+        menuSelect2_t *s2 = (menuSelect2_t *)g_openSelect;
+        s2->open = false; s2->openIdx = -1; s2->hoverIndex = -1;
+    } else {
+        menuBindSelect2_t *bs = (menuBindSelect2_t *)g_openSelect;
+        bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1;
+    }
+    g_openSelect = NULL;
+}
+
+static void Select_Draw(menuSelect_t *s)
+{
+    const char *name;
+    int flags = s->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR;
+    char buf[256];
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
+
+    UI_DrawString(s->generic.x + LCOLUMN_OFFSET, s->generic.y,
+                  flags, s->generic.name);
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
+
+    if (s->curvalue < 0 || s->curvalue >= s->numItems)
+        name = "???";
+    else
+        name = s->itemnames[s->curvalue];
+
+    Q_snprintf(buf, sizeof(buf), "%s \x1f", name);
+    UI_DrawString(s->generic.x + RCOLUMN_OFFSET, s->generic.y,
+                  s->generic.uiFlags, buf);
+
+    if (s->generic.flags & QMF_HASFOCUS || s->open) {
+        Menu_SetNormalColor();
+    }
+}
+
+static void Select_DrawDropDown(menuSelect_t *s)
+{
+    int i, x, y;
+
+    if (!s->open)
+        return;
+
+    x = s->generic.x + RCOLUMN_OFFSET;
+    y = s->generic.y + CHAR_HEIGHT + 2;
+
+    /* Open upward if not enough space below */
+    if (y + s->numItems * CHAR_HEIGHT + 4 > uis.height)
+        y = s->generic.y - s->numItems * CHAR_HEIGHT - 4;
+
+    s->dropRect.x = x;
+    s->dropRect.y = y;
+    s->dropRect.width = s->dropWidth;
+    s->dropRect.height = s->numItems * CHAR_HEIGHT + 4;
+
+    /* Background */
+    R_DrawFill32(x, y, s->dropWidth, s->dropRect.height,
+                 MakeColor(0, 0, 0, 200));
+    /* Border */
+    R_DrawFill32(x, y, s->dropWidth, 1,
+                 uis.color.active.u32);
+    R_DrawFill32(x, y + s->dropRect.height - 1, s->dropWidth, 1,
+                 uis.color.active.u32);
+    R_DrawFill32(x, y, 1, s->dropRect.height,
+                 uis.color.active.u32);
+    R_DrawFill32(x + s->dropWidth - 1, y, 1, s->dropRect.height,
+                 uis.color.active.u32);
+
+    /* Items */
+    for (i = 0; i < s->numItems; i++) {
+        int iy = y + 2 + i * CHAR_HEIGHT;
+        int ix = x + CHAR_WIDTH;
+
+        s->itemRects[i].x = x;
+        s->itemRects[i].y = iy - 1;
+        s->itemRects[i].width = s->dropWidth;
+        s->itemRects[i].height = CHAR_HEIGHT + 2;
+
+        if (i == s->hoverIndex || i == s->curvalue) {
+            R_DrawFill32(x + 1, iy - 1,
+                         s->dropWidth - 2, CHAR_HEIGHT + 2,
+                         uis.color.active.u32);
+        }
+
+        if (i == s->curvalue) {
+            Menu_SetColor(uis.color.active.u32);
+        }
+
+        UI_DrawString(ix, iy, UI_LEFT | UI_ALTCOLOR, s->itemnames[i]);
+
+        if (i == s->curvalue) {
+            Menu_SetNormalColor();
+        }
+    }
+}
+
+static menuSound_t Select_DoEnter(menuSelect_t *s)
+{
+    if (!s->numItems)
+        return QMS_BEEP;
+
+    if (s->open) {
+        /* Confirm selection */
+        if (s->hoverIndex >= 0)
+            s->curvalue = s->hoverIndex;
+        s->open = false;
+        s->hoverIndex = -1;
+        if (g_openSelect == s)
+            g_openSelect = NULL;
+        Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
+        if (s->generic.change)
+            s->generic.change(&s->generic);
+        return QMS_OUT;
+    }
+
+    /* Open dropdown */
+    Select_CloseOther();
+    s->open = true;
+    s->hoverIndex = s->curvalue;
+    g_openSelect = s;
+    return QMS_IN;
+}
+
+static menuSound_t Select_Key(menuSelect_t *s, int key)
+{
+    if (s->open) {
+        switch (key) {
+        case K_ESCAPE:
+            s->open = false;
+            s->hoverIndex = -1;
+            if (g_openSelect == s)
+                g_openSelect = NULL;
+            return QMS_OUT;
+        case K_UPARROW:
+        case K_KP_UPARROW:
+            if (s->hoverIndex < 0)
+                s->hoverIndex = s->numItems - 1;
+            else if (s->hoverIndex > 0)
+                s->hoverIndex--;
+            return QMS_SILENT;
+        case K_DOWNARROW:
+        case K_KP_DOWNARROW:
+            if (s->hoverIndex < 0)
+                s->hoverIndex = 0;
+            else if (s->hoverIndex < s->numItems - 1)
+                s->hoverIndex++;
+            return QMS_SILENT;
+        case K_ENTER:
+        case K_KP_ENTER:
+            return Select_DoEnter(s);
+        case K_MOUSE1:
+        case K_MOUSE2:
+        case K_MOUSE3:
+            /* Let Menu_DefaultKey handle mouse clicks */
+            return QMS_NOTHANDLED;
+        default:
+            /* Block all other keys while dropdown is open */
+            return QMS_SILENT;
+        }
+    }
+
+    /* Closed: Left/Right cycle values */
+    if (key == K_LEFTARROW || key == K_KP_LEFTARROW) {
+        if (s->curvalue > 0) {
+            s->curvalue--;
+        } else if (s->curvalue == 0) {
+            s->curvalue = s->numItems - 1;
+        }
+        Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
+        if (s->generic.change)
+            s->generic.change(&s->generic);
+        return QMS_MOVE;
+    }
+    if (key == K_RIGHTARROW || key == K_KP_RIGHTARROW) {
+        if (s->curvalue < s->numItems - 1) {
+            s->curvalue++;
+        } else if (s->curvalue == s->numItems - 1) {
+            s->curvalue = 0;
+        }
+        Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
+        if (s->generic.change)
+            s->generic.change(&s->generic);
+        return QMS_MOVE;
+    }
+
+    return QMS_NOTHANDLED;
+}
+
+static menuSound_t Select_MouseMove(menuSelect_t *s)
+{
+    int i;
+
+    if (!s->open)
+        return QMS_NOTHANDLED;
+
+    for (i = 0; i < s->numItems; i++) {
+        if (UI_CursorInRect(&s->itemRects[i])) {
+            if (s->hoverIndex != i) {
+                s->hoverIndex = i;
+            }
+            return QMS_SILENT;
+        }
+    }
+
+    return QMS_NOTHANDLED;
+}
+
+static void Select_Free(menuSelect_t *s)
+{
+    int i;
+
+    if (g_openSelect == s)
+        g_openSelect = NULL;
+    Z_Free(s->generic.name);
+    Z_Free(s->generic.status);
+    for (i = 0; i < s->numItems; i++) {
+        Z_Free(s->itemnames[i]);
+    }
+    Z_Free(s->itemnames);
+    Z_Free(s->itemRects);
+    Z_Free(s);
+}
+
+/*
+===================================================================
+
+SELECT2 FIELD (two selects side by side)
+
+===================================================================
+*/
+
+static void Select2_Push(menuSelect2_t *s)
+{
+    int side, i, val;
+    bool numeric;
+
+    s->open = false;
+    s->openIdx = -1;
+    s->hoverIndex = -1;
+
+    for (side = 0; side < 2; side++) {
+        val = s->cvar[side]->integer;
+        numeric = COM_IsFloat(s->cvar[side]->string);
+        s->curvalue[side] = -1;
+        for (i = 0; i < s->numItems[side]; i++) {
+            if (!strcmp(s->itemnames[side][i], s->cvar[side]->string) ||
+                (numeric && COM_IsFloat(s->itemnames[side][i]) &&
+                 Q_atoi(s->itemnames[side][i]) == val)) {
+                s->curvalue[side] = i;
+                break;
+            }
+        }
+        if (s->curvalue[side] < 0 && s->numItems[side] > 0)
+            s->curvalue[side] = 0;
+    }
+}
+
+static void Select2_Pop(menuSelect2_t *s)
+{
+    int side;
+    if (s->open) {
+        if (g_openSelect == (menuSelect_t *)s)
+            g_openSelect = NULL;
+        s->open = false;
+        s->openIdx = -1;
+    }
+    for (side = 0; side < 2; side++) {
+        if (s->curvalue[side] >= 0 && s->curvalue[side] < s->numItems[side])
+            Cvar_SetByVar(s->cvar[side], s->itemnames[side][s->curvalue[side]], FROM_MENU);
+    }
+}
+
+static void Select2_Init(menuSelect2_t *s)
+{
+    int side, i, len, maxW;
+
+    s->generic.uiFlags &= ~(UI_LEFT | UI_RIGHT);
+    s->generic.rect.x = s->generic.x + LCOLUMN_OFFSET;
+    s->generic.rect.y = s->generic.y;
+
+    UI_StringDimensions(&s->generic.rect,
+                        s->generic.uiFlags | UI_RIGHT, s->generic.name);
+
+    for (side = 0; side < 2; side++) {
+        maxW = 0;
+        for (i = 0; i < s->numItems[side]; i++) {
+            len = strlen(s->itemnames[side][i]);
+            if (maxW < len) maxW = len;
+        }
+        if (maxW < 3) maxW = 3;
+        s->colWidth[side] = maxW * CHAR_WIDTH + CHAR_WIDTH;
+        s->generic.rect.width += CHAR_WIDTH * 2 + s->colWidth[side];
+    }
+}
+
+static void Select2_Draw(menuSelect2_t *s)
+{
+    int flags = s->generic.uiFlags | UI_RIGHT | UI_ALTCOLOR;
+    char buf[64];
+    int side, xOff;
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
+
+    UI_DrawString(s->generic.x + LCOLUMN_OFFSET, s->generic.y,
+                  flags, s->generic.name);
+
+    if (s->generic.flags & QMF_HASFOCUS) {
+        Menu_SetColor(uis.color.active.u32);
+    }
+
+    xOff = s->generic.x + RCOLUMN_OFFSET;
+    for (side = 0; side < 2; side++) {
+        const char *name;
+        if (s->curvalue[side] < 0 || s->curvalue[side] >= s->numItems[side])
+            name = "???";
+        else
+            name = s->itemnames[side][s->curvalue[side]];
+
+        Q_snprintf(buf, sizeof(buf), "%s \x1f", name);
+        UI_DrawString(xOff, s->generic.y, UI_LEFT, buf);
+        xOff += s->colWidth[side] + CHAR_WIDTH * 2;
+    }
+
+    if (s->generic.flags & QMF_HASFOCUS || s->open) {
+        Menu_SetNormalColor();
+    }
+}
+
+static void Select2_DrawDropDown(menuSelect2_t *s)
+{
+    int i, x, y, side;
+
+    if (!s->open)
+        return;
+
+    side = s->openIdx;
+    x = s->generic.x + RCOLUMN_OFFSET;
+    for (i = 0; i < side; i++)
+        x += s->colWidth[i] + CHAR_WIDTH * 2;
+    y = s->generic.y + CHAR_HEIGHT + 2;
+
+    if (y + s->numItems[side] * CHAR_HEIGHT + 4 > uis.height)
+        y = s->generic.y - s->numItems[side] * CHAR_HEIGHT - 4;
+
+    s->dropRect.x = x;
+    s->dropRect.y = y;
+    s->dropRect.width = s->colWidth[side] + CHAR_WIDTH * 2;
+    s->dropRect.height = s->numItems[side] * CHAR_HEIGHT + 4;
+
+    if (!s->itemRects)
+        s->itemRects = Z_Malloc(
+            (s->numItems[0] > s->numItems[1] ? s->numItems[0] : s->numItems[1])
+            * sizeof(vrect_t));
+
+    R_DrawFill32(x, y, s->dropRect.width, s->dropRect.height,
+                 MakeColor(0, 0, 0, 200));
+    R_DrawFill32(x, y, s->dropRect.width, 1, uis.color.active.u32);
+    R_DrawFill32(x, y + s->dropRect.height - 1, s->dropRect.width, 1, uis.color.active.u32);
+    R_DrawFill32(x, y, 1, s->dropRect.height, uis.color.active.u32);
+    R_DrawFill32(x + s->dropRect.width - 1, y, 1, s->dropRect.height, uis.color.active.u32);
+
+    for (i = 0; i < s->numItems[side]; i++) {
+        int iy = y + 2 + i * CHAR_HEIGHT;
+        int ix = x + CHAR_WIDTH;
+
+        s->itemRects[i].x = x;
+        s->itemRects[i].y = iy - 1;
+        s->itemRects[i].width = s->dropRect.width;
+        s->itemRects[i].height = CHAR_HEIGHT + 2;
+
+        if (i == s->hoverIndex || i == s->curvalue[side]) {
+            R_DrawFill32(x + 1, iy - 1,
+                         s->dropRect.width - 2, CHAR_HEIGHT + 2,
+                         uis.color.active.u32);
+        }
+
+        if (i == s->curvalue[side])
+            Menu_SetColor(uis.color.active.u32);
+
+        UI_DrawString(ix, iy, UI_LEFT | UI_ALTCOLOR, s->itemnames[side][i]);
+
+        if (i == s->curvalue[side])
+            Menu_SetNormalColor();
+    }
+}
+
+static menuSound_t Select2_DoEnter(menuSelect2_t *s)
+{
+    if (s->open) {
+        /* Confirm selection */
+        int closingSide = s->openIdx;
+        if (s->hoverIndex >= 0)
+            s->curvalue[closingSide] = s->hoverIndex;
+        s->open = false;
+        s->openIdx = -1;
+        s->hoverIndex = -1;
+        if (g_openSelect == (menuSelect_t *)s)
+            g_openSelect = NULL;
+        Cvar_SetByVar(s->cvar[closingSide],
+                      s->itemnames[closingSide][s->curvalue[closingSide]], FROM_MENU);
+        if (s->generic.change)
+            s->generic.change(&s->generic);
+        return QMS_OUT;
+    }
+
+    /* Open dropdown for side 0 (keyboard Enter); mouse click overrides this */
+    Select_CloseOther();
+    s->open = true;
+    s->openIdx = 0;
+    s->hoverIndex = s->curvalue[0];
+    g_openSelect = (menuSelect_t *)s;
+    return QMS_IN;
+}
+
+static menuSound_t Select2_Key(menuSelect2_t *s, int key)
+{
+    int side;
+
+    if (s->open) {
+        side = s->openIdx;
+        switch (key) {
+        case K_ESCAPE:
+            s->open = false;
+            s->openIdx = -1;
+            s->hoverIndex = -1;
+            if (g_openSelect == (menuSelect_t *)s)
+                g_openSelect = NULL;
+            return QMS_OUT;
+        case K_UPARROW: case K_KP_UPARROW:
+            if (s->hoverIndex < 0)
+                s->hoverIndex = s->numItems[side] - 1;
+            else if (s->hoverIndex > 0)
+                s->hoverIndex--;
+            return QMS_SILENT;
+        case K_DOWNARROW: case K_KP_DOWNARROW:
+            if (s->hoverIndex < 0)
+                s->hoverIndex = 0;
+            else if (s->hoverIndex < s->numItems[side] - 1)
+                s->hoverIndex++;
+            return QMS_SILENT;
+        case K_ENTER: case K_KP_ENTER:
+            return Select2_DoEnter(s);
+        case K_LEFTARROW: case K_KP_LEFTARROW:
+            if (side > 0) {
+                s->openIdx = 0;
+                s->hoverIndex = s->curvalue[0];
+            }
+            return QMS_SILENT;
+        case K_RIGHTARROW: case K_KP_RIGHTARROW:
+            if (side < 1) {
+                s->openIdx = 1;
+                s->hoverIndex = s->curvalue[1];
+            }
+            return QMS_SILENT;
+        case K_MOUSE1: case K_MOUSE2: case K_MOUSE3:
+            return QMS_NOTHANDLED;
+        default:
+            return QMS_SILENT;
+        }
+    }
+
+    /* Closed: Left/Right cycle active side */
+    if (key == K_LEFTARROW || key == K_KP_LEFTARROW) {
+        side = 0;
+        if (s->curvalue[side] > 0)
+            s->curvalue[side]--;
+        else
+            s->curvalue[side] = s->numItems[side] - 1;
+        Cvar_SetByVar(s->cvar[side], s->itemnames[side][s->curvalue[side]], FROM_MENU);
+        return QMS_MOVE;
+    }
+    if (key == K_RIGHTARROW || key == K_KP_RIGHTARROW) {
+        side = 1;
+        if (s->curvalue[side] < s->numItems[side] - 1)
+            s->curvalue[side]++;
+        else
+            s->curvalue[side] = 0;
+        Cvar_SetByVar(s->cvar[side], s->itemnames[side][s->curvalue[side]], FROM_MENU);
+        return QMS_MOVE;
+    }
+
+    return QMS_NOTHANDLED;
+}
+
+static menuSound_t Select2_MouseMove(menuSelect2_t *s)
+{
+    int i, side;
+
+    if (!s->open)
+        return QMS_NOTHANDLED;
+
+    side = s->openIdx;
+    for (i = 0; i < s->numItems[side]; i++) {
+        if (UI_CursorInRect(&s->itemRects[i])) {
+            if (s->hoverIndex != i)
+                s->hoverIndex = i;
+            return QMS_SILENT;
+        }
+    }
+    return QMS_NOTHANDLED;
+}
+
+static void Select2_Free(menuSelect2_t *s)
+{
+    int side, i;
+
+    if (g_openSelect == (menuSelect_t *)s)
+        g_openSelect = NULL;
+    Z_Free(s->generic.name);
+    Z_Free(s->generic.status);
+    for (side = 0; side < 2; side++) {
+        for (i = 0; i < s->numItems[side]; i++)
+            Z_Free(s->itemnames[side][i]);
+        Z_Free(s->itemnames[side]);
+    }
+    Z_Free(s->itemRects);
+    Z_Free(s);
+}
+
+/*
+===================================================================
+
+BINDSELECT2 FIELD (bind + two selects in one row)
+
+===================================================================
+*/
+
+#define BINDSELECT2_INDEX_WIDTH    (CHAR_WIDTH * 2)
+#define BINDSELECT2_COL_GAP        (CHAR_WIDTH * 2)
+
+static int BindSelect2_TableWidth(const menuBindSelect2_t *bs)
+{
+    return BINDSELECT2_INDEX_WIDTH + BINDSELECT2_COL_GAP +
+        bs->colWidth[0] + BINDSELECT2_COL_GAP +
+        bs->colWidth[1] + BINDSELECT2_COL_GAP +
+        bs->colWidth[2];
+}
+
+static int BindSelect2_TableLeft(const menuBindSelect2_t *bs)
+{
+    return bs->generic.x - BindSelect2_TableWidth(bs) / 2;
+}
+
+static int BindSelect2_KeyX(const menuBindSelect2_t *bs)
+{
+    return BindSelect2_TableLeft(bs) + BINDSELECT2_INDEX_WIDTH + BINDSELECT2_COL_GAP;
+}
+
+static int BindSelect2_SelectX(const menuBindSelect2_t *bs, int side)
+{
+    int x = BindSelect2_KeyX(bs) + bs->colWidth[0] + BINDSELECT2_COL_GAP;
+
+    if (side > 0) {
+        x += bs->colWidth[1] + BINDSELECT2_COL_GAP;
+    }
+
+    return x;
+}
+
+static int BindSelect2_ColumnAt(const menuBindSelect2_t *bs, int mouseX)
+{
+    int keyX = BindSelect2_KeyX(bs);
+    int holdX = BindSelect2_SelectX(bs, 0);
+
+    if (mouseX < keyX + bs->colWidth[0]) {
+        return 0;
+    }
+    if (mouseX < holdX + bs->colWidth[1] + BINDSELECT2_COL_GAP) {
+        return 1;
+    }
+    return 2;
+}
+
+static void BindFields_Remove(const char *cmd)
+{
+    int key;
+    while ((key = Key_EnumBindings(0, cmd)) != -1)
+        Key_SetBinding(key, NULL);
+}
+
+static void BindSelect2_Remove(menuBindSelect2_t *bs)
+{
+    BindFields_Remove(bs->cmd);
+    if (bs->legacycmd && Q_stricmp(bs->legacycmd, bs->cmd)) {
+        BindFields_Remove(bs->legacycmd);
+    }
+}
+
+static void BindSelect2_Migrate(menuBindSelect2_t *bs)
+{
+    int key;
+
+    if (!bs->legacycmd || !Q_stricmp(bs->legacycmd, bs->cmd)) {
+        return;
+    }
+
+    while ((key = Key_EnumBindings(0, bs->legacycmd)) != -1) {
+        Key_SetBinding(key, bs->cmd);
+    }
+}
+
+static void BindSelect2_Push(menuBindSelect2_t *bs)
+{
+    int key;
+    int side, i, val;
+    bool numeric;
+    BindSelect2_Migrate(bs);
+    key = Key_EnumBindings(0, bs->cmd);
+    bs->altbinding[0] = 0;
+    if (key == -1) strcpy(bs->binding, "???");
+    else { Q_strlcpy(bs->binding, Key_KeynumToString(key), sizeof(bs->binding));
+        key = Key_EnumBindings(key + 1, bs->cmd);
+        if (key != -1) Q_strlcpy(bs->altbinding, Key_KeynumToString(key), sizeof(bs->altbinding)); }
+    bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1; bs->focusPart = 0;
+    for (side = 0; side < 2; side++) {
+        val = bs->cvar[side]->integer; bs->curvalue[side] = -1;
+        numeric = COM_IsFloat(bs->cvar[side]->string);
+        for (i = 0; i < bs->numItems[side]; i++) {
+            if (!strcmp(bs->itemnames[side][i], bs->cvar[side]->string) ||
+                (numeric && COM_IsFloat(bs->itemnames[side][i]) &&
+                 Q_atoi(bs->itemnames[side][i]) == val))
+            { bs->curvalue[side] = i; break; }
+        }
+        if (bs->curvalue[side] < 0 && bs->numItems[side] > 0) bs->curvalue[side] = 0;
+    }
+}
+
+static void BindSelect2_Update(menuFrameWork_t *menu)
+{
+    int i;
+
+    for (i = 0; i < menu->nitems; i++) {
+        if (((menuCommon_t *)menu->items[i])->type == MTYPE_BINDSELECT2) {
+            BindSelect2_Push(menu->items[i]);
+            BindSelect2_Init(menu->items[i]);
+        }
+    }
+}
+
+static void BindSelect2_Pop(menuBindSelect2_t *bs)
+{
+    int side;
+    Key_WaitKey(NULL, NULL);
+    if (bs->open) { if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL; bs->open = false; bs->openIdx = -1; }
+    for (side = 0; side < 2; side++)
+        if (bs->curvalue[side] >= 0 && bs->curvalue[side] < bs->numItems[side])
+            Cvar_SetByVar(bs->cvar[side], bs->itemnames[side][bs->curvalue[side]], FROM_MENU);
+}
+
+static void BindSelect2_Init(menuBindSelect2_t *bs)
+{
+    int side, i, len, maxW;
+    bs->generic.uiFlags &= ~(UI_LEFT | UI_RIGHT);
+    bs->generic.rect.y = bs->generic.y;
+    bs->generic.rect.height = CHAR_HEIGHT;
+    bs->colWidth[0] = 10 * CHAR_WIDTH;
+    for (side = 0; side < 2; side++) {
+        maxW = side ? 7 : 4;
+        for (i = 0; i < bs->numItems[side]; i++) {
+            len = strlen(bs->itemnames[side][i]); if (maxW < len) maxW = len;
+        }
+        bs->colWidth[side + 1] = (maxW + 2) * CHAR_WIDTH;
+    }
+    bs->generic.rect.x = BindSelect2_TableLeft(bs);
+    bs->generic.rect.width = BindSelect2_TableWidth(bs);
+}
+
+static bool BindSelect2_IsFirst(const menuBindSelect2_t *bs)
+{
+    int i;
+    const menuFrameWork_t *menu = bs->generic.parent;
+
+    for (i = 0; i < menu->nitems; i++) {
+        const menuCommon_t *item = menu->items[i];
+        if (item == &bs->generic) {
+            return true;
+        }
+        if (item->type == MTYPE_BINDSELECT2) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+static void BindSelect2_DrawHeader(menuBindSelect2_t *bs)
+{
+    int xOff, y;
+
+    if (!BindSelect2_IsFirst(bs)) {
+        return;
+    }
+
+    y = bs->generic.y - CHAR_HEIGHT;
+    if (y < bs->generic.parent->y1) {
+        return;
+    }
+
+    UI_DrawString(BindSelect2_TableLeft(bs) + BINDSELECT2_INDEX_WIDTH, y,
+                  UI_RIGHT | UI_ALTCOLOR, "#");
+
+    xOff = BindSelect2_KeyX(bs);
+    UI_DrawString(xOff, y, UI_LEFT | UI_ALTCOLOR, "Key");
+
+    xOff = BindSelect2_SelectX(bs, 0);
+    UI_DrawString(xOff, y, UI_LEFT | UI_ALTCOLOR, "Hold");
+
+    xOff = BindSelect2_SelectX(bs, 1);
+    UI_DrawString(xOff, y, UI_LEFT | UI_ALTCOLOR, "Release");
+}
+
+static void BindSelect2_Draw(menuBindSelect2_t *bs)
+{
+    char string[MAX_STRING_CHARS], buf[64];
+    int flags = UI_ALTCOLOR, xOff, side;
+    bool hasFocus = (bs->generic.flags & QMF_HASFOCUS) != 0;
+    BindSelect2_DrawHeader(bs);
+    if (hasFocus) Menu_SetColor(uis.color.active.u32);
+    else if (bs->generic.parent->keywait) Menu_SetColor(uis.color.disabled.u32);
+    if (bs->altbinding[0]) Q_concat(string, sizeof(string), bs->binding, " or ", bs->altbinding);
+    else if (bs->binding[0]) Q_strlcpy(string, bs->binding, sizeof(string));
+    else strcpy(string, "???");
+    xOff = BindSelect2_KeyX(bs);
+    if (hasFocus && bs->focusPart == 0)
+        R_DrawFill32(xOff, bs->generic.y - 1, bs->colWidth[0], CHAR_HEIGHT + 2, uis.color.selection.u32);
+    UI_DrawString(BindSelect2_TableLeft(bs) + BINDSELECT2_INDEX_WIDTH, bs->generic.y,
+                  UI_RIGHT | flags, bs->generic.name);
+    UI_DrawString(xOff, bs->generic.y, UI_LEFT | ((hasFocus && bs->focusPart == 0) ? 0 : flags), string);
+    for (side = 0; side < 2; side++) {
+        bool sf = hasFocus && bs->focusPart == (side + 1);
+        const char *n = (bs->curvalue[side] >= 0 && bs->curvalue[side] < bs->numItems[side])
+            ? bs->itemnames[side][bs->curvalue[side]] : "???";
+        xOff = BindSelect2_SelectX(bs, side);
+        if (sf) { Menu_SetColor(uis.color.active.u32);
+            R_DrawFill32(xOff, bs->generic.y - 1, bs->colWidth[side + 1], CHAR_HEIGHT + 2, uis.color.selection.u32); }
+        Q_snprintf(buf, sizeof(buf), "%s \x1f", n);
+        UI_DrawString(xOff, bs->generic.y, UI_LEFT | (sf ? 0 : flags), buf);
+        if (sf) Menu_SetNormalColor();
+    }
+    if (hasFocus || bs->generic.parent->keywait) Menu_SetNormalColor();
+}
+
+static void BindSelect2_DrawDropDown(menuBindSelect2_t *bs)
+{
+    int i, x, y, side;
+    if (!bs->open || bs->openIdx < 0) return;
+    side = bs->openIdx;
+    x = BindSelect2_SelectX(bs, side);
+    y = bs->generic.y + CHAR_HEIGHT + 2;
+    if (y + bs->numItems[side] * CHAR_HEIGHT + 4 > uis.height)
+        y = bs->generic.y - bs->numItems[side] * CHAR_HEIGHT - 4;
+    bs->dropRect.x = x; bs->dropRect.y = y;
+    bs->dropRect.width = bs->colWidth[side + 1] + CHAR_WIDTH * 2;
+    bs->dropRect.height = bs->numItems[side] * CHAR_HEIGHT + 4;
+    R_DrawFill32(x, y, bs->dropRect.width, bs->dropRect.height, MakeColor(0, 0, 0, 200));
+    R_DrawFill32(x, y, bs->dropRect.width, 1, uis.color.active.u32);
+    R_DrawFill32(x, y + bs->dropRect.height - 1, bs->dropRect.width, 1, uis.color.active.u32);
+    R_DrawFill32(x, y, 1, bs->dropRect.height, uis.color.active.u32);
+    R_DrawFill32(x + bs->dropRect.width - 1, y, 1, bs->dropRect.height, uis.color.active.u32);
+    for (i = 0; i < bs->numItems[side]; i++) {
+        int iy = y + 2 + i * CHAR_HEIGHT;
+        bs->itemRects[i].x = x; bs->itemRects[i].y = iy - 1;
+        bs->itemRects[i].width = bs->dropRect.width; bs->itemRects[i].height = CHAR_HEIGHT + 2;
+        if (i == bs->hoverIndex || i == bs->curvalue[side])
+            R_DrawFill32(x + 1, iy - 1, bs->dropRect.width - 2, CHAR_HEIGHT + 2, uis.color.active.u32);
+        if (i == bs->curvalue[side]) Menu_SetColor(uis.color.active.u32);
+        UI_DrawString(x + CHAR_WIDTH, iy, UI_LEFT | UI_ALTCOLOR, bs->itemnames[side][i]);
+        if (i == bs->curvalue[side]) Menu_SetNormalColor();
+    }
+}
+
+static menuSound_t BindSelect2_DoEnter(menuBindSelect2_t *bs)
+{
+    menuFrameWork_t *menu = bs->generic.parent;
+    if (bs->open) {
+        int cs = bs->openIdx;
+        if (bs->hoverIndex >= 0) bs->curvalue[cs] = bs->hoverIndex;
+        bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1;
+        if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL;
+        Cvar_SetByVar(bs->cvar[cs], bs->itemnames[cs][bs->curvalue[cs]], FROM_MENU);
+        return QMS_OUT;
+    }
+    if (bs->focusPart == 0) {
+        menu->keywait = true; menu->status = bs->altstatus;
+        Key_WaitKey(keybind_cb, bs); return QMS_IN;
+    }
+    { int side = bs->focusPart - 1; Select_CloseOther();
+      bs->open = true; bs->openIdx = side;
+      bs->hoverIndex = bs->curvalue[side]; g_openSelect = (menuSelect_t *)bs; }
+    return QMS_IN;
+}
+
+static menuSound_t BindSelect2_Key(menuBindSelect2_t *bs, int key)
+{
+    menuFrameWork_t *menu = bs->generic.parent;
+    if (menu->keywait) return QMS_OUT;
+    if (bs->open) {
+        int side = bs->openIdx;
+        switch (key) {
+        case K_ESCAPE: bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1;
+            if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL;
+            return QMS_OUT;
+        case K_UPARROW: case K_KP_UPARROW:
+            if (bs->hoverIndex > 0) bs->hoverIndex--; else bs->hoverIndex = bs->numItems[side] - 1; return QMS_SILENT;
+        case K_DOWNARROW: case K_KP_DOWNARROW:
+            if (bs->hoverIndex < bs->numItems[side] - 1) bs->hoverIndex++; else bs->hoverIndex = 0; return QMS_SILENT;
+        case K_ENTER: case K_KP_ENTER: return BindSelect2_DoEnter(bs);
+        case K_LEFTARROW: if (side > 0) { bs->openIdx = 0; bs->hoverIndex = bs->curvalue[0]; } return QMS_SILENT;
+        case K_RIGHTARROW: if (side < 1) { bs->openIdx = 1; bs->hoverIndex = bs->curvalue[1]; } return QMS_SILENT;
+        case K_MOUSE1: case K_MOUSE2: case K_MOUSE3: return QMS_NOTHANDLED;
+        default: return QMS_SILENT;
+        }
+    }
+    if (bs->focusPart == 0) {
+        if (key == K_BACKSPACE || key == K_DEL) { BindSelect2_Remove(bs); BindSelect2_Update(menu); return QMS_IN; }
+    } else {
+        int s = bs->focusPart - 1;
+        if (key == K_LEFTARROW) {
+            if (bs->curvalue[s] > 0) bs->curvalue[s]--; else bs->curvalue[s] = bs->numItems[s] - 1;
+            Cvar_SetByVar(bs->cvar[s], bs->itemnames[s][bs->curvalue[s]], FROM_MENU); return QMS_MOVE;
+        }
+        if (key == K_RIGHTARROW) {
+            if (bs->curvalue[s] < bs->numItems[s] - 1) bs->curvalue[s]++; else bs->curvalue[s] = 0;
+            Cvar_SetByVar(bs->cvar[s], bs->itemnames[s][bs->curvalue[s]], FROM_MENU); return QMS_MOVE;
+        }
+    }
+    if (key == K_TAB) {
+        int dir = Key_IsDown(K_SHIFT) ? -1 : 1;
+        bs->focusPart = (bs->focusPart + dir + 3) % 3; return QMS_SILENT;
+    }
+    return QMS_NOTHANDLED;
+}
+
+static menuSound_t BindSelect2_MouseMove(menuBindSelect2_t *bs)
+{
+    int i, side;
+    if (bs->open) {
+        side = bs->openIdx;
+        for (i = 0; i < bs->numItems[side]; i++)
+            if (UI_CursorInRect(&bs->itemRects[i])) {
+                if (bs->hoverIndex != i) bs->hoverIndex = i;
+                return QMS_SILENT;
+            }
+        return QMS_NOTHANDLED;
+    }
+    /* Track which column the mouse is over when closed */
+    {
+        int col = BindSelect2_ColumnAt(bs, uis.mouseCoords[0]);
+        if (col != bs->focusPart) bs->focusPart = col;
+    }
+    return QMS_NOTHANDLED;
+}
+
+static void BindSelect2_Free(menuBindSelect2_t *bs)
+{
+    int side, i;
+    if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL;
+    Z_Free(bs->cmd); Z_Free(bs->legacycmd); Z_Free(bs->generic.name); Z_Free(bs->generic.status); Z_Free(bs->altstatus);
+    for (side = 0; side < 2; side++) {
+        for (i = 0; i < bs->numItems[side]; i++) Z_Free(bs->itemnames[side][i]);
+        Z_Free(bs->itemnames[side]);
+    }
+    Z_Free(bs->itemRects); Z_Free(bs);
 }
 
 
@@ -1120,6 +2135,8 @@ static void SpinControl_Push(menuSpinControl_t *s)
 {
     int val = s->cvar->integer;
 
+    s->modified = false;
+
     if (val < 0 || val >= s->numItems)
         s->curvalue = -1;
     else
@@ -1138,10 +2155,17 @@ static void SpinControl_Free(menuSpinControl_t *s)
 
     Z_Free(s->generic.name);
     Z_Free(s->generic.status);
+    Z_Free(s->cmd);
     for (i = 0; i < s->numItems; i++) {
         Z_Free(s->itemnames[i]);
+        if (s->itemvalues) {
+            Z_Free(s->itemvalues[i]);
+        }
     }
     Z_Free(s->itemnames);
+    if (s->itemvalues) {
+        Z_Free(s->itemvalues);
+    }
     Z_Free(s);
 }
 
@@ -1211,6 +2235,7 @@ static int SpinControl_DoEnter(menuSpinControl_t *s)
     if (!s->numItems)
         return QMS_BEEP;
 
+    s->modified = true;
     s->curvalue++;
 
     if (s->curvalue >= s->numItems)
@@ -1235,6 +2260,7 @@ static int SpinControl_DoSlide(menuSpinControl_t *s, int dir)
     if (!s->numItems)
         return QMS_BEEP;
 
+    s->modified = true;
     s->curvalue += dir;
 
     if (s->curvalue < 0) {
@@ -1371,6 +2397,8 @@ static void Pairs_Push(menuSpinControl_t *s)
 {
     int i;
 
+    s->modified = false;
+
     for (i = 0; i < s->numItems; i++) {
         if (!Q_stricmp(s->itemvalues[i], s->cvar->string)) {
             s->curvalue = i;
@@ -1414,6 +2442,8 @@ static void Strings_Push(menuSpinControl_t *s)
 {
     int i;
 
+    s->modified = false;
+
     for (i = 0; i < s->numItems; i++) {
         if (!Q_stricmp(s->itemnames[i], s->cvar->string)) {
             s->curvalue = i;
@@ -1430,6 +2460,20 @@ static void Strings_Pop(menuSpinControl_t *s)
         Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
 }
 
+static void ActionSelect_Pop(menuSpinControl_t *s)
+{
+    char escaped[MAX_STRING_CHARS];
+
+    if (!s->modified || s->curvalue < 0 || s->curvalue >= s->numItems) {
+        return;
+    }
+
+    Cvar_SetByVar(s->cvar, s->itemnames[s->curvalue], FROM_MENU);
+    Com_EscapeString(escaped, s->itemnames[s->curvalue], sizeof(escaped));
+    Cbuf_AddText(&cmd_buffer, va("%s \"%s\"\n", s->cmd, escaped));
+    s->modified = false;
+}
+
 /*
 ===================================================================
 
@@ -1441,6 +2485,8 @@ TOGGLE CONTROL
 static void Toggle_Push(menuSpinControl_t *s)
 {
     int val = s->cvar->integer;
+
+    s->modified = false;
 
     if (val == 0 || val == 1)
         s->curvalue = val ^ s->negate;
@@ -1470,6 +2516,9 @@ static void Menu_CommitItem(menuCommon_t *item)
     case MTYPE_STRINGS:
         Strings_Pop((menuSpinControl_t *)item);
         break;
+    case MTYPE_ACTION_SELECT:
+        ActionSelect_Pop((menuSpinControl_t *)item);
+        break;
     case MTYPE_SPINCONTROL:
         SpinControl_Pop((menuSpinControl_t *)item);
         break;
@@ -1478,6 +2527,9 @@ static void Menu_CommitItem(menuCommon_t *item)
         break;
     case MTYPE_FIELD:
         Field_Pop((menuField_t *)item);
+        break;
+    case MTYPE_SELECT:
+        Select_Pop((menuSelect_t *)item);
         break;
     default:
         break;
@@ -2814,6 +3866,7 @@ void Menu_Layout(menuFrameWork_t *menu)
         case MTYPE_PAIRS:
         case MTYPE_VALUES:
         case MTYPE_STRINGS:
+        case MTYPE_ACTION_SELECT:
         case MTYPE_TOGGLE:
             SpinControl_Init(item);
             break;
@@ -2830,6 +3883,18 @@ void Menu_Layout(menuFrameWork_t *menu)
             break;
         case MTYPE_KEYBIND:
             Keybind_Init(item);
+            break;
+        case MTYPE_SELECT:
+            Select_Init(item);
+            Select_Push(item);
+            break;
+        case MTYPE_SELECT2:
+            Select2_Init(item);
+            Select2_Push(item);
+            break;
+        case MTYPE_BINDSELECT2:
+            BindSelect2_Init(item);
+            BindSelect2_Push(item);
             break;
         case MTYPE_BITMAP:
             Bitmap_Init(item);
@@ -3034,6 +4099,7 @@ void Menu_Init(menuFrameWork_t *menu)
         item = menu->items[i];
         if (((menuCommon_t *)item)->flags & QMF_HASFOCUS) {
             menu->currFocusedIndex = i;
+            UI_ModelPreview_MenuItemFocused(menu, (menuCommon_t *)item);
             break;
         }
     }
@@ -3397,6 +4463,7 @@ void Menu_SetFocus(menuCommon_t *focus)
         }
     }
 
+    UI_ModelPreview_MenuItemFocused(menu, focus);
 }
 
 /*
@@ -3565,6 +4632,7 @@ static cvar_t *Menu_ItemCvar(const menuCommon_t *item)
     case MTYPE_PAIRS:
     case MTYPE_VALUES:
     case MTYPE_STRINGS:
+    case MTYPE_ACTION_SELECT:
     case MTYPE_TOGGLE:
         return ((const menuSpinControl_t *)item)->cvar;
     default:
@@ -3598,10 +4666,6 @@ static const char *Menu_StatusText(menuFrameWork_t *menu, char *buffer, size_t s
     return buffer;
 }
 
-static uint32_t Menu_BackgroundColor(menuFrameWork_t *menu)
-{
-    return UI_MenuBackgroundColor(menu);
-}
 
 static void Menu_GetItemContentRect(const menuCommon_t *item, vrect_t *rect)
 {
@@ -3633,6 +4697,7 @@ static void Menu_GetItemContentRect(const menuCommon_t *item, vrect_t *rect)
                item->type == MTYPE_PAIRS ||
                item->type == MTYPE_VALUES ||
                item->type == MTYPE_STRINGS ||
+               item->type == MTYPE_ACTION_SELECT ||
                item->type == MTYPE_TOGGLE) {
         const menuSpinControl_t *s = (const menuSpinControl_t *)item;
         int label_len = s->generic.name ? strlen(s->generic.name) * CHAR_WIDTH : 0;
@@ -3719,7 +4784,7 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
         (item->rect.height > CHAR_HEIGHT ? item->rect.height : CHAR_HEIGHT) + 1;
 
     target_h = base_h + padding_y * 2;
-    target_y = item->y + CHAR_HEIGHT / 2 - base_h / 2 - padding_y;
+    target_y = item->y + CHAR_HEIGHT / 2.0f - base_h / 2.0f - padding_y;
 
     if (target_y < menu->y1) {
         target_y = menu->y1;
@@ -3832,6 +4897,7 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
                        item->type == MTYPE_PAIRS ||
                        item->type == MTYPE_VALUES ||
                        item->type == MTYPE_STRINGS ||
+                       item->type == MTYPE_ACTION_SELECT ||
                        item->type == MTYPE_TOGGLE) {
                 const menuSpinControl_t *s = (const menuSpinControl_t *)item;
                 int label_len = s->generic.name ? strlen(s->generic.name) * CHAR_WIDTH : 0;
@@ -3853,6 +4919,7 @@ static void Menu_DrawFocusMarker(menuFrameWork_t *menu, const menuCommon_t *item
                 item->type == MTYPE_PAIRS ||
                 item->type == MTYPE_VALUES ||
                 item->type == MTYPE_STRINGS ||
+                item->type == MTYPE_ACTION_SELECT ||
                 item->type == MTYPE_TOGGLE ||
                 item->type == MTYPE_KEYBIND) {
                 arrow_x = item->x + RCOLUMN_OFFSET / 2;
@@ -3937,6 +5004,8 @@ void Menu_Draw(menuFrameWork_t *menu)
         }
     }
 
+    UI_DrawMenuBackgroundModel(menu);
+
 //
 // 4. Draw menu background strip (translucent overlay for readability)
 //
@@ -3945,7 +5014,7 @@ void Menu_Draw(menuFrameWork_t *menu)
                             menu->y2 - menu->y1, menu->image);
     } else {
         R_DrawFill32(0, menu->y1, uis.width,
-                     menu->y2 - menu->y1, Menu_BackgroundColor(menu));
+                     menu->y2 - menu->y1, UI_MenuBackgroundColor(menu));
     }
 
 //
@@ -4014,6 +5083,7 @@ void Menu_Draw(menuFrameWork_t *menu)
         case MTYPE_PAIRS:
         case MTYPE_VALUES:
         case MTYPE_STRINGS:
+        case MTYPE_ACTION_SELECT:
         case MTYPE_TOGGLE:
             SpinControl_Draw(item);
             break;
@@ -4031,6 +5101,15 @@ void Menu_Draw(menuFrameWork_t *menu)
         case MTYPE_KEYBIND:
             Keybind_Draw(item);
             break;
+        case MTYPE_SELECT:
+            Select_Draw(item);
+            break;
+        case MTYPE_SELECT2:
+            Select2_Draw(item);
+            break;
+        case MTYPE_BINDSELECT2:
+            BindSelect2_Draw(item);
+            break;
         case MTYPE_BITMAP:
             Bitmap_Draw(item);
             break;
@@ -4046,6 +5125,16 @@ void Menu_Draw(menuFrameWork_t *menu)
 
         visibleIndex++;
         menu_drawing_item_index = -1;
+    }
+
+    /* Draw open select dropdown on top of all items */
+    if (g_openSelect) {
+        if (g_openSelect->generic.type == MTYPE_SELECT)
+            Select_DrawDropDown(g_openSelect);
+        else if (g_openSelect->generic.type == MTYPE_SELECT2)
+            Select2_DrawDropDown((menuSelect2_t *)g_openSelect);
+        else if (g_openSelect->generic.type == MTYPE_BINDSELECT2)
+            BindSelect2_DrawDropDown((menuBindSelect2_t *)g_openSelect);
     }
 
     // draw scroll indicators for scrollable menus
@@ -4095,10 +5184,17 @@ menuSound_t Menu_SelectItem(menuFrameWork_t *s)
     case MTYPE_PAIRS:
     case MTYPE_VALUES:
     case MTYPE_STRINGS:
+    case MTYPE_ACTION_SELECT:
     case MTYPE_TOGGLE:
         return SpinControl_DoEnter((menuSpinControl_t *)item);
     case MTYPE_KEYBIND:
         return Keybind_DoEnter((menuKeybind_t *)item);
+    case MTYPE_SELECT:
+        return Select_DoEnter((menuSelect_t *)item);
+    case MTYPE_SELECT2:
+        return Select2_DoEnter((menuSelect2_t *)item);
+    case MTYPE_BINDSELECT2:
+        return BindSelect2_DoEnter((menuBindSelect2_t *)item);
     case MTYPE_FIELD:
     case MTYPE_ACTION:
     case MTYPE_LIST:
@@ -4127,6 +5223,7 @@ menuSound_t Menu_SlideItem(menuFrameWork_t *s, int dir)
     case MTYPE_PAIRS:
     case MTYPE_VALUES:
     case MTYPE_STRINGS:
+    case MTYPE_ACTION_SELECT:
     case MTYPE_TOGGLE:
         return SpinControl_DoSlide((menuSpinControl_t *)item, dir);
     default:
@@ -4152,6 +5249,12 @@ menuSound_t Menu_KeyEvent(menuCommon_t *item, int key)
         return Slider_Key((menuSlider_t *)item, key);
     case MTYPE_KEYBIND:
         return Keybind_Key((menuKeybind_t *)item, key);
+    case MTYPE_SELECT:
+        return Select_Key((menuSelect_t *)item, key);
+    case MTYPE_SELECT2:
+        return Select2_Key((menuSelect2_t *)item, key);
+    case MTYPE_BINDSELECT2:
+        return BindSelect2_Key((menuBindSelect2_t *)item, key);
     default:
         return QMS_NOTHANDLED;
     }
@@ -4162,9 +5265,19 @@ menuSound_t Menu_CharEvent(menuCommon_t *item, int key)
     switch (item->type) {
     case MTYPE_FIELD:
         return Field_Char((menuField_t *)item, key);
+    case MTYPE_SELECT:
+        return QMS_NOTHANDLED;
     default:
         return QMS_NOTHANDLED;
     }
+}
+
+bool Menu_HandleOpenSelect(void)
+{
+    if (!SelectAnyIsOpen())
+        return false;
+    SelectAnyMouseMove();
+    return true;
 }
 
 menuSound_t Menu_MouseMove(menuCommon_t *item)
@@ -4174,6 +5287,8 @@ menuSound_t Menu_MouseMove(menuCommon_t *item)
         return MenuList_MouseMove((menuList_t *)item);
     case MTYPE_SLIDER:
         return Slider_MouseMove((menuSlider_t *)item);
+    case MTYPE_SELECT:
+        return Select_MouseMove((menuSelect_t *)item);
     default:
         return QMS_NOTHANDLED;
     }
@@ -4186,18 +5301,48 @@ static menuSound_t Menu_DefaultKey(menuFrameWork_t *m, int key)
     switch (key) {
     case K_ESCAPE:
     case K_MOUSE2:
+        /* Close open dropdown instead of popping menu */
+        if (SelectAnyIsOpen()) {
+            if (g_openSelect->generic.type == MTYPE_SELECT) {
+                g_openSelect->open = false;
+                g_openSelect->hoverIndex = -1;
+            } else if (g_openSelect->generic.type == MTYPE_SELECT2) {
+                menuSelect2_t *s2 = (menuSelect2_t *)g_openSelect;
+                s2->open = false; s2->openIdx = -1; s2->hoverIndex = -1;
+            } else {
+                menuBindSelect2_t *bs = (menuBindSelect2_t *)g_openSelect;
+                bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1;
+            }
+            g_openSelect = NULL;
+            return QMS_OUT;
+        }
         UI_PopMenu();
         return QMS_OUT;
 
     case K_KP_UPARROW:
     case K_UPARROW:
     case 'k':
-        return Menu_AdjustCursor(m, -1);
-
     case K_KP_DOWNARROW:
     case K_DOWNARROW:
+        if (SelectAnyIsOpen()) {
+            menuSound_t snd;
+            if (g_openSelect->generic.type == MTYPE_SELECT)
+                snd = Select_Key(g_openSelect, key);
+            else if (g_openSelect->generic.type == MTYPE_SELECT2)
+                snd = Select2_Key((menuSelect2_t *)g_openSelect, key);
+            else
+                snd = BindSelect2_Key((menuBindSelect2_t *)g_openSelect, key);
+            if (snd != QMS_NOTHANDLED)
+                return snd;
+        }
+        if (key == K_KP_UPARROW || key == K_UPARROW || key == 'k')
+            return Menu_AdjustCursor(m, -1);
+        return Menu_AdjustCursor(m, 1);
+
     case K_TAB:
     case 'j':
+        if (SelectAnyIsOpen())
+            return QMS_SILENT;
         return Menu_AdjustCursor(m, 1);
     case K_MWHEELDOWN:
         if (Menu_Scroll(m, 1)) {
@@ -4226,9 +5371,112 @@ static menuSound_t Menu_DefaultKey(menuFrameWork_t *m, int key)
     case K_MOUSE1:
     //case K_MOUSE2:
     case K_MOUSE3:
+        /* Handle open select dropdown clicks */
+        if (SelectAnyIsOpen()) {
+            if (g_openSelect->generic.type == MTYPE_SELECT) {
+                int i;
+                for (i = 0; i < g_openSelect->numItems; i++) {
+                    if (UI_CursorInRect(&g_openSelect->itemRects[i])) {
+                        g_openSelect->curvalue = g_openSelect->hoverIndex;
+                        g_openSelect->open = false;
+                        g_openSelect->hoverIndex = -1;
+                        Cvar_SetByVar(g_openSelect->cvar,
+                                      g_openSelect->itemnames[g_openSelect->curvalue], FROM_MENU);
+                        if (g_openSelect->generic.change)
+                            g_openSelect->generic.change(&g_openSelect->generic);
+                        g_openSelect = NULL;
+                        return QMS_OUT;
+                    }
+                }
+                g_openSelect->open = false;
+                g_openSelect->hoverIndex = -1;
+                g_openSelect = NULL;
+                return QMS_OUT;
+            } else if (g_openSelect->generic.type == MTYPE_SELECT2) {
+                menuSelect2_t *s2 = (menuSelect2_t *)g_openSelect;
+                int i, side = s2->openIdx;
+                for (i = 0; i < s2->numItems[side]; i++) {
+                    if (UI_CursorInRect(&s2->itemRects[i])) {
+                        if (s2->hoverIndex >= 0)
+                            s2->curvalue[side] = s2->hoverIndex;
+                        s2->open = false;
+                        s2->openIdx = -1;
+                        s2->hoverIndex = -1;
+                        Cvar_SetByVar(s2->cvar[side],
+                                      s2->itemnames[side][s2->curvalue[side]], FROM_MENU);
+                        g_openSelect = NULL;
+                        return QMS_OUT;
+                    }
+                }
+                s2->open = false;
+                s2->openIdx = -1;
+                s2->hoverIndex = -1;
+                g_openSelect = NULL;
+                return QMS_OUT;
+            } else {
+                menuBindSelect2_t *bs = (menuBindSelect2_t *)g_openSelect;
+                int i, side = bs->openIdx;
+                for (i = 0; i < bs->numItems[side]; i++) {
+                    if (UI_CursorInRect(&bs->itemRects[i])) {
+                        if (bs->hoverIndex >= 0)
+                            bs->curvalue[side] = bs->hoverIndex;
+                        bs->open = false;
+                        bs->openIdx = -1;
+                        bs->hoverIndex = -1;
+                        Cvar_SetByVar(bs->cvar[side],
+                                      bs->itemnames[side][bs->curvalue[side]], FROM_MENU);
+                        g_openSelect = NULL;
+                        return QMS_OUT;
+                    }
+                }
+                bs->open = false;
+                bs->openIdx = -1;
+                bs->hoverIndex = -1;
+                g_openSelect = NULL;
+                return QMS_OUT;
+            }
+        }
+
         item = Menu_HitTest(m);
         if (!item) {
             return QMS_NOTHANDLED;
+        }
+
+        /* Allow clicking select/select2/bindselect2 to open dropdown without prior focus */
+        if (item->type == MTYPE_SELECT || item->type == MTYPE_SELECT2 ||
+            item->type == MTYPE_BINDSELECT2) {
+            if (item->type == MTYPE_SELECT)
+                return Select_DoEnter((menuSelect_t *)item);
+            else if (item->type == MTYPE_SELECT2) {
+                /* Open the side the mouse is over */
+                menuSelect2_t *s2 = (menuSelect2_t *)item;
+                int xOff = s2->generic.x + RCOLUMN_OFFSET;
+                int side = (uis.mouseCoords[0] > xOff + s2->colWidth[0] + CHAR_WIDTH * 2) ? 1 : 0;
+                Select_CloseOther();
+                s2->open = true;
+                s2->openIdx = side;
+                s2->hoverIndex = s2->curvalue[side];
+                g_openSelect = (menuSelect_t *)s2;
+                return QMS_IN;
+            } else {
+                /* bindselect2: open the column the mouse is over */
+                menuBindSelect2_t *bs = (menuBindSelect2_t *)item;
+                int col = BindSelect2_ColumnAt(bs, uis.mouseCoords[0]);
+                if (col == 0) {
+                    /* key bind mode */
+                    bs->generic.parent->keywait = true;
+                    bs->generic.parent->status = bs->altstatus;
+                    Key_WaitKey(keybind_cb, bs);
+                    return QMS_IN;
+                }
+                int side = col - 1;
+                Select_CloseOther();
+                bs->open = true; bs->openIdx = side;
+                bs->hoverIndex = bs->curvalue[side];
+                bs->focusPart = col;
+                g_openSelect = (menuSelect_t *)bs;
+                return QMS_IN;
+            }
         }
 
         if (!(item->flags & QMF_HASFOCUS)) {
@@ -4320,6 +5568,7 @@ bool Menu_Push(menuFrameWork_t *menu)
             break;
         case MTYPE_VALUES:
         case MTYPE_STRINGS:
+        case MTYPE_ACTION_SELECT:
             Strings_Push(item);
             break;
         case MTYPE_SPINCONTROL:
@@ -4330,6 +5579,15 @@ bool Menu_Push(menuFrameWork_t *menu)
             break;
         case MTYPE_KEYBIND:
             Keybind_Push(item);
+            break;
+        case MTYPE_SELECT:
+            Select_Push(item);
+            break;
+        case MTYPE_SELECT2:
+            Select2_Push(item);
+            break;
+        case MTYPE_BINDSELECT2:
+            BindSelect2_Push(item);
             break;
         case MTYPE_FIELD:
             Field_Push(item);
@@ -4345,31 +5603,111 @@ bool Menu_Push(menuFrameWork_t *menu)
     return true;
 }
 
+static bool Item_WasModified(const menuCommon_t *item)
+{
+    switch (item->type) {
+    case MTYPE_SLIDER: {
+        const menuSlider_t *s = (const menuSlider_t *)item;
+        return s->cvar && fabsf(s->curvalue - s->cvar->value) > 0.0001f;
+    }
+    case MTYPE_VALUES:
+    case MTYPE_PAIRS:
+    case MTYPE_STRINGS:
+    case MTYPE_SPINCONTROL:
+    case MTYPE_ACTION_SELECT: {
+        const menuSpinControl_t *s = (const menuSpinControl_t *)item;
+        if (!s->cvar || s->curvalue < 0 || s->curvalue >= s->numItems)
+            return false;
+        if (s->itemvalues)
+            return strcmp(s->itemvalues[s->curvalue], s->cvar->string) != 0;
+        return s->curvalue != s->cvar->integer;
+    }
+    case MTYPE_TOGGLE: {
+        const menuSpinControl_t *s = (const menuSpinControl_t *)item;
+        if (!s->cvar || s->curvalue < 0 || s->curvalue > 1)
+            return false;
+        return (s->curvalue ^ s->negate) != s->cvar->integer;
+    }
+    case MTYPE_BITFIELD: {
+        const menuSpinControl_t *s = (const menuSpinControl_t *)item;
+        int newval;
+        if (!s->cvar)
+            return false;
+        newval = s->cvar->integer;
+        if (s->curvalue ^ s->negate)
+            newval |= s->mask;
+        else
+            newval &= ~s->mask;
+        return newval != s->cvar->integer;
+    }
+    case MTYPE_FIELD: {
+        const menuField_t *f = (const menuField_t *)item;
+        return f->cvar && strcmp(f->field.text, f->cvar->string) != 0;
+    }
+    case MTYPE_SELECT: {
+        const menuSelect_t *s = (const menuSelect_t *)item;
+        if (!s->cvar || s->curvalue < 0 || s->curvalue >= s->numItems)
+            return false;
+        return strcmp(s->itemnames[s->curvalue], s->cvar->string) != 0;
+    }
+    case MTYPE_SELECT2: {
+        const menuSelect2_t *s = (const menuSelect2_t *)item;
+        int i;
+        for (i = 0; i < 2; i++) {
+            if (s->cvar[i] && s->curvalue[i] >= 0 && s->curvalue[i] < s->numItems[i])
+                if (strcmp(s->itemnames[i][s->curvalue[i]], s->cvar[i]->string))
+                    return true;
+        }
+        return false;
+    }
+    default:
+        return false;
+    }
+}
+
 void Menu_Pop(menuFrameWork_t *menu)
 {
     void *item;
     int i;
+    bool need_restart = false;
 
     for (i = 0; i < menu->nitems; i++) {
         item = menu->items[i];
 
+        if (((menuCommon_t *)item)->flags & QMF_DEFER_COMMIT &&
+            Item_WasModified((menuCommon_t *)item))
+            need_restart = true;
+
         switch (((menuCommon_t *)item)->type) {
         case MTYPE_SLIDER:
         case MTYPE_BITFIELD:
-        case MTYPE_PAIRS:
-        case MTYPE_STRINGS:
-        case MTYPE_SPINCONTROL:
-        case MTYPE_TOGGLE:
-        case MTYPE_FIELD:
+    case MTYPE_PAIRS:
+    case MTYPE_STRINGS:
+    case MTYPE_ACTION_SELECT:
+    case MTYPE_SPINCONTROL:
+    case MTYPE_TOGGLE:
+    case MTYPE_FIELD:
             Menu_CommitItem(item);
             break;
         case MTYPE_KEYBIND:
             Keybind_Pop(item);
             break;
+        case MTYPE_SELECT:
+            Select_Pop(item);
+            break;
+        case MTYPE_SELECT2:
+            Select2_Pop(item);
+            break;
+        case MTYPE_BINDSELECT2:
+            BindSelect2_Pop(item);
+            break;
         default:
             break;
         }
     }
+
+    if (need_restart)
+        Cbuf_AddText(&cmd_buffer, "vid_restart force\n");
 }
 
 void Menu_Free(menuFrameWork_t *menu)
@@ -4404,10 +5742,20 @@ void Menu_Free(menuFrameWork_t *menu)
             break;
         case MTYPE_SPINCONTROL:
         case MTYPE_STRINGS:
+        case MTYPE_ACTION_SELECT:
             SpinControl_Free(item);
             break;
         case MTYPE_KEYBIND:
             Keybind_Free(item);
+            break;
+        case MTYPE_SELECT:
+            Select_Free(item);
+            break;
+        case MTYPE_SELECT2:
+            Select2_Free(item);
+            break;
+        case MTYPE_BINDSELECT2:
+            BindSelect2_Free(item);
             break;
         case MTYPE_FIELD:
             Field_Free(item);

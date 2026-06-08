@@ -40,6 +40,18 @@ cvar_t    *ui_menu_bar_image;
 cvar_t    *ui_menu_bar_image_alpha;
 cvar_t    *ui_menu_bar_image_mode;
 
+cvar_t    *ui_menu_model;
+static cvar_t *ui_menu_model_custom;
+cvar_t    *ui_menu_model_orbit;
+cvar_t    *ui_menu_model_position;
+cvar_t    *ui_menu_model_x;
+cvar_t    *ui_menu_model_y;
+cvar_t    *ui_menu_model_scale;
+cvar_t    *ui_menu_model_yaw;
+cvar_t    *ui_menu_model_distance;
+
+static bool ui_menu_model_applying_position;
+
 cvar_t    *ui_menu_anim;
 cvar_t    *ui_menu_anim_focus_ms;
 cvar_t    *ui_menu_title_top_padding;
@@ -505,6 +517,12 @@ bool UI_DoHitTest(void)
 
     Menu_UpdateShowIf(uis.activeMenu);
 
+    /* Always update open select dropdown hover state */
+    if (Menu_HandleOpenSelect()) {
+        /* Dropdown is open: don't change menu focus */
+        return false;
+    }
+
     if (uis.mouseTracker) {
         item = uis.mouseTracker;
     } else {
@@ -540,6 +558,9 @@ void UI_MouseEvent(int x, int y)
 
     uis.mouseCoords[0] = Q_rint(x * uis.scale);
     uis.mouseCoords[1] = Q_rint(y * uis.scale);
+
+    UI_ModelPreview_MouseMove(uis.activeMenu,
+                              uis.mouseCoords[0], uis.mouseCoords[1]);
 
     UI_DoHitTest();
 }
@@ -631,33 +652,6 @@ static void UI_ApplyCustomColor32(uiMenuColorId_t id, uint32_t *color)
 
 static void UI_ApplyMenuStyle(void)
 {
-    uis.color = uis.baseColor;
-    uis.listHeaderColor = uis.color.normal.u32;
-    uis.scrollbarColor = uis.color.normal.u32;
-    uis.hintBackgroundColor = MakeColor(0, 0, 255, 255);
-    uis.hintTextColor = MakeColor(255, 255, 255, 255);
-
-    uis.focusMarkerColor        = MakeColor(180, 180, 180, 160);
-    uis.valueColor              = MakeColor(15, 128, 235, 255);
-    uis.valueActiveColor        = MakeColor(15, 128, 235, 255);
-    uis.valueChangedColor      = MakeColor(225, 112, 124, 255);
-    uis.sliderTrackColor        = MakeColor(80, 80, 80, 110);
-    uis.sliderFillColor         = MakeColor(15, 128, 235, 255);
-    uis.sliderThumbColor        = MakeColor(255, 255, 255, 255);
-    uis.sliderBorderColor       = MakeColor(180, 180, 180, 160);
-    uis.sortedHeaderColor       = uis.color.normal.u32;
-    uis.tabTextColor            = uis.color.normal.u32;
-    uis.tabActiveTextColor      = uis.color.alternate.u32;
-    uis.tabActiveBgColor        = uis.color.focus.u32;
-    uis.tabInactiveBgColor      = uis.color.background.u32;
-
-    uis.panelBorderColor        = MakeColor(0, 0, 0, 0);
-    uis.panelShadowColor        = MakeColor(0, 0, 0, 0);
-    uis.tabUnderlineColor       = MakeColor(0, 0, 0, 0);
-
-    uis.styleFocusFill = false;
-    uis.styleMenuBackground = false;
-
     uis.color = ui_slateColorStyle;
     uis.listHeaderColor = ui_slateListHeaderColor;
     uis.scrollbarColor = ui_slateScrollbarColor;
@@ -1109,8 +1103,17 @@ void UI_KeyEvent(int key, bool down)
     if (!down) {
         if (key == K_MOUSE1) {
             uis.mouseTracker = NULL;
+            UI_ModelPreview_MouseUp();
         }
         return;
+    }
+
+    if (key == K_MOUSE1) {
+        if (UI_ModelPreview_MouseDown(uis.activeMenu,
+                                      uis.mouseCoords[0],
+                                      uis.mouseCoords[1])) {
+            return;
+        }
     }
 
     sound = Menu_Keydown(uis.activeMenu, key);
@@ -1313,6 +1316,63 @@ static void UI_MenuFocusWidth_g(genctx_t *ctx)
     Prompt_AddMatch(ctx, "content");
 }
 
+static void UI_MenuModelCustom_Update(void)
+{
+    bool custom = ui_menu_model && ui_menu_model->integer &&
+        ui_menu_model_position &&
+        !Q_stricmp(ui_menu_model_position->string, "custom");
+
+    Cvar_SetByVar(ui_menu_model_custom, custom ? "1" : "0", FROM_CODE);
+}
+
+static void UI_MenuModelPosition_changed(cvar_t *self)
+{
+    struct { const char *name; float x, y; } presets[] = {
+        { "center",       0.5f, 0.5f },
+        { "top",          0.5f, 0.15f },
+        { "bottom",       0.5f, 0.80f },
+        { "left",         0.15f, 0.5f },
+        { "right",        0.85f, 0.5f },
+        { "top-left",     0.15f, 0.15f },
+        { "top-right",    0.85f, 0.15f },
+        { "bottom-left",  0.15f, 0.85f },
+        { "bottom-right", 0.85f, 0.85f },
+    };
+    int i;
+
+    for (i = 0; i < (int)q_countof(presets); i++) {
+        if (!Q_stricmp(self->string, presets[i].name)) {
+            ui_menu_model_applying_position = true;
+            Cvar_SetByVar(ui_menu_model_x, va("%g", presets[i].x), FROM_MENU);
+            Cvar_SetByVar(ui_menu_model_y, va("%g", presets[i].y), FROM_MENU);
+            ui_menu_model_applying_position = false;
+            UI_MenuModelCustom_Update();
+            return;
+        }
+    }
+
+    UI_MenuModelCustom_Update();
+}
+
+static void UI_MenuModelAxis_changed(cvar_t *self)
+{
+    (void)self;
+
+    if (ui_menu_model_applying_position || !ui_menu_model_position ||
+        !Q_stricmp(ui_menu_model_position->string, "custom")) {
+        return;
+    }
+
+    Cvar_SetByVar(ui_menu_model_position, "custom", FROM_MENU);
+}
+
+static void UI_MenuModel_changed(cvar_t *self)
+{
+    (void)self;
+
+    UI_MenuModelCustom_Update();
+}
+
 /*
 =================
 UI_Init
@@ -1335,21 +1395,36 @@ void UI_Init(void)
                      CVAR_ARCHIVE);
     }
 
-    ui_menu_focus_width = Cvar_Get("ui_menu_focus_width", "content", CVAR_ARCHIVE);
+    ui_menu_focus_width = Cvar_Get("ui_menu_focus_width", "full", CVAR_ARCHIVE);
     ui_menu_focus_width->changed = ui_menu_focus_width_changed;
     ui_menu_focus_width->generator = UI_MenuFocusWidth_g;
     ui_menu_focus_width_changed(ui_menu_focus_width);
 
     ui_menu_focus_padding_x = Cvar_Get("ui_menu_focus_padding_x", "14", CVAR_ARCHIVE);
     ui_menu_focus_padding_y = Cvar_Get("ui_menu_focus_padding_y", "3", CVAR_ARCHIVE);
-    ui_menu_density = Cvar_Get("ui_menu_density", "1", CVAR_ARCHIVE);
+    ui_menu_density = Cvar_Get("ui_menu_density", "2", CVAR_ARCHIVE);
 
     ui_menu_bar_image = Cvar_Get("ui_menu_bar_image", "q2jump_background", CVAR_ARCHIVE);
     ui_menu_bar_image_alpha = Cvar_Get("ui_menu_bar_image_alpha", "0.5", CVAR_ARCHIVE);
     ui_menu_bar_image_mode = Cvar_Get("ui_menu_bar_image_mode", "screen", CVAR_ARCHIVE);
 
+    ui_menu_model = Cvar_Get("ui_menu_model", "1", CVAR_ARCHIVE);
+    ui_menu_model_custom = Cvar_Get("ui_menu_model_custom", "0", CVAR_ROM);
+    ui_menu_model_x = Cvar_Get("ui_menu_model_x", "0.8125", CVAR_ARCHIVE);
+    ui_menu_model_y = Cvar_Get("ui_menu_model_y", "0.5", CVAR_ARCHIVE);
+    ui_menu_model_scale = Cvar_Get("ui_menu_model_scale", "1", CVAR_ARCHIVE);
+    ui_menu_model_yaw = Cvar_Get("ui_menu_model_yaw", "200", CVAR_ARCHIVE);
+    ui_menu_model_distance = Cvar_Get("ui_menu_model_distance", "40", CVAR_ARCHIVE);
+    ui_menu_model_orbit = Cvar_Get("ui_menu_model_orbit", "1", CVAR_ARCHIVE);
+    ui_menu_model_position = Cvar_Get("ui_menu_model_position", "bottom", CVAR_ARCHIVE);
+    ui_menu_model_x->changed = UI_MenuModelAxis_changed;
+    ui_menu_model_y->changed = UI_MenuModelAxis_changed;
+    ui_menu_model->changed = UI_MenuModel_changed;
+    ui_menu_model_position->changed = UI_MenuModelPosition_changed;
+    UI_MenuModelPosition_changed(ui_menu_model_position);
+
     ui_menu_anim = Cvar_Get("ui_menu_anim", "1", CVAR_ARCHIVE);
-    ui_menu_anim_focus_ms = Cvar_Get("ui_menu_anim_focus_ms", "60", CVAR_ARCHIVE);
+    ui_menu_anim_focus_ms = Cvar_Get("ui_menu_anim_focus_ms", "70", CVAR_ARCHIVE);
     ui_menu_title_top_padding = Cvar_Get("ui_menu_title_top_padding", "12", CVAR_ARCHIVE);
     ui_menu_title_item_gap = Cvar_Get("ui_menu_title_item_gap", "0", CVAR_ARCHIVE);
 
@@ -1399,7 +1474,6 @@ void UI_Init(void)
 
     // load custom menus
     UI_LoadScript();
-    uis.baseColor = uis.color;
 
     // load built-in menus
     M_Menu_PlayerConfig();
@@ -1430,6 +1504,7 @@ void UI_Shutdown(void)
 
     UI_FreeMenus();
     Menu_FreeColorPicker();
+    UI_ModelPreview_Shutdown();
 
     Cmd_Deregister(c_ui);
 

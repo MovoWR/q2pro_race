@@ -56,10 +56,10 @@ typedef enum {
     MTYPE_BITMAP,
     MTYPE_SAVEGAME,
     MTYPE_LOADGAME,
+    MTYPE_BINDFIELDS,
     MTYPE_SELECT,
     MTYPE_SELECT2,
     MTYPE_BINDSELECT2,
-    MTYPE_BINDFIELDS,
     MTYPE_ACTION_SELECT
 } menuType_t;
 
@@ -218,65 +218,6 @@ typedef struct {
     bool colorPickerOnly;
 } menuField_t;
 
-typedef struct menuSelect_s {
-    menuCommon_t generic;
-    cvar_t *cvar;
-    int numItems;
-    char **itemnames;
-    rect_t *itemRects;
-    int curvalue;
-    int hoverIndex;
-    bool open;
-    int dropWidth;
-    rect_t dropRect;
-} menuSelect_t;
-
-typedef struct menuSelect2_s {
-    menuCommon_t generic;
-    cvar_t *cvar[2];
-    int numItems[2];
-    char **itemnames[2];
-    rect_t *itemRects;
-    int curvalue[2];
-    int hoverIndex;
-    bool open;
-    int openIdx;
-    int colWidth[2];
-    rect_t dropRect;
-} menuSelect2_t;
-
-typedef struct menuBindSelect2_s {
-    menuCommon_t generic;
-    char *cmd;
-    char binding[32];
-    char altbinding[32];
-    char *altstatus;
-    cvar_t *cvar[2];
-    int numItems[2];
-    char **itemnames[2];
-    rect_t *itemRects;
-    int curvalue[2];
-    int hoverIndex;
-    bool open;
-    int openIdx;
-    int colWidth[3];
-    rect_t dropRect;
-    int focusPart;
-} menuBindSelect2_t;
-
-typedef struct menuBindFields_s {
-    menuCommon_t generic;
-    char *cmd;
-    char binding[32];
-    char altbinding[32];
-    char *altstatus;
-    int numFields;
-    int *fieldWidths;
-    inputField_t *fields;
-    cvar_t **cvars;
-    int focusPart;
-} menuBindFields_t;
-
 #define SLIDER_RANGE 10
 
 typedef struct {
@@ -334,6 +275,8 @@ typedef struct menuList_s {
 typedef struct {
     menuCommon_t generic;
     cvar_t *cvar;
+    char    *cmd;
+    bool    modified;
 
     char    **itemnames;
     char    **itemvalues;
@@ -371,6 +314,72 @@ typedef struct {
     char            *cmd;
     char            *altstatus;
 } menuKeybind_t;
+
+typedef struct {
+    menuCommon_t    generic;
+    char            binding[32];
+    char            altbinding[32];
+    char            *cmd;
+    char            *altstatus;
+    cvar_t          **cvars;
+    inputField_t    *fields;
+    int             *fieldWidths;
+    char            **fieldLabels;
+    int             numFields;
+    int             focusPart;      /* 0 = bind, 1..N = field index */
+    bool            numericOnly;
+    int             clampMin;       /* minimum valid value (0 = no clamp) */
+    int             clampMax;       /* maximum valid value (0 = no clamp) */
+    vrect_t         *fieldRects;    /* per-focusPart mouse hit rects (numFields+1) */
+} menuBindFields_t;
+
+typedef struct {
+    menuCommon_t    generic;
+    cvar_t          *cvar;
+    char            **itemnames;
+    int             numItems;
+    int             curvalue;       /* selected index, -1 if unset */
+    bool            open;           /* dropdown is visible */
+    int             hoverIndex;     /* mouse hover index in dropdown, -1 = none */
+    vrect_t         dropRect;       /* dropdown panel bounds */
+    vrect_t         *itemRects;     /* per-item mouse hit rects in dropdown */
+    int             dropWidth;      /* width of dropdown panel */
+} menuSelect_t;
+
+typedef struct {
+    menuCommon_t    generic;
+    cvar_t          *cvar[2];
+    char            **itemnames[2];
+    int             numItems[2];
+    int             curvalue[2];
+    int             hoverIndex;
+    bool            open;
+    int             openIdx;        /* which side is open (0 or 1), -1 = closed */
+    vrect_t         dropRect;
+    vrect_t         *itemRects;
+    int             dropWidth;
+    int             colWidth[2];    /* width of each column's value display */
+} menuSelect2_t;
+
+typedef struct {
+    menuCommon_t    generic;
+    char            binding[32];
+    char            altbinding[32];
+    char            *cmd;
+    char            *legacycmd;
+    char            *altstatus;
+    cvar_t          *cvar[2];
+    char            **itemnames[2];
+    int             numItems[2];
+    int             curvalue[2];
+    int             hoverIndex;
+    bool            open;
+    int             openIdx;        /* which select is open: 0, 1, or -1 */
+    int             focusPart;      /* 0 = bind, 1 = select0, 2 = select1 */
+    vrect_t         dropRect;
+    vrect_t         *itemRects;
+    int             colWidth[3];    /* bind, select0, select1 */
+} menuBindSelect2_t;
 
 #define MAX_PLAYERMODELS 1024
 
@@ -468,10 +477,6 @@ extern cvar_t       *ui_debug;
 extern cvar_t       *cl_menu_cursor;
 
 extern cvar_t       *ui_menu_focus_width;
-
-bool Menu_HandleOpenSelect(void);
-
-extern bool ui_builtin_menu_active;
 extern cvar_t       *ui_menu_focus_padding_x;
 extern cvar_t       *ui_menu_focus_padding_y;
 extern cvar_t       *ui_menu_density;
@@ -481,13 +486,13 @@ extern cvar_t       *ui_menu_bar_image_alpha;
 extern cvar_t       *ui_menu_bar_image_mode;
 
 extern cvar_t       *ui_menu_model;
-extern cvar_t       *ui_menu_model_orbit;
-extern cvar_t       *ui_menu_model_position;
 extern cvar_t       *ui_menu_model_x;
 extern cvar_t       *ui_menu_model_y;
 extern cvar_t       *ui_menu_model_scale;
 extern cvar_t       *ui_menu_model_yaw;
 extern cvar_t       *ui_menu_model_distance;
+extern cvar_t       *ui_menu_model_orbit;
+extern cvar_t       *ui_menu_model_position;
 
 extern cvar_t       *ui_menu_anim;
 extern cvar_t       *ui_menu_anim_focus_ms;
@@ -544,6 +549,15 @@ void        Menu_Init(menuFrameWork_t *menu);
 void        Menu_Layout(menuFrameWork_t *menu);
 void        Menu_Size(menuFrameWork_t *menu);
 void        Menu_Draw(menuFrameWork_t *menu);
+void        UI_DrawMenuBackgroundModel(const menuFrameWork_t *menu);
+void        UI_ModelPreview_MenuItemFocused(const menuFrameWork_t *menu,
+                                           const menuCommon_t *item);
+void        UI_ModelPreview_MouseMove(const menuFrameWork_t *menu,
+                                      int x, int y);
+bool        UI_ModelPreview_MouseDown(const menuFrameWork_t *menu,
+                                      int x, int y);
+void        UI_ModelPreview_MouseUp(void);
+void        UI_ModelPreview_Shutdown(void);
 void        Menu_UpdateShowIf(menuFrameWork_t *menu);
 void        Menu_AddItem(menuFrameWork_t *menu, void *item);
 menuSound_t Menu_SelectItem(menuFrameWork_t *menu);
@@ -551,6 +565,7 @@ menuSound_t Menu_SlideItem(menuFrameWork_t *menu, int dir);
 menuSound_t Menu_KeyEvent(menuCommon_t *item, int key);
 menuSound_t Menu_CharEvent(menuCommon_t *item, int key);
 menuSound_t Menu_MouseMove(menuCommon_t *item);
+bool        Menu_HandleOpenSelect(void);
 menuSound_t Menu_Keydown(menuFrameWork_t *menu, int key);
 void        Menu_SetFocus(menuCommon_t *item);
 menuSound_t     Menu_AdjustCursor(menuFrameWork_t *menu, int dir);
@@ -572,6 +587,7 @@ void M_Menu_Servers(void);
 
 extern menuFrameWork_t *ui_drawing_menu;
 extern int menu_drawing_item_index;
+extern bool ui_builtin_menu_active;
 
 void UI_SetColor_Wrapper(uint32_t color);
 void UI_SetAltColor_Wrapper(uint32_t color);
@@ -579,14 +595,6 @@ void UI_ClearColor_Wrapper(void);
 void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color);
 
 float Menu_Ease01(float t);
-
-void UI_DrawMenuBackgroundModel(const menuFrameWork_t *menu);
-void UI_ModelPreview_MenuItemFocused(const menuFrameWork_t *menu,
-                                     const menuCommon_t *item);
-void UI_ModelPreview_MouseMove(const menuFrameWork_t *menu, int x, int y);
-bool UI_ModelPreview_MouseDown(const menuFrameWork_t *menu, int x, int y);
-void UI_ModelPreview_MouseUp(void);
-void UI_ModelPreview_Shutdown(void);
 
 #ifndef UI_C_IMPLEMENTATION
 #define R_SetColor(color) UI_SetColor_Wrapper(color)
