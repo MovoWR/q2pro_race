@@ -119,6 +119,9 @@ cvar_t *sh_histogram_bad_alpha;
 cvar_t *sh_histogram_history;
 cvar_t *sh_histogram_ping;
 
+cvar_t *fps_default_hold;
+cvar_t *fps_default_release;
+
 // ========================================================================
 // SH_Init — register all jump-mod cvars
 // ========================================================================
@@ -222,4 +225,8 @@ void SH_Init(void)
     sh_histogram_bad_alpha = Cvar_Get("sh_histogram_bad_alpha", "1", CVAR_ARCHIVE);
     sh_histogram_history = Cvar_Get("sh_histogram_history_ms", "52000", CVAR_ARCHIVE);
     sh_histogram_ping = Cvar_Get("sh_histogram_ping", "1", CVAR_ARCHIVE);
+
+    // FPS hold defaults
+    fps_default_hold = Cvar_Get("fps_default_hold", "30", CVAR_ARCHIVE);
+    fps_default_release = Cvar_Get("fps_default_release", "120", CVAR_ARCHIVE);
 }

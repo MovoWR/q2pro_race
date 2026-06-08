@@ -2834,6 +2834,31 @@ static void CL_FpsUp_f(void)
     Cvar_Set("cl_maxfps", up_str);
 }
 
+static cvar_t *fps_hold[12];
+static cvar_t *fps_release[12];
+
+static void CL_FpsHoldDown_f(void)
+{
+    int slot = Q_atoi(Cmd_Argv(1)) - 1;
+
+    if (slot < 0 || slot > 11)
+        return;
+
+    if (fps_hold[slot])
+        Cvar_Set("cl_maxfps", fps_hold[slot]->string);
+}
+
+static void CL_FpsHoldUp_f(void)
+{
+    int slot = Q_atoi(Cmd_Argv(1)) - 1;
+
+    if (slot < 0 || slot > 11)
+        return;
+
+    if (fps_release[slot])
+        Cvar_Set("cl_maxfps", fps_release[slot]->string);
+}
+
 static void CL_FpsShortcut_f(void)
 {
     const char *cmd = Cmd_Argv(0);
@@ -2852,6 +2877,8 @@ static const cmdreg_t c_client[] = {
     { "pause", CL_Pause_f },
     { "+fps", CL_FpsDown_f },
     { "-fps", CL_FpsUp_f },
+    { "+fps_hold", CL_FpsHoldDown_f },
+    { "-fps_hold", CL_FpsHoldUp_f },
     { "pingservers", CL_PingServers_f },
     { "skins", CL_Skins_f },
     { "userinfo", CL_Userinfo_f },
@@ -3221,6 +3248,15 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_playerpos_z", CL_PlayerPosZ_m);
     Cmd_AddMacro("cl_playerpos_y", CL_PlayerPosY_m);
     Cmd_AddMacro("cl_playerpos_x", CL_PlayerPosX_m);
+
+    // fps hold/release slots
+    for (int i = 0; i < 12; i++) {
+        char name[32];
+        Q_snprintf(name, sizeof(name), "fps_hold_%d", i + 1);
+        fps_hold[i] = Cvar_Get(name, "30", CVAR_ARCHIVE);
+        Q_snprintf(name, sizeof(name), "fps_release_%d", i + 1);
+        fps_release[i] = Cvar_Get(name, "120", CVAR_ARCHIVE);
+    }
 
     SH_Init();
 }
