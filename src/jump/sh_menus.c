@@ -1,6 +1,7 @@
 #include "sh_menus.h"
 #include <src/client/client.h>
 #include "strafe_helper_customization.h"
+#include "strafe_helper.h"
 #include <math.h>
 
 void SH_Help_f(void) {
@@ -207,8 +208,7 @@ void SH_Cmd_f(void) {
             SH_Ups_Help_f();
         else
             Com_Printf("Unknown ups command. Use 'sh ups' for a list of commands.\n");
-    } else if
-    (!strcmp(subcmd, "status")) {
+    } else if (!strcmp(subcmd, "status")) {
         SH_Status_f();
     } else {
         SH_Help_f();

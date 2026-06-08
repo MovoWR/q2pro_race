@@ -1,9 +1,7 @@
 #include "strafe_helper.h"
 #include <src/client/client.h>
 #include <math.h>
-#include <stdbool.h>
 #include "strafe_helper_customization.h"
-#include <stddef.h>
 
 
 char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
@@ -24,7 +22,7 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
     if (cl_strafehelperNerdStats->integer == 1) {
         x = CHAR_WIDTH;
     } else if (cl_strafehelperNerdStats->integer == 2) {
-        x = (hud_width - block_width) + 10.0f;
+        x = (int)(hud_width - block_width) + 10;
     }
 
 
@@ -44,27 +42,27 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         R_SetColor(U32_WHITE);
 
         R_Fps_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s", "Render FPS:", formatted);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s", "Render FPS:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
         CL_Mmps_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s FPS", "Main FPS:", formatted);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s FPS", "Main FPS:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
         CL_Pps_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s packets", "Packets/sec:", formatted);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s packets", "Packets/sec:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
         CL_Ping_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s ms", "Ping:", formatted);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s ms", "Ping:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
         CL_Lag_m(formatted, sizeof(formatted));
-        snprintf(buffer, sizeof(buffer), "%-12s %s ", "Lag:", formatted);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s ", "Lag:", formatted);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
         // -------------------------------------
@@ -77,15 +75,15 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "X:", ns.pred_velocity_x);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "X:", ns.pred_velocity_x);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Y:", ns.pred_velocity_y);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Y:", ns.pred_velocity_y);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Z:", ns.pred_velocity_z);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Z:", ns.pred_velocity_z);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
@@ -99,13 +97,13 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "X:", ns.pred_pos_x);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "X:", ns.pred_pos_x);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Y:", ns.pred_pos_y);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Y:", ns.pred_pos_y);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Z:", ns.pred_pos_z);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Z:", ns.pred_pos_z);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
@@ -120,13 +118,13 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Pitch:", ns.pitch);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Pitch:", ns.pitch);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Roll:", ns.roll);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Roll:", ns.roll);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.4f", "ViewAngle/Yaw:", ns.viewangles);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.4f", "ViewAngle/Yaw:", ns.viewangles);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
@@ -140,19 +138,19 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
         //
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Optimal:", sh.angle_optimal);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Optimal:", sh.angle_optimal);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Minimum:", sh.angle_minimum);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Minimum:", sh.angle_minimum);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Maximum:", sh.angle_maximum);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Maximum:", sh.angle_maximum);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Angle Diff:", sh.angle_diff);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Angle Diff:", sh.angle_diff);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
@@ -166,22 +164,22 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         left_y += lineSpacing;
         R_SetColor(U32_WHITE);
         //
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Addspeed:", ns.addspeed_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Addspeed:", ns.addspeed_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Curr speed:", ns.currentspeed_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Curr speed:", ns.currentspeed_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Accelspeed:", ns.accelspeed_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Accelspeed:", ns.accelspeed_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Wishdir:", ns.wishdir_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Wishdir:", ns.wishdir_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
-        snprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Fwd vel ang:", ns.forward_velocity_angle_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Fwd vel ang:", ns.forward_velocity_angle_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
@@ -207,7 +205,7 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         if (pm_type > PM_FREEZE)
             pm_type = PM_FREEZE;
 
-        snprintf(buffer, sizeof(buffer), "%-12s %s", "pm_type:",
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %s", "pm_type:",
                  (pm_type <= PM_FREEZE ? types[pm_type] : "UNKNOWN"));
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
@@ -218,7 +216,7 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         unsigned pm_flags = cl.frame.ps.pmove.pm_flags;
         for (unsigned i = 0; i < 8; i++) {
             if (pm_flags & (1 << i)) {
-                snprintf(buffer, sizeof(buffer), "%-12s %s", "", flags[i]);
+                Q_scnprintf(buffer, sizeof(buffer), "%-12s %s", "", flags[i]);
                 R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
                 left_y += lineSpacing;
             }
@@ -241,13 +239,13 @@ void printKeyValueGeneric(const char *label, const char *value) {
 
 void printKeyValueFloat(const char *label, float value) {
     char formattedValue[32];
-    snprintf(formattedValue, sizeof(formattedValue), "%+10.2f", value); // Format float as a string
+    Q_scnprintf(formattedValue, sizeof(formattedValue), "%+10.2f", value); // Format float as a string
     printKeyValueGeneric(label, formattedValue); // Reuse generic helper
 }
 
 void printKeyValueFloatPrecise(const char *label, float value) {
     char formattedValue[32];
-    snprintf(formattedValue, sizeof(formattedValue), "%+10.4f", value); // Format high-precision float
+    Q_scnprintf(formattedValue, sizeof(formattedValue), "%+10.4f", value); // Format high-precision float
     printKeyValueGeneric(label, formattedValue); // Reuse generic helper
 }
 

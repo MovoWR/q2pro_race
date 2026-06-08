@@ -210,6 +210,7 @@ static bool SCR_NetMeterNoticeEnabled(unsigned flag)
 {
     switch (flag) {
     case NETEVENT_LOSS:
+    case NETEVENT_PRED:
         return sh_netalert_loss->integer != 0;
     case NETEVENT_JITTER:
         return sh_netalert_jitter->integer != 0;
@@ -224,6 +225,7 @@ static unsigned SCR_NetMeterNoticeFlags(unsigned flags)
 {
     unsigned ordered[] = {
         NETEVENT_LOSS,
+        NETEVENT_PRED,
         NETEVENT_JITTER,
         NETEVENT_SPIKE
     };
@@ -242,6 +244,9 @@ static const char *SCR_NetMeterNotice(unsigned flags)
 {
     if (flags & NETEVENT_LOSS) {
         return "PACKET LOSS";
+    }
+    if (flags & NETEVENT_PRED) {
+        return "CLIENT DROP";
     }
     if (flags & NETEVENT_JITTER) {
         return "NETWORK JITTER";
@@ -702,7 +707,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
 
     if (sh_histogram_ping && sh_histogram_ping->integer && netmeter.ping_samples > 0) {
         char ping_str[16];
-        Q_snprintf(ping_str, sizeof(ping_str), "%u", netmeter.display_ping);
+        Q_scnprintf(ping_str, sizeof(ping_str), "%u", netmeter.display_ping);
         R_SetAlpha(global_alpha);
         SCR_DrawString(draw_x, draw_y, UI_LEFT, ping_str);
     }

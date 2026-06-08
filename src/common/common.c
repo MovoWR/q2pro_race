@@ -1034,18 +1034,15 @@ void Qcommon_Init(int argc, char **argv)
 
     Com_AddConfigFile(COM_POSTINIT_CFG, FS_TYPE_REAL);
 
-    Com_Printf("\n=====================================\n");
-    Com_Printf("::::::::: " PRODUCT " initialized :::::::::\n");
-    Com_Printf("\n=====================================\n");
-
-    Com_LPrintf(PRINT_NOTICE, APPLICATION " " VERSION ", " __DATE__ "\n");
+   // Com_LPrintf(PRINT_NOTICE, APPLICATION " " VERSION ", " __DATE__ "\n");
     Com_Printf("\n");
-    Com_Printf("\nCredits to the following projects:\n");
-    Com_Printf("GitHub: skullernet/q2pro\n");
-    Com_Printf("GitHub: q2jump-pro/q2jump-pro\n");
-    Com_Printf("GitHub: kugelrund/q2pro-speed\n");
-    Com_Printf("GitHub: TotallyMehis/q2pro-jump\n");
-    Com_Printf("\n=====================================\n");
+    Com_LPrintf(PRINT_NOTICE,"------- " APPLICATION " initialized -------\n");
+    Com_Printf("\n  Credits to the following projects:\n");
+    Com_Printf("    Q2PRO:  skullernet\n");
+    Com_Printf("    GitHub: kugelrund/q2pro-speed\n");
+    Com_Printf("    GitHub: TotallyMehis/q2pro-jump\n");
+    Com_Printf("    GitHub: q2jump-pro/q2jump-pro\n");
+    Com_LPrintf(PRINT_NOTICE,"\n--------------------------------------\n");
 
 
 

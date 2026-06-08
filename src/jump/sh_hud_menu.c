@@ -1,9 +1,8 @@
 #include "sh_menus.h"
 #include <src/client/client.h>
 #include "strafe_helper_customization.h"
+#include "strafe_helper.h"
 #include <math.h>
-#include <stdlib.h>
-#include <time.h>
 
 
 typedef struct {
@@ -66,8 +65,8 @@ bool SH_GetPresetColors(const char *name, const char **accelerating,
         return false;
     }
 
-    for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
-        if (!_stricmp(name, presets[i].name)) {
+    for (int i = 0; i < q_countof(presets); i++) {
+        if (!Q_stricmp(name, presets[i].name)) {
             if (accelerating) {
                 *accelerating = presets[i].color_accelerating;
             }
@@ -91,7 +90,7 @@ void SH_SetPreset_f(void) {
         Com_Printf("| %-5s | %-15s | %-50s |\n", "Num", "Name", "Description");
         Com_Printf("===============================================================================\n");
 
-        for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
+        for (int i = 0; i < q_countof(presets); i++) {
             Com_Printf("| %-5d | %-15s | %-50s |\n", i + 1, presets[i].name, presets[i].description);
             Com_Printf("-------------------------------------------------------------------------------\n");
         }
@@ -107,9 +106,8 @@ void SH_SetPreset_f(void) {
     const char *selectedpreset = Cmd_Argv(3);
 
     // Handle random preset option
-    if (!_stricmp(selectedpreset, "random")) {
-        srand((unsigned int) time(NULL));
-        int randomIndex = rand() % (sizeof(presets) / sizeof(presets[0])); // Get random index
+    if (!Q_stricmp(selectedpreset, "random")) {
+        int randomIndex = (int)(Q_rand_uniform((uint32_t)q_countof(presets)));
         Cvar_Set("sh_color_optimal", presets[randomIndex].color_optimal);
         Cvar_Set("sh_color_accelerating", presets[randomIndex].color_accelerating);
         Cvar_Set("sh_color_centermarker", presets[randomIndex].color_centermarker);
@@ -120,7 +118,7 @@ void SH_SetPreset_f(void) {
     // Check if input is a number
     int presetNumber = -1;
     if (sscanf(selectedpreset, "%d", &presetNumber) == 1) {
-        if (presetNumber >= 1 && presetNumber <= sizeof(presets) / sizeof(presets[0])) {
+        if (presetNumber >= 1 && presetNumber <= q_countof(presets)) {
             int index = presetNumber - 1; // Convert to 0-based index
             Cvar_Set("sh_color_optimal", presets[index].color_optimal);
             Cvar_Set("sh_color_accelerating", presets[index].color_accelerating);
@@ -134,8 +132,8 @@ void SH_SetPreset_f(void) {
     }
 
     // Check if input matches a preset name
-    for (int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
-        if (!_stricmp(selectedpreset, presets[i].name)) {
+    for (int i = 0; i < q_countof(presets); i++) {
+        if (!Q_stricmp(selectedpreset, presets[i].name)) {
             Cvar_Set("sh_color_optimal", presets[i].color_optimal);
             Cvar_Set("sh_color_accelerating", presets[i].color_accelerating);
             Cvar_Set("sh_color_centermarker", presets[i].color_centermarker);
@@ -161,7 +159,7 @@ void SH_Disable_f(void) {
 void SH_Scale_f(void) {
     const char *scale = Cmd_ArgsFrom(3);
     float value;
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Scale: %.2f\n", cl_strafeHelperScale->value);
         return;
@@ -178,7 +176,7 @@ void SH_ypos_f(void) {
     const char *ypos = Cmd_ArgsFrom(3);
     float value;
 
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Y pos: %.2f\n", cl_strafeHelperY->value);
         return;
@@ -196,7 +194,7 @@ void SH_Height_f(void) {
     const char *height = Cmd_ArgsFrom(3);
     int value;
 
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Height: %d\n", cl_strafeHelperHeight->integer);
         return;
@@ -216,12 +214,12 @@ void SH_CenterMarker_f(void) {
 }
 
 void SH_CenterWidth_f(void) {
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Current Center Width: %f\n", cl_strafehelper_center_width->value);
         return;
     }
-    const char *width = Cmd_Argv(3); // Fetch the second argument
+    const char *width = Cmd_Argv(3); // Fetch the third argument
     float value;
     if (sscanf(width, "%f", &value) == 1 && value >= 0.1f && value <= 5.0f) {
         Cvar_Set("sh_center_width", width);
@@ -232,9 +230,9 @@ void SH_CenterWidth_f(void) {
 }
 
 void SH_OptimalWidth_f(void) {
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
-        Com_Printf("- Current Center Width: %.2f\n", cl_strafehelper_optimal_width->value);
+        Com_Printf("- Current Optimal Width: %.2f\n", cl_strafehelper_optimal_width->value);
         return;
     }
     const char *width = Cmd_ArgsFrom(3);
@@ -533,7 +531,7 @@ void SH_Color_Accel_f(void) {
     const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Accelerating color: %s\n", cl_strafehelper_color_accelerating->string);
         return;
@@ -553,7 +551,7 @@ void SH_Color_Optimal_f(void) {
     const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Optimal color: %s\n", cl_strafehelper_color_optimal->string);
         return;
@@ -573,7 +571,7 @@ void SH_Color_CenterMarker_f(void) {
     const char *color = Cmd_ArgsFrom(3);
     int r, g, b, a;
 
-    if (Cmd_Argc() < 4) // Check if fewer than 3 arguments are provided
+    if (Cmd_Argc() < 4) // Check if no value argument provided
     {
         Com_Printf("- Center marker color: %s\n", cl_strafehelper_color_centermarker->string);
         return;

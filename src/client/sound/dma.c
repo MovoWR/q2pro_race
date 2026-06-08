@@ -578,7 +578,7 @@ static bool DMA_Init(void)
 
     s_numchannels = MAX_CHANNELS;
 
-    Com_Printf("sound sampling rate: %i\n", dma.speed);
+    Com_DPrintf("sound sampling rate: %i\n", dma.speed);
 
     return true;
 }

@@ -385,11 +385,6 @@ static uint32_t SH_Ups_ColorForSpeed(const float speed) {
         previous_speed = speed;
     }
 
-    if (speed < 10.0f || fabsf(speed - previous_speed) > 500.0f) {
-        previous_speed = speed;
-        smoothed_accel = 0.0f;
-    }
-
     const char *mode = cl_strafehelperUpsColorMode ? cl_strafehelperUpsColorMode->string : "dynamic";
     uint32_t color;
 
@@ -455,9 +450,9 @@ static uint32_t SH_Ups_ColorForSpeed(const float speed) {
             }
         }
     } else {
-        if (speed > previous_speed + SH_UPS_DYNAMIC_EPSILON) {
+        if (speed > previous_speed) {
             color = SH_Ups_ParseColor(cl_strafehelperUpsColorGain, U32_GREEN);
-        } else if (speed < previous_speed - SH_UPS_DYNAMIC_EPSILON) {
+        } else if (speed < previous_speed) {
             color = SH_Ups_ParseColor(cl_strafehelperUpsColorLoss, U32_RED);
         } else {
             color = SH_Ups_ParseColor(cl_strafehelperUpsColorNeutral, U32_WHITE);

@@ -1354,7 +1354,7 @@ bool Win_InitMouse(void)
     win.mouse.parms_valid =
         SystemParametersInfo(SPI_GETMOUSE, 0, win.mouse.original_parms, 0);
 
-    Com_Printf("Raw mouse initialized.\n");
+    Com_DPrintf("Raw mouse initialized.\n");
     win.mouse.initialized = true;
     return true;
 }

@@ -286,7 +286,7 @@ static sndinitstat_t DS_Init(void)
         return SIS_FAILURE;
     }
 
-    Com_Printf("DirectSound initialized\n");
+    Com_DPrintf("DirectSound initialized\n");
 
     return SIS_SUCCESS;
 }

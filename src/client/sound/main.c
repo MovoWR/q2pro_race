@@ -142,7 +142,7 @@ void S_Init(void)
         return;
     }
 
-    Com_Printf("------- S_Init -------\n");
+    Com_DPrintf("------- S_Init -------\n");
 
     s_volume = Cvar_Get("s_volume", "0.7", CVAR_ARCHIVE);
     s_ambient = Cvar_Get("s_ambient", "1", 0);
@@ -196,7 +196,7 @@ void S_Init(void)
 
 fail:
     Cvar_SetInteger(s_enable, s_started, FROM_CODE);
-    Com_Printf("----------------------\n");
+    Com_DPrintf("----------------------\n");
 }
 
 
