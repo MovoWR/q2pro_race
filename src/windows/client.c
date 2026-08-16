@@ -696,6 +696,70 @@ static const byte scantokey[2][96] = {
     }
 };
 
+// scantokey[0] read backwards: canonical keynum -> the scancode it came from.
+// only non-extended scancodes matter, since those are the printable keys whose
+// labels move around between layouts.
+static byte keytoscan[256];
+
+// cache of canonical keynum -> character printed on that physical key under the
+// active keyboard layout. rebuilt lazily; dropped on WM_INPUTLANGCHANGE.
+static byte keylabels[256];
+static bool keylabels_valid;
+
+static void build_key_labels(void)
+{
+    memset(keytoscan, 0, sizeof(keytoscan));
+    memset(keylabels, 0, sizeof(keylabels));
+
+    // invert scantokey so labels can be looked up per keynum
+    for (int sc = 0; sc < 96; sc++) {
+        int key = scantokey[0][sc];
+        if (key && !keytoscan[key])
+            keytoscan[key] = sc;
+    }
+
+    for (int key = 0; key < 256; key++) {
+        if (!keytoscan[key])
+            continue;
+
+        UINT vk = MapVirtualKey(keytoscan[key], MAPVK_VSC_TO_VK);
+        if (!vk)
+            continue;
+
+        UINT ch = MapVirtualKey(vk, MAPVK_VK_TO_CHAR);
+
+        // high bit flags a dead key (accents on many European layouts); those
+        // have no standalone label worth showing, so leave them canonical.
+        if (ch & 0x80000000)
+            continue;
+
+        ch = Q_tolower(ch & 0xffff);
+
+        // only relabel to printable ASCII. anything else -- umlauts, ß, and the
+        // rest of the non-ASCII layout keys -- has no keynum of its own and no
+        // guaranteed glyph in the conchars font, so it stays canonical.
+        if (ch > 32 && ch < 127)
+            keylabels[key] = ch;
+    }
+
+    keylabels_valid = true;
+}
+
+int Win_GetKeyLabel(int keynum)
+{
+    if (keynum < 0 || keynum > 255)
+        return 0;
+
+    if (!keylabels_valid)
+        build_key_labels();
+
+    // no point reporting a label identical to the canonical name
+    if (keylabels[keynum] == keynum)
+        return 0;
+
+    return keylabels[keynum];
+}
+
 // Map from windows to quake keynums
 static void legacy_key_event(WPARAM wParam, LPARAM lParam, bool down)
 {
@@ -982,6 +1046,11 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
     case WM_SYSCHAR:
     case WM_CHAR:
         return FALSE;
+
+    case WM_INPUTLANGCHANGE:
+        // user switched keyboard layout; key labels are stale now
+        keylabels_valid = false;
+        break;
 
     case WM_ERASEBKGND:
         if (win.flags & QVF_FULLSCREEN)

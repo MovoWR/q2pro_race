@@ -386,10 +386,10 @@ static void Keybind_Push(menuKeybind_t *k)
     if (key == -1) {
         strcpy(k->binding, "???");
     } else {
-        Q_strlcpy(k->binding, Key_KeynumToString(key), sizeof(k->binding));
+        Q_strlcpy(k->binding, Key_KeynumToLabel(key), sizeof(k->binding));
         key = Key_EnumBindings(key + 1, k->cmd);
         if (key != -1) {
-            Q_strlcpy(k->altbinding, Key_KeynumToString(key), sizeof(k->altbinding));
+            Q_strlcpy(k->altbinding, Key_KeynumToLabel(key), sizeof(k->altbinding));
         }
     }
 }
@@ -475,9 +475,9 @@ static void BindFields_Push(menuBindFields_t *bf)
     int i;
     bf->altbinding[0] = 0;
     if (key == -1) strcpy(bf->binding, "???");
-    else { Q_strlcpy(bf->binding, Key_KeynumToString(key), sizeof(bf->binding));
+    else { Q_strlcpy(bf->binding, Key_KeynumToLabel(key), sizeof(bf->binding));
         key = Key_EnumBindings(key + 1, bf->cmd);
-        if (key != -1) Q_strlcpy(bf->altbinding, Key_KeynumToString(key), sizeof(bf->altbinding)); }
+        if (key != -1) Q_strlcpy(bf->altbinding, Key_KeynumToLabel(key), sizeof(bf->altbinding)); }
     for (i = 0; i < bf->numFields; i++) {
         IF_Init(&bf->fields[i], bf->fieldWidths[i], bf->fieldWidths[i]);
         if (bf->cvars[i]) IF_Replace(&bf->fields[i], bf->cvars[i]->string);
@@ -1230,9 +1230,9 @@ static void BindSelect2_Push(menuBindSelect2_t *bs)
     key = Key_EnumBindings(0, bs->cmd);
     bs->altbinding[0] = 0;
     if (key == -1) strcpy(bs->binding, "???");
-    else { Q_strlcpy(bs->binding, Key_KeynumToString(key), sizeof(bs->binding));
+    else { Q_strlcpy(bs->binding, Key_KeynumToLabel(key), sizeof(bs->binding));
         key = Key_EnumBindings(key + 1, bs->cmd);
-        if (key != -1) Q_strlcpy(bs->altbinding, Key_KeynumToString(key), sizeof(bs->altbinding)); }
+        if (key != -1) Q_strlcpy(bs->altbinding, Key_KeynumToLabel(key), sizeof(bs->altbinding)); }
     bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1; bs->focusPart = 0;
     for (side = 0; side < 2; side++) {
         val = bs->cvar[side]->integer; bs->curvalue[side] = -1;

@@ -40,6 +40,11 @@ typedef struct {
     char *(*get_clipboard_data)(void);
     void (*set_clipboard_data)(const char *data);
 
+    // maps a canonical (US layout) keynum to the character actually printed on
+    // that physical key under the user's current keyboard layout. returns 0 if
+    // there is no sensible label, and may be NULL if the backend can't tell.
+    int (*get_key_label)(int keynum);
+
     bool (*init_mouse)(void);
     void (*shutdown_mouse)(void);
     void (*grab_mouse)(bool grab);

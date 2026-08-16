@@ -134,6 +134,7 @@ void Win_UpdateGamma(const byte *table);
 void Win_PumpEvents(void);
 char *Win_GetClipboardData(void);
 void Win_SetClipboardData(const char *data);
+int  Win_GetKeyLabel(int keynum);
 bool Win_InitMouse(void);
 void Win_ShutdownMouse(void);
 void Win_GrabMouse(bool grab);

@@ -414,6 +414,7 @@ const vid_driver_t vid_win32wgl = {
 
     .get_clipboard_data = Win_GetClipboardData,
     .set_clipboard_data = Win_SetClipboardData,
+    .get_key_label = Win_GetKeyLabel,
 
     .init_mouse = Win_InitMouse,
     .shutdown_mouse = Win_ShutdownMouse,

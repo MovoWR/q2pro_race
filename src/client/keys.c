@@ -284,6 +284,36 @@ const char *Key_KeynumToString(int keynum)
 
 /*
 ===================
+Key_KeynumToLabel
+
+Like Key_KeynumToString, but names the key after the character printed on it
+under the user's current keyboard layout. On a German QWERTZ board the key
+Key_KeynumToString calls "y" is labeled Z, and vice versa.
+
+For display only. Bindings are stored and written to config files by canonical
+(US layout) keynum, so that configs stay portable and `bind` means the same
+thing everywhere -- see Key_WriteBindings.
+===================
+*/
+const char *Key_KeynumToLabel(int keynum)
+{
+    static char tinystr[2];
+    int c;
+
+    if (vid && vid->get_key_label) {
+        c = vid->get_key_label(keynum);
+        if (c) {
+            tinystr[0] = c;
+            tinystr[1] = 0;
+            return tinystr;
+        }
+    }
+
+    return Key_KeynumToString(keynum);
+}
+
+/*
+===================
 Key_SetBinding
 
 Returns the name of the first key found.
