@@ -402,6 +402,7 @@ const vid_driver_t vid_win32wgl = {
     .init = wgl_init,
     .shutdown = wgl_shutdown,
     .pump_events = Win_PumpEvents,
+    .native_text_input = true,
 
     .get_mode_list = Win_GetModeList,
     .get_dpi_scale = Win_GetDpiScale,

@@ -134,6 +134,7 @@ void        Key_SetDest(keydest_t dest);
 
 int         Key_IsDown(int key);
 int         Key_AnyKeyDown(void);
+bool        Key_IsWaitingForKey(void);
 void        Key_ClearStates(void);
 
 const char  *Key_KeynumToString(int keynum);

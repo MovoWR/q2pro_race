@@ -27,6 +27,10 @@ typedef struct {
     void (*fatal_shutdown)(void);
     void (*pump_events)(void);
 
+    // This backend supplies layout-aware character events separately from
+    // physical key events, so Key_Event must not synthesize US-layout text.
+    bool native_text_input;
+
     char *(*get_mode_list)(void);
     int (*get_dpi_scale)(void);
     void (*set_mode)(void);

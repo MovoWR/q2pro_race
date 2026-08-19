@@ -226,6 +226,11 @@ int Key_AnyKeyDown(void)
     return anykeydown;
 }
 
+bool Key_IsWaitingForKey(void)
+{
+    return key_wait_cb != NULL;
+}
+
 /*
 ===================
 Key_StringToKeynum
@@ -799,6 +804,10 @@ void Key_Event(unsigned key, bool down, unsigned time)
         Key_Message(key);
     }
 
+    if (vid && vid->native_text_input) {
+        return;
+    }
+
     if (Key_IsDown(K_CTRL) || Key_IsDown(K_ALT)) {
         return;
     }
@@ -858,6 +867,23 @@ void Key_Event(unsigned key, bool down, unsigned time)
 
     if (Key_IsDown(K_SHIFT)) {
         key = keyshift[key];
+    }
+
+    Key_CharEvent(key);
+}
+
+/*
+===================
+Key_CharEvent
+
+Called with a printable character. Native backends may supply a layout-aware
+character while physical key events keep gameplay bindings layout-independent.
+===================
+*/
+void Key_CharEvent(int key)
+{
+    if (key < 32 || key >= 127) {
+        return;
     }
 
     if (cls.key_dest & KEY_CONSOLE) {

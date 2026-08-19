@@ -696,6 +696,17 @@ static const byte scantokey[2][96] = {
     }
 };
 
+static int key_from_lparam(LPARAM lParam)
+{
+    int scancode = (lParam >> 16) & 255;
+    int extended = (lParam >> 24) & 1;
+
+    if ((unsigned)scancode >= q_countof(scantokey[0]))
+        return 0;
+
+    return scantokey[extended][scancode];
+}
+
 // scantokey[0] read backwards: canonical keynum -> the scancode it came from.
 // only non-extended scancodes matter, since those are the printable keys whose
 // labels move around between layouts.
@@ -765,10 +776,7 @@ static void legacy_key_event(WPARAM wParam, LPARAM lParam, bool down)
 {
     int scancode = (lParam >> 16) & 255;
     int extended = (lParam >> 24) & 1;
-    int result = 0;
-
-    if (scancode < 96)
-        result = scantokey[extended][scancode];
+    int result = key_from_lparam(lParam);
 
     if (!result) {
         Com_DPrintf("%s: unknown %sscancode %d\n",
@@ -777,6 +785,46 @@ static void legacy_key_event(WPARAM wParam, LPARAM lParam, bool down)
     }
 
     Key_Event2(result, down, win.lastMsgTime);
+}
+
+static bool should_translate_message(const MSG *msg)
+{
+    if (msg->hwnd != win.wnd)
+        return true;
+
+    if (msg->message != WM_KEYDOWN && msg->message != WM_SYSKEYDOWN)
+        return true;
+
+    // Character translation is useful only for console, chat, and menu fields.
+    // In particular, do not let the key that opens a text destination type into
+    // the destination it just opened.
+    if (!(Key_GetDest() & (KEY_CONSOLE | KEY_MESSAGE | KEY_MENU)))
+        return false;
+
+    // A captured binding is a physical key, not text. Translating it would
+    // enqueue a character after the binding callback has already completed.
+    if (Key_IsWaitingForKey())
+        return false;
+
+    // The unshifted physical console key is consumed by Key_Event. On layouts
+    // where that key is a dead accent, translating it would also poison the
+    // next character entered after the console opens.
+    int key = key_from_lparam(msg->lParam);
+    if (!Key_IsDown(K_SHIFT) && (key == '`' || key == '~'))
+        return false;
+
+    return true;
+}
+
+static void char_event(WPARAM wParam, LPARAM lParam)
+{
+    unsigned repeat = LOWORD(lParam);
+
+    if (!repeat)
+        repeat = 1;
+
+    while (repeat--)
+        Key_CharEvent((int)wParam);
 }
 
 static void mouse_wheel_event(int delta)
@@ -1043,8 +1091,19 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
         legacy_key_event(wParam, lParam, false);
         return FALSE;
 
-    case WM_SYSCHAR:
     case WM_CHAR:
+        char_event(wParam, lParam);
+        return FALSE;
+
+    case WM_SYSCHAR:
+        // Windows reports AltGr as synthetic left Ctrl plus right Alt. Accept
+        // that combination, but keep ordinary Alt shortcuts from typing.
+        if (Key_IsDown(K_LCTRL) && Key_IsDown(K_RALT))
+            char_event(wParam, lParam);
+        return FALSE;
+
+    case WM_DEADCHAR:
+    case WM_SYSDEADCHAR:
         return FALSE;
 
     case WM_INPUTLANGCHANGE:
@@ -1084,7 +1143,8 @@ void Win_PumpEvents(void)
             Com_Quit(NULL, ERR_DISCONNECT);
             break;
         }
-        TranslateMessage(&msg);
+        if (should_translate_message(&msg))
+            TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 
