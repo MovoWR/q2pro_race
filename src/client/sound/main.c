@@ -65,6 +65,7 @@ cvar_t      *s_underwater_gain_hf;
 
 static cvar_t   *s_enable;
 static cvar_t   *s_auto_focus;
+static cvar_t   *s_mute_player_jump_sounds;
 
 // =======================================================================
 // Console functions
@@ -146,6 +147,7 @@ void S_Init(void)
 
     s_volume = Cvar_Get("s_volume", "0.7", CVAR_ARCHIVE);
     s_ambient = Cvar_Get("s_ambient", "1", 0);
+    s_mute_player_jump_sounds = Cvar_Get("s_mute_player_jump_sounds", "0", CVAR_ARCHIVE);
 #if USE_DEBUG
     s_show = Cvar_Get("s_show", "0", 0);
 #endif
@@ -678,6 +680,12 @@ void S_StartSound(const vec3_t origin, int entnum, int entchannel, qhandle_t hSf
         return;
     if (!(sfx = S_SfxForHandle(hSfx)))
         return;
+
+    if (s_mute_player_jump_sounds->integer
+        && entnum > 0 && entnum <= MAX_CLIENTS
+        && !Q_stricmp(sfx->name, "*jump1.wav")) {
+        return;
+    }
 
     if (sfx->name[0] == '*') {
         sfx = S_RegisterSexedSound(entnum, sfx->name);

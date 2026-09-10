@@ -1,4 +1,10 @@
 
+## Sound
+
+| Cvar | Default | Description |
+| --- | --- | --- |
+| `s_mute_player_jump_sounds` | `0` | Suppresses `*jump1.wav` voice sounds from all players, regardless of model. Other player voice sounds are unaffected. |
+
 ## Input and Movement
 
 | Cvar | Default | Description |
