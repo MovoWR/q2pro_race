@@ -63,7 +63,7 @@ ui_histogram_custom_width.
 
 background #3f6da070
 font prochars
-cursor ch5
+cursor ch1
 weapon w_railgun.md2
 style --compact --center --transparent
 

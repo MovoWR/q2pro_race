@@ -1198,7 +1198,7 @@ cl_chat_filter::
 cl_menu_cursor::
     Specifies the texture/image to use for the in-game menu cursor. Valid values
     are `none` (no cursor), `cross` (or `ch1`), `dot` (or `ch2`), `angle` (or `ch3`),
-    `ch4`, `ch5`. Default value is `ch5`.
+    `ch4`, `ch5`. Default value is `ch1`.
 
 cl_input_keys::
     Read-only cvar that tracks and displays the currently pressed movement and

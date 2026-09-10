@@ -1,7 +1,7 @@
 const char *ui_builtin_menu = 
 "background #3f6da070\n"
 "font prochars\n"
-"cursor ch5\n"
+"cursor ch1\n"
 "weapon w_railgun.md2\n"
 "style --compact --center --transparent\n"
 

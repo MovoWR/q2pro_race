@@ -40,6 +40,7 @@ typedef enum {
 
 
 static void     Win_ClipCursor(void);
+static bool Win_FindDisplay(const char *id, MONITORINFOEXA *info);
 
 static win_video_mode_t Win_TargetMode(void)
 {
@@ -69,7 +70,7 @@ static bool Win_MenuCursorEnabled(void)
 
 static bool Win_MenuCursorActive(void)
 {
-    return Win_TargetMode() != WIN_MODE_EXCLUSIVE_FULLSCREEN &&
+    return win.display_mode != VID_DISPLAY_EXCLUSIVE &&
         Win_MenuCursorEnabled() && (Key_GetDest() & (KEY_MENU | KEY_CONSOLE));
 }
 
@@ -94,93 +95,45 @@ COMMON WIN32 VIDEO RELATED ROUTINES
 
 static void Win_SetPosition(void)
 {
-    RECT            r;
-    LONG_PTR        style;
-    int             x, y, w, h;
-    HWND            after;
-
-    // get previous window style
-    style = GetWindowLongPtr(win.wnd, GWL_STYLE);
+    LONG_PTR style = GetWindowLongPtr(win.wnd, GWL_STYLE);
     style &= ~(WS_OVERLAPPEDWINDOW | WS_POPUP | WS_DLGFRAME);
+    HWND after = win_alwaysontop->integer || win.display_mode == VID_DISPLAY_EXCLUSIVE
+        ? HWND_TOPMOST : HWND_NOTOPMOST;
 
-    // set new style bits
     if (win.flags & QVF_FULLSCREEN) {
-        if (vid_noborder->integer) {
-            after = win_alwaysontop->integer ? HWND_TOPMOST : HWND_NOTOPMOST;
-        } else {
-        after = HWND_TOPMOST;
-        }
         style |= WS_POPUP;
+    } else if (win.window_flags & VID_WINDOW_BORDERLESS) {
+        style |= WS_POPUP | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    } else if (win.window_flags & VID_WINDOW_NOTITLE) {
+        style |= win.window_flags & VID_WINDOW_NORESIZE ? WS_DLGFRAME : WS_THICKFRAME;
     } else {
-        if (win_alwaysontop->integer) {
-            after = HWND_TOPMOST;
-        } else {
-            after = HWND_NOTOPMOST;
-        }
-        style |= WS_OVERLAPPED;
-        if (vid_noborder->integer) {
-            style |= WS_POPUP | WS_MINIMIZEBOX | WS_MAXIMIZEBOX; // allow minimize and maximize hotkeys.
-        } else if (win_notitle->integer) {
-            if (win_noresize->integer) {
-                style |= WS_DLGFRAME;
-            } else {
-                style |= WS_THICKFRAME;
-            }
-        } else {
-            style |= WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
-            if (!win_noresize->integer) {
-                style |= WS_THICKFRAME;
-            }
+        style |= WS_OVERLAPPEDWINDOW;
+        if (win.window_flags & VID_WINDOW_NORESIZE)
+            style &= ~WS_THICKFRAME;
+    }
+
+    RECT rect = { 0, 0, win.rc.width, win.rc.height };
+    AdjustWindowRect(&rect, (DWORD)style, FALSE);
+    int x = win.rc.x, y = win.rc.y;
+    int width = rect.right - rect.left, height = rect.bottom - rect.top;
+    if (!(win.flags & QVF_FULLSCREEN)) {
+        MONITORINFOEXA monitor = { .cbSize = sizeof(monitor) };
+        if (Win_FindDisplay(win.display_device, &monitor)) {
+            const RECT *work = &monitor.rcWork;
+            width = min(width, work->right - work->left);
+            height = min(height, work->bottom - work->top);
+            x = max(work->left, min(work->right - width, x));
+            y = max(work->top, min(work->bottom - height, y));
         }
     }
 
-    // adjust for non-client area
-    r.left = 0;
-    r.top = 0;
-    r.right = win.rc.width;
-    r.bottom = win.rc.height;
-
-    AdjustWindowRect(&r, (DWORD)style, FALSE);
-
-    // figure out position
-    x = win.rc.x;
-    y = win.rc.y;
-    w = r.right - r.left;
-    h = r.bottom - r.top;
-
-    // clip to monitor work area
-    if (win.flags & QVF_FULLSCREEN) {
-        if (vid_noborder->integer) {
-            MONITORINFO mi = { .cbSize = sizeof(mi) };
-            if (GetMonitorInfoA(MonitorFromWindow(win.wnd, MONITOR_DEFAULTTONEAREST), &mi)) {
-                x = mi.rcMonitor.left;
-                y = mi.rcMonitor.top;
-                w = mi.rcMonitor.right - mi.rcMonitor.left;
-                h = mi.rcMonitor.bottom - mi.rcMonitor.top;
-            }
-        } else {
-            x = 0;
-            y = 0;
-        }
-    } else {
-        OffsetRect(&r, x, y);
-        MONITORINFO mi = { .cbSize = sizeof(mi) };
-        if (GetMonitorInfoA(MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST), &mi)) {
-            x = max(mi.rcWork.left, min(mi.rcWork.right  - w, x));
-            y = max(mi.rcWork.top,  min(mi.rcWork.bottom - h, y));
-        }
-    }
-
-    // set new window style and position
     SetWindowLongPtr(win.wnd, GWL_STYLE, style);
-    SetWindowPos(win.wnd, after, x, y, w, h, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    SetWindowPos(win.wnd, after, x, y, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     UpdateWindow(win.wnd);
     SetForegroundWindow(win.wnd);
     SetFocus(win.wnd);
-
-    if (win.mouse.grabbed) {
+    if (win.mouse.grabbed)
         Win_ClipCursor();
-    }
 }
 
 /*
@@ -194,27 +147,6 @@ static void Win_ModeChanged(void)
     SCR_ModeChanged();
 }
 
-static int modecmp(const void *p1, const void *p2)
-{
-    const DEVMODE *dm1 = (const DEVMODE *)p1;
-    const DEVMODE *dm2 = (const DEVMODE *)p2;
-    DWORD size1 = dm1->dmPelsWidth * dm1->dmPelsHeight;
-    DWORD size2 = dm2->dmPelsWidth * dm2->dmPelsHeight;
-
-    // sort from highest resolution to lowest
-    if (size1 < size2)
-        return 1;
-    if (size1 > size2)
-        return -1;
-
-    // sort from highest frequency to lowest
-    if (dm1->dmDisplayFrequency < dm2->dmDisplayFrequency)
-        return 1;
-    if (dm1->dmDisplayFrequency > dm2->dmDisplayFrequency)
-        return -1;
-
-    return 0;
-}
 
 static bool mode_is_sane(const DEVMODE *dm)
 {
@@ -258,195 +190,251 @@ static bool modes_are_equal(const DEVMODE *base, const DEVMODE *compare)
 Win_GetModeList
 ============
 */
+typedef struct {
+    const char *id;
+    MONITORINFOEXA *info;
+    bool found;
+} win_find_display_t;
+
+static BOOL CALLBACK Win_FindDisplayCallback(HMONITOR monitor, HDC dc, LPRECT rect, LPARAM data)
+{
+    win_find_display_t *find = (void *)data;
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    if (GetMonitorInfoA(monitor, (MONITORINFO *)&info) && !strcmp(info.szDevice, find->id)) {
+        *find->info = info;
+        find->found = true;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static bool Win_FindDisplay(const char *id, MONITORINFOEXA *info)
+{
+    if (!id || !*id)
+        return GetMonitorInfoA(MonitorFromWindow(win.wnd, MONITOR_DEFAULTTOPRIMARY), (MONITORINFO *)info) != 0;
+    win_find_display_t find = { id, info, false };
+    EnumDisplayMonitors(NULL, NULL, Win_FindDisplayCallback, (LPARAM)&find);
+    return find.found;
+}
+
+typedef struct {
+    vid_display_t *items;
+    int count;
+} win_display_list_t;
+
+static BOOL CALLBACK Win_ListDisplayCallback(HMONITOR monitor, HDC dc, LPRECT rect, LPARAM data)
+{
+    win_display_list_t *list = (void *)data;
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    DEVMODEA desktop = { .dmSize = sizeof(desktop) };
+    if (!GetMonitorInfoA(monitor, (MONITORINFO *)&info) ||
+        !EnumDisplaySettingsExA(info.szDevice, ENUM_CURRENT_SETTINGS, &desktop, 0))
+        return TRUE;
+    if (win.cds_fullscreen && !strcmp(win.display_device, info.szDevice))
+        desktop = win.desktop_dm;
+    list->items = Z_Realloc(list->items, (list->count + 1) * sizeof(*list->items));
+    vid_display_t *item = &list->items[list->count++];
+    memset(item, 0, sizeof(*item));
+    Q_strlcpy(item->id, info.szDevice, sizeof(item->id));
+    DISPLAY_DEVICEA device = { .cb = sizeof(device) };
+    EnumDisplayDevicesA(info.szDevice, 0, &device, 0);
+    Q_snprintf(item->name, sizeof(item->name), "%s%s",
+               device.DeviceString[0] ? device.DeviceString : info.szDevice,
+               info.dwFlags & MONITORINFOF_PRIMARY ? " (Primary)" : "");
+    item->primary = (info.dwFlags & MONITORINFOF_PRIMARY) != 0;
+    item->desktop = (vrect_t){ desktop.dmPosition.x, desktop.dmPosition.y,
+                              desktop.dmPelsWidth, desktop.dmPelsHeight };
+    item->refresh = desktop.dmDisplayFrequency;
+    return TRUE;
+}
+
+vid_display_t *Win_GetDisplays(int *count)
+{
+    win_display_list_t list = { 0 };
+    EnumDisplayMonitors(NULL, NULL, Win_ListDisplayCallback, (LPARAM)&list);
+    *count = list.count;
+    return list.items;
+}
+
+vid_display_resolution_t *Win_GetDisplayModes(const char *id, int *count)
+{
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    DEVMODEA desktop = { .dmSize = sizeof(desktop) }, mode;
+    vid_display_resolution_t *modes = NULL;
+    *count = 0;
+    if (!Win_FindDisplay(id, &info) ||
+        !EnumDisplaySettingsExA(info.szDevice, ENUM_CURRENT_SETTINGS, &desktop, 0))
+        return NULL;
+    for (int i = 0; i < 4096; i++) {
+        memset(&mode, 0, sizeof(mode));
+        mode.dmSize = sizeof(mode);
+        if (!EnumDisplaySettingsExA(info.szDevice, i, &mode, 0))
+            break;
+        if (!mode_is_sane(&mode) || mode.dmBitsPerPel != desktop.dmBitsPerPel ||
+            mode.dmPelsWidth < 320 || mode.dmPelsHeight < 240 ||
+            mode.dmPelsWidth > 8192 || mode.dmPelsHeight > 8192)
+            continue;
+        int j;
+        for (j = 0; j < *count; j++)
+            if (modes[j].width == mode.dmPelsWidth && modes[j].height == mode.dmPelsHeight &&
+                modes[j].refresh == mode.dmDisplayFrequency)
+                break;
+        if (j != *count)
+            continue;
+        modes = Z_Realloc(modes, (*count + 1) * sizeof(*modes));
+        modes[(*count)++] = (vid_display_resolution_t){ mode.dmPelsWidth, mode.dmPelsHeight, mode.dmDisplayFrequency };
+    }
+    return modes;
+}
+
+static void Win_RestoreDesktop(void)
+{
+    if (win.cds_fullscreen) {
+        ChangeDisplaySettingsExA(win.display_device, &win.desktop_dm, NULL, 0, NULL);
+        win.cds_fullscreen = false;
+    }
+}
+
+bool Win_GetDisplaySettings(vid_display_settings_t *settings)
+{
+    if (!win.wnd)
+        return false;
+    memset(settings, 0, sizeof(*settings));
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    if (!Win_FindDisplay(win.flags & QVF_FULLSCREEN ? win.display_device : "", &info))
+        return false;
+    settings->mode = win.display_mode;
+    Q_strlcpy(settings->display, info.szDevice, sizeof(settings->display));
+    if (win.flags & QVF_FULLSCREEN)
+        VID_GetGeometry(&settings->window);
+    else
+        settings->window = win.rc;
+    settings->width = win.rc.width;
+    settings->height = win.rc.height;
+    DEVMODEA mode = { .dmSize = sizeof(mode) };
+    if (EnumDisplaySettingsExA(info.szDevice, ENUM_CURRENT_SETTINGS, &mode, 0))
+        settings->refresh = mode.dmDisplayFrequency;
+    settings->window_flags = win.window_flags;
+    settings->vsync = Cvar_VariableInteger("gl_swapinterval");
+    return true;
+}
+
 char *Win_GetModeList(void)
 {
-    DEVMODE desktop, dm, *modes;
-    int i, j, num_modes, max_modes;
-    size_t size, len;
-    char *buf;
-
-    memset(&desktop, 0, sizeof(desktop));
-    desktop.dmSize = sizeof(desktop);
-
-    if (!EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &desktop))
+    int count;
+    vid_display_resolution_t *modes = Win_GetDisplayModes(Cvar_VariableString("vid_monitor"), &count);
+    if (!count) {
+        Z_Free(modes);
         return Z_CopyString(VID_MODELIST);
-
-    modes = NULL;
-    num_modes = 0;
-    max_modes = 0;
-    for (i = 0; i < 4096; i++) {
-        memset(&dm, 0, sizeof(dm));
-        dm.dmSize = sizeof(dm);
-        if (!EnumDisplaySettings(NULL, i, &dm))
-            break;
-
-        // sanity check
-        if (!mode_is_sane(&dm))
-            continue;
-
-        // completely ignore non-desktop bit depths for now
-        if (dm.dmBitsPerPel != desktop.dmBitsPerPel)
-            continue;
-
-        // skip duplicate modes
-        for (j = 0; j < num_modes; j++)
-            if (modes_are_equal(&modes[j], &dm))
-                break;
-        if (j != num_modes)
-            continue;
-
-        if (num_modes == max_modes) {
-            max_modes += 32;
-            modes = Z_Realloc(modes, sizeof(modes[0]) * max_modes);
-        }
-
-        modes[num_modes++] = dm;
     }
-
-    if (!num_modes)
-        return Z_CopyString(VID_MODELIST);
-
-    qsort(modes, num_modes, sizeof(modes[0]), modecmp);
-
-    size = 8 + num_modes * 32 + 1;
-    buf = Z_Malloc(size);
-
-    len = Q_strlcpy(buf, "desktop ", size);
-    for (i = 0; i < num_modes; i++) {
-        len += Q_scnprintf(buf + len, size - len, "%lux%lu@%lu ",
-                           modes[i].dmPelsWidth,
-                           modes[i].dmPelsHeight,
-                           modes[i].dmDisplayFrequency);
-    }
-    buf[len - 1] = 0;
-
+    size_t size = 8 + count * 32 + 1;
+    char *buffer = Z_Malloc(size);
+    size_t length = Q_strlcpy(buffer, "desktop", size);
+    for (int i = 0; i < count; i++)
+        length += Q_scnprintf(buffer + length, size - length, " %dx%d@%d",
+                             modes[i].width, modes[i].height, modes[i].refresh);
     Z_Free(modes);
-
-    return buf;
+    return buffer;
 }
 
-// avoid doing CDS to the same fullscreen mode to reduce flickering
+// Compare against the display owned by this window, including non-primary displays.
 static bool mode_is_current(const DEVMODE *dm)
 {
-    DEVMODE current;
-
-    memset(&current, 0, sizeof(current));
-    current.dmSize = sizeof(current);
-
-    if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &current))
-        return false;
-
-    return modes_are_equal(&current, dm);
+    DEVMODEA current = { .dmSize = sizeof(current) };
+    return EnumDisplaySettingsExA(win.display_device, ENUM_CURRENT_SETTINGS, &current, 0) &&
+        modes_are_equal(&current, dm);
 }
 
-static LONG set_fullscreen_mode(void)
+static LONG set_fullscreen_mode(const vid_display_settings_t *settings)
 {
-    DEVMODE desktop, dm;
-    LONG ret;
-    int freq, depth;
-
-    memset(&desktop, 0, sizeof(desktop));
-    desktop.dmSize = sizeof(desktop);
-
-    EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &desktop);
-
-    // parse vid_modelist specification
-    if (VID_GetFullscreen(&win.rc, &freq, &depth)) {
-        Com_DPrintf("...setting fullscreen mode: %dx%d\n",
-                    win.rc.width, win.rc.height);
-    } else if (mode_is_sane(&desktop)) {
-        win.rc.width = desktop.dmPelsWidth;
-        win.rc.height = desktop.dmPelsHeight;
-        Com_DPrintf("...falling back to desktop mode: %dx%d\n",
-                    win.rc.width, win.rc.height);
-    } else {
-        Com_DPrintf("...falling back to default mode: %dx%d\n",
-                    win.rc.width, win.rc.height);
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    DEVMODEA desktop = { .dmSize = sizeof(desktop) };
+    if (!Win_FindDisplay(settings->display, &info))
+        return DISP_CHANGE_BADMODE;
+    if (win.cds_fullscreen && strcmp(win.display_device, info.szDevice))
+        Win_RestoreDesktop();
+    if (win.cds_fullscreen) {
+        desktop = win.desktop_dm;
+    } else if (!EnumDisplaySettingsExA(info.szDevice, ENUM_CURRENT_SETTINGS, &desktop, 0)) {
+        return DISP_CHANGE_FAILED;
     }
-
-    memset(&dm, 0, sizeof(dm));
-    dm.dmSize       = sizeof(dm);
-    dm.dmPelsWidth  = win.rc.width;
-    dm.dmPelsHeight = win.rc.height;
-    dm.dmFields     = DM_PELSWIDTH | DM_PELSHEIGHT;
-
-    if (freq) {
-        dm.dmDisplayFrequency = freq;
-        dm.dmFields |= DM_DISPLAYFREQUENCY;
-        Com_DPrintf("...using display frequency of %d\n", freq);
-    } else if (modes_are_equal(&desktop, &dm)) {
-        dm.dmDisplayFrequency = desktop.dmDisplayFrequency;
-        dm.dmFields |= DM_DISPLAYFREQUENCY;
-        Com_DPrintf("...using desktop display frequency of %lu\n", desktop.dmDisplayFrequency);
+    DEVMODEA mode = { .dmSize = sizeof(mode) };
+    mode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
+    mode.dmPelsWidth = settings->width ? settings->width : desktop.dmPelsWidth;
+    mode.dmPelsHeight = settings->height ? settings->height : desktop.dmPelsHeight;
+    mode.dmBitsPerPel = desktop.dmBitsPerPel;
+    if (settings->refresh) {
+        mode.dmFields |= DM_DISPLAYFREQUENCY;
+        mode.dmDisplayFrequency = settings->refresh;
     }
-
-    if (depth) {
-        dm.dmBitsPerPel = depth;
-        dm.dmFields |= DM_BITSPERPEL;
-        Com_DPrintf("...using bitdepth of %d\n", depth);
-    } else if (mode_is_sane(&desktop)) {
-        dm.dmBitsPerPel = desktop.dmBitsPerPel;
-        dm.dmFields |= DM_BITSPERPEL;
-        Com_DPrintf("...using desktop bitdepth of %lu\n", desktop.dmBitsPerPel);
-    }
-
-    if (mode_is_current(&dm)) {
-        Com_DPrintf("...skipping CDS\n");
-        ret = DISP_CHANGE_SUCCESSFUL;
-    } else {
-        Com_DPrintf("...calling CDS: ");
-        ret = ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
-        if (ret != DISP_CHANGE_SUCCESSFUL) {
-            Com_DPrintf("failed with error %ld\n", ret);
-            return ret;
-        }
-        Com_DPrintf("ok\n");
-    }
-
-    win.dm = dm;
+    LONG result = ChangeDisplaySettingsExA(info.szDevice, &mode, NULL, CDS_TEST, NULL);
+    if (result != DISP_CHANGE_SUCCESSFUL)
+        return result;
+    Q_strlcpy(win.display_device, info.szDevice, sizeof(win.display_device));
+    if (!mode_is_current(&mode))
+        result = ChangeDisplaySettingsExA(info.szDevice, &mode, NULL, CDS_FULLSCREEN, NULL);
+    if (result != DISP_CHANGE_SUCCESSFUL)
+        return result;
+    win.desktop_dm = desktop;
+    win.dm = mode;
     win.cds_fullscreen = true;
-
+    win.display_mode = VID_DISPLAY_EXCLUSIVE;
     win.flags |= QVF_FULLSCREEN;
-    Win_SetPosition();
-    Win_ModeChanged();
-    win.mode_changed = 0;
-
-    return ret;
+    win.rc = (vrect_t){ info.rcMonitor.left, info.rcMonitor.top, mode.dmPelsWidth, mode.dmPelsHeight };
+    return DISP_CHANGE_SUCCESSFUL;
 }
 
-static void set_borderless_fullscreen_mode(void)
+static bool set_borderless_fullscreen_mode(const vid_display_settings_t *settings)
 {
-    DEVMODE desktop;
-    MONITORINFO mi = { .cbSize = sizeof(mi) };
-
-    memset(&desktop, 0, sizeof(desktop));
-    desktop.dmSize = sizeof(desktop);
-
-    ChangeDisplaySettings(NULL, 0);
-    win.cds_fullscreen = false;
-    memset(&win.dm, 0, sizeof(win.dm));
-
-    if (GetMonitorInfoA(MonitorFromWindow(win.wnd, MONITOR_DEFAULTTONEAREST), &mi)) {
-        win.rc.x = mi.rcMonitor.left;
-        win.rc.y = mi.rcMonitor.top;
-        win.rc.width = mi.rcMonitor.right - mi.rcMonitor.left;
-        win.rc.height = mi.rcMonitor.bottom - mi.rcMonitor.top;
-    } else if (EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &desktop) &&
-               mode_is_sane(&desktop)) {
-        win.rc.x = 0;
-        win.rc.y = 0;
-        win.rc.width = desktop.dmPelsWidth;
-        win.rc.height = desktop.dmPelsHeight;
-    }
-
-    Com_DPrintf("...setting borderless fullscreen mode: %dx%d%+d%+d\n",
-                win.rc.width, win.rc.height, win.rc.x, win.rc.y);
-
+    Win_RestoreDesktop();
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    if (!Win_FindDisplay(settings->display, &info))
+        return false;
+    Q_strlcpy(win.display_device, info.szDevice, sizeof(win.display_device));
+    win.rc = (vrect_t){ info.rcMonitor.left, info.rcMonitor.top,
+        info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top };
+    win.display_mode = VID_DISPLAY_BORDERLESS;
     win.flags |= QVF_FULLSCREEN;
-    Win_SetPosition();
-    Win_ModeChanged();
-    win.mode_changed = 0;
+    memset(&win.dm, 0, sizeof(win.dm));
+    return true;
 }
+
+bool Win_ApplyDisplaySettings(const vid_display_settings_t *settings)
+{
+    if (settings->mode < VID_DISPLAY_WINDOWED || settings->mode > VID_DISPLAY_EXCLUSIVE)
+        return false;
+    MONITORINFOEXA info = { .cbSize = sizeof(info) };
+    if (!Win_FindDisplay(settings->display, &info))
+        return false;
+    win.applying_display = true;
+    bool ok = true;
+    if (settings->mode == VID_DISPLAY_EXCLUSIVE) {
+        ok = set_fullscreen_mode(settings) == DISP_CHANGE_SUCCESSFUL;
+    } else if (settings->mode == VID_DISPLAY_BORDERLESS) {
+        ok = set_borderless_fullscreen_mode(settings);
+    } else {
+        if (settings->window.width < 320 || settings->window.height < 240 ||
+            settings->window.width > 8192 || settings->window.height > 8192) {
+            win.applying_display = false;
+            return false;
+        }
+        Win_RestoreDesktop();
+        win.display_mode = VID_DISPLAY_WINDOWED;
+        win.flags &= ~QVF_FULLSCREEN;
+        win.rc = settings->window;
+        win.window_flags = settings->window_flags;
+        Q_strlcpy(win.display_device, info.szDevice, sizeof(win.display_device));
+        memset(&win.dm, 0, sizeof(win.dm));
+    }
+    if (ok) {
+        Win_SetPosition();
+        Win_ModeChanged();
+        win.mode_changed = 0;
+    }
+    win.applying_display = false;
+    return ok;
+}
+
 
 int Win_GetDpiScale(void)
 {
@@ -467,48 +455,35 @@ Win_SetMode
 */
 void Win_SetMode(void)
 {
-    win_video_mode_t mode = Win_TargetMode();
-
-    // set full screen mode if requested
-    if (mode == WIN_MODE_EXCLUSIVE_FULLSCREEN) {
-        LONG ret;
-
-        ret = set_fullscreen_mode();
-        switch (ret) {
-        case DISP_CHANGE_SUCCESSFUL:
-            return;
-        case DISP_CHANGE_FAILED:
-            Com_EPrintf("Display driver failed the %dx%d video mode.\n", win.rc.width, win.rc.height);
-            break;
-        case DISP_CHANGE_BADMODE:
-            Com_EPrintf("Video mode %dx%d is not supported.\n", win.rc.width, win.rc.height);
-            break;
-        default:
-            Com_EPrintf("Video mode %dx%d failed with error %ld.\n",  win.rc.width, win.rc.height, ret);
-            break;
-        }
-
-        // fall back to windowed mode
-        Cvar_Reset(vid_fullscreen);
-    } else if (mode == WIN_MODE_BORDERLESS_FULLSCREEN) {
-        set_borderless_fullscreen_mode();
+    const vid_display_settings_t *pending = VID_PendingDisplaySettings();
+    if (pending) {
+        if (!Win_ApplyDisplaySettings(pending))
+            VID_RevertDisplaySettings();
+        else
+            vid->swap_interval(pending->vsync);
         return;
     }
 
-    ChangeDisplaySettings(NULL, 0);
-    win.cds_fullscreen = false;
+    vid_display_settings_t settings = { 0 };
+    settings.mode = (vid_display_mode_t)Win_TargetMode();
+    Q_strlcpy(settings.display, Cvar_VariableString("vid_monitor"), sizeof(settings.display));
+    VID_GetGeometry(&settings.window);
+    vrect_t fullscreen;
+    VID_GetFullscreen(&fullscreen, &settings.refresh, NULL);
+    settings.width = fullscreen.width;
+    settings.height = fullscreen.height;
+    settings.window_flags = (vid_noborder->integer ? VID_WINDOW_BORDERLESS : 0) |
+        (win_notitle->integer ? VID_WINDOW_NOTITLE : 0) |
+        (win_noresize->integer ? VID_WINDOW_NORESIZE : 0);
+    if (Win_ApplyDisplaySettings(&settings))
+        return;
 
-    // parse vid_geometry specification
-    VID_GetGeometry(&win.rc);
-
-    Com_DPrintf("...setting windowed mode: %dx%d%+d%+d\n",
-                win.rc.width, win.rc.height, win.rc.x, win.rc.y);
-
-    memset(&win.dm, 0, sizeof(win.dm));
-    win.flags &= ~QVF_FULLSCREEN;
-    Win_SetPosition();
-    Win_ModeChanged();
-    win.mode_changed = 0;
+    Com_WPrintf("Display settings unavailable; restoring a window on an available monitor.\n");
+    settings.mode = VID_DISPLAY_WINDOWED;
+    settings.display[0] = 0;
+    settings.window_flags = 0;
+    Cvar_SetInteger(vid_fullscreen, 0, FROM_CODE);
+    Win_ApplyDisplaySettings(&settings);
 }
 
 /*
@@ -599,10 +574,10 @@ static void Win_Activate(WPARAM wParam)
         if (win.cds_fullscreen && vid_flip_on_switch->integer) {
             if (active == ACT_ACTIVATED) {
                 if (!mode_is_current(&win.dm)) {
-                    ChangeDisplaySettings(&win.dm, CDS_FULLSCREEN);
+                    ChangeDisplaySettingsExA(win.display_device, &win.dm, NULL, CDS_FULLSCREEN, NULL);
                 }
             } else {
-                ChangeDisplaySettings(NULL, 0);
+                ChangeDisplaySettingsExA(win.display_device, &win.desktop_dm, NULL, 0, NULL);
             }
         }
     }
@@ -1073,11 +1048,7 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
         case SC_SCREENSAVE:
             return FALSE;
         case SC_MAXIMIZE:
-            if (vid_noborder->integer)
-                break; // default maximize
-            if (!vid_fullscreen->integer)
-                VID_ToggleFullscreen();
-            return FALSE;
+            break; // Windowed mode retains normal desktop maximize behavior.
         }
         break;
 
@@ -1116,7 +1087,17 @@ static LRESULT WINAPI Win_MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
             return FALSE;
         break;
 
+    case WM_DISPLAYCHANGE:
+        win.mode_changed |= MODE_DISPLAY;
+        break;
+
     case WM_DPICHANGED:
+        if (!win.applying_display && !(win.flags & QVF_FULLSCREEN)) {
+            const RECT *suggested = (const RECT *)lParam;
+            SetWindowPos(hWnd, NULL, suggested->left, suggested->top,
+                         suggested->right - suggested->left, suggested->bottom - suggested->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         win.mode_changed |= MODE_SIZE;
         break;
 
@@ -1148,12 +1129,29 @@ void Win_PumpEvents(void)
         DispatchMessage(&msg);
     }
 
+    if (win.mode_changed & MODE_DISPLAY) {
+        MONITORINFOEXA info = { .cbSize = sizeof(info) };
+        if (!Win_FindDisplay(win.display_device, &info)) {
+            if (VID_PendingDisplaySettings()) {
+                VID_RevertDisplaySettings();
+            } else {
+                vid_display_settings_t fallback = { 0 };
+                fallback.window = (vrect_t){ 0, 0, 640, 480 };
+                Win_ApplyDisplaySettings(&fallback);
+            }
+        } else if (win.display_mode == VID_DISPLAY_BORDERLESS) {
+            vid_display_settings_t settings;
+            if (Win_GetDisplaySettings(&settings))
+                Win_ApplyDisplaySettings(&settings);
+        }
+    }
     if (win.mode_changed) {
         if (win.mode_changed & MODE_REPOSITION) {
             Win_SetPosition();
         }
         if (win.mode_changed & (MODE_SIZE | MODE_POS | MODE_STYLE)) {
-            VID_SetGeometry(&win.rc);
+            if (!(win.flags & QVF_FULLSCREEN) && !VID_PendingDisplaySettings())
+                VID_SetGeometry(&win.rc);
             if (win.mouse.grabbed) {
                 Win_ClipCursor();
             }
@@ -1210,6 +1208,11 @@ static void win_menu_cursor_changed(cvar_t *self)
 
 static void win_style_changed(cvar_t *self)
 {
+    if (VID_DisplayCommitting() || VID_PendingDisplaySettings())
+        return;
+    win.window_flags = (vid_noborder && vid_noborder->integer ? VID_WINDOW_BORDERLESS : 0) |
+        (win_notitle && win_notitle->integer ? VID_WINDOW_NOTITLE : 0) |
+        (win_noresize && win_noresize->integer ? VID_WINDOW_NORESIZE : 0);
     if (!win.wnd) {
         return;
     }
@@ -1323,7 +1326,7 @@ void Win_Shutdown(void)
     }
 
     if (win.cds_fullscreen) {
-        ChangeDisplaySettings(NULL, 0);
+        ChangeDisplaySettingsExA(win.display_device, &win.desktop_dm, NULL, 0, NULL);
     }
 
     memset(&win, 0, sizeof(win));
