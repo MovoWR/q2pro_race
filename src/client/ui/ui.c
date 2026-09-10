@@ -17,6 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "ui.h"
+#include "client/hud_editor.h"
 #include "client/input.h"
 #include "common/files.h"
 #include "common/prompt.h"
@@ -559,6 +560,11 @@ void UI_MouseEvent(int x, int y)
     uis.mouseCoords[0] = Q_rint(x * uis.scale);
     uis.mouseCoords[1] = Q_rint(y * uis.scale);
 
+    if (HUD_EditorActive()) {
+        HUD_EditorMouse(x, y);
+        return;
+    }
+
     UI_ModelPreview_MouseMove(uis.activeMenu,
                               uis.mouseCoords[0], uis.mouseCoords[1]);
 
@@ -1100,6 +1106,9 @@ void UI_KeyEvent(int key, bool down)
         return;
     }
 
+    if (HUD_EditorKey(key, down))
+        return;
+
     if (!down) {
         if (key == K_MOUSE1) {
             uis.mouseTracker = NULL;
@@ -1479,6 +1488,7 @@ void UI_Init(void)
     M_Menu_PlayerConfig();
     M_Menu_Servers();
     M_Menu_Demos();
+    HUD_EditorInit();
 
     Com_DPrintf("Registered %d menus.\n", List_Count(&ui_menus));
 
@@ -1497,6 +1507,7 @@ void UI_Shutdown(void)
     }
 
     UI_ForceMenuOff();
+    HUD_EditorShutdown();
 
     ui_scale->changed = NULL;
 

@@ -136,12 +136,22 @@ static void Complete(const char *section, const char *command, int argnum)
     SH_Cmd_g(&ctx, argnum);
 }
 
-/* Helper position and UPS share strict parsing and fixed setting limits. */
+/* Helper position, efficiency and UPS share strict parsing and fixed limits. */
 static void CheckNumericSettings(void)
 {
     static const struct {
         const char *section, *command, *cvar, *low, *high, *below, *above;
     } cases[] = {
+        { "eff", "tint_strength", "sh_efficiency_tint_strength", "0", "1", "-0.01", "1.01" },
+        { "eff", "width", "sh_efficiency_width", "8", "4000", "7.99", "4000.01" },
+        { "eff", "height", "sh_efficiency_height", "1", "64", "0.99", "64.01" },
+        { "eff", "xpos", "sh_efficiency_x", "-4000", "4000", "-4000.01", "4000.01" },
+        { "eff", "ypos", "sh_efficiency_y", "-400", "400", "-400.01", "400.01" },
+        { "eff", "marker", "sh_efficiency_marker", "0", "1", "-0.01", "1.01" },
+        { "eff", "midpoint", "sh_efficiency_color_midpoint", "0.05", "0.95", "0.04", "0.96" },
+        { "eff", "smoothing", "sh_efficiency_smoothing", "0", "10", "-0.01", "10.01" },
+        { "eff", "hold", "sh_efficiency_hold_ms", "0", "2000", "-0.01", "2000.01" },
+        { "eff", "text_scale", "sh_efficiency_text_scale", "0.25", "8", "0.24", "8.01" },
         { "hud", "ypos", "sh_y", "-4000", "4000", "-4000.01", "4000.01" },
         { "ups", "ypos", "sh_ups_y", "-4000", "4000", "-4000.01", "4000.01" },
         { "ups", "scale", "sh_ups_scale", "0.25", "8", "0.24", "8.01" },
@@ -195,9 +205,9 @@ static void CheckNumericSettings(void)
     const char *valid[] = { " 0.5 ", "+5e-1", "-0" };
     for (int i = 0; i < q_countof(valid); i++) {
         int before = cvar_sets;
-        Invoke("ups", "ypos", valid[i]);
+        Invoke("eff", "smoothing", valid[i]);
         assert(cvar_sets == before + 1);
-        assert(!strcmp(cl_strafehelperUpsY->string, valid[i]));
+        assert(!strcmp(cl_strafehelperEffSmoothing->string, valid[i]));
     }
 }
 
@@ -211,14 +221,16 @@ int main(void)
     assert(test_var_count == registered_vars && !Cvar_FindVar("sh_ice"));
     assert(strstr(test_output, "Usage: sh <section>") && !strstr(test_output, "sh ice"));
     Invoke("status", NULL, NULL);
-    assert(strstr(test_output, "Center UPS Status"));
+    assert(strstr(test_output, "Efficiency Display Status") && strstr(test_output, "Center UPS Status"));
     assert(!strstr(test_output, "Ice Turn Meter"));
 
+    Cvar_Set("sh_ups_x", "123.5");
     Invoke("ups", "status", NULL);
+    assert(strstr(test_output, "- X offset: 123.50\n"));
     assert(strstr(test_output, "- Y offset: -5.00\n"));
     Invoke("status", NULL, NULL);
     const char *ups_status = strstr(test_output, "Center UPS Status");
-    assert(ups_status);
+    assert(ups_status && strstr(ups_status, "X offset") && strstr(ups_status, "123.50"));
     assert(strstr(ups_status, "Y offset"));
 
     CheckNumericSettings();
@@ -235,15 +247,19 @@ int main(void)
     Invoke("hud", "center_marker", NULL);
     assert(cl_strafeHelperCenterMarker->integer == 1);
     assert(!strcmp(test_output, "Center marker enabled.\n"));
+    Invoke("eff", "enable", NULL);
+    assert(cl_strafehelperEfficiency->integer == 1);
 
     Complete(NULL, NULL, 1);
-    assert(matches == 4 && Matched("hud") && Matched("ups") && Matched("status") && Matched("help") && !Matched("ice"));
+    assert(matches == 5 && Matched("hud") && Matched("eff") && Matched("ups") && !Matched("ice"));
     Complete("hud", NULL, 2);
     assert(Matched("ypos") && Matched("preset") && !Matched("fade_inactive"));
     Complete("hud", "bar_style", 3);
     assert(matches == 4 && Matched("solid") && Matched("gradient"));
     Complete("hud", "smoothing_mode", 3);
     assert(matches == 5 && Matched("linear") && Matched("exponential"));
+    Complete("eff", "tint", 3);
+    assert(matches == 4 && Matched("off") && Matched("both"));
     Complete("ice", "style", 3);
     assert(matches == 0);
     Complete("ups", "format", 3);

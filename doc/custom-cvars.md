@@ -44,7 +44,7 @@ numeric overflow or underflow, and extra arguments leave the setting unchanged.
 | `sh_centermarker` | `1` | Draws the center marker. |
 | `sh_height` | `15` | Height of the strafe helper bar. |
 | `sh_scale` | `1.500000` | Visual scale of the helper. |
-| `sh_y` | `100` | Offset from screen center; negative moves upward. Console supports -4000 to 4000; the menu slider covers -320 to 320. |
+| `sh_y` | `100` | Offset from screen center; negative moves upward. Console/editor support -4000 to 4000; the menu slider covers -320 to 320. |
 | `sh_alpha` | `0.500000` | Overall helper alpha multiplier. |
 | `sh_bar_style` | `gradient` | Bar rendering style. |
 | `sh_center_width` | `2` | Width of the center marker/zone. |
@@ -63,6 +63,41 @@ numeric overflow or underflow, and extra arguments leave the setting unchanged.
 | `sh_color_nerdstats` | `50 0 50 100` | RGBA background/color value used by NerdStats. |
 | `sh_nerdstats` | `0` | Enables detailed strafe helper NerdStats display, including the command's Wishspeed in UPS. |
 
+## Efficiency Display
+
+Shows the current airborne strafe command's horizontal acceleration efficiency
+(0-100% of the theoretical maximum gain) near the strafe helper bar. Configure
+in-game via the `shefficiency` menu or the `sh eff` console commands.
+
+Efficiency smoothing uses elapsed time between live display updates, with a
+time constant of `0.05 * sh_efficiency_smoothing` seconds. A zero setting snaps
+to the current value; repeated draws at the same time do not advance an enabled
+filter. Menu and editor previews use separate display values and do not change
+the live reading, smoothing, or hold lifetime. The threshold marker stays visible
+over the fill.
+
+| Cvar | Default | Description |
+| --- | --- | --- |
+| `sh_efficiency` | `0` | Enables the efficiency display. |
+| `sh_efficiency_style` | `bar` | Display style: `bar`, `text` (percentage readout), `both`, or `none` (helper tint only). |
+| `sh_efficiency_tint` | `off` | Tints strafe helper elements by current efficiency: `optimal` (optimal-angle marker), `zone` (accelerating zone), or `both`. Reverts to the configured helper colors when no data is live. |
+| `sh_efficiency_tint_strength` | `0.75` | How strongly the tint overrides the helper's configured colors (0-1); element alpha is always preserved. |
+| `sh_efficiency_width` | `80` | Bar width in HUD units (8-4000). |
+| `sh_efficiency_height` | `4` | Bar height in HUD units (1-64). |
+| `sh_efficiency_x` | `0` | Horizontal offset from screen center in HUD units (-4000 to 4000). |
+| `sh_efficiency_y` | `3` | Gap below the helper bar in HUD units (-400 to 400); negative values place the display above it. |
+| `sh_efficiency_border` | `1` | Draws a 1 px outline around the bar. |
+| `sh_efficiency_marker` | `0.9` | Threshold marker position on the bar (0-1); `0` hides it. |
+| `sh_efficiency_color_mode` | `dynamic` | `dynamic` colors by value via the bad/mid/good gradient; `static` always uses the good color. |
+| `sh_efficiency_color_good` | `80 220 90 255` | RGBA color near 100% efficiency; also the static color. |
+| `sh_efficiency_color_mid` | `235 200 60 255` | RGBA color at the gradient midpoint. |
+| `sh_efficiency_color_bad` | `235 70 60 255` | RGBA color near 0% efficiency. |
+| `sh_efficiency_color_bg` | `40 40 40 200` | RGBA background color of the bar track. |
+| `sh_efficiency_color_midpoint` | `0.5` | Efficiency value (0.05-0.95) where the mid color sits; raise it to make the top band more discriminating. |
+| `sh_efficiency_smoothing` | `0` | Smooths the displayed value (0-10, same scale as `sh_smoothing`); `0` disables. |
+| `sh_efficiency_hold_ms` | `150` | Keeps the last value on screen this many milliseconds after data stops (0-2000), avoiding flicker. |
+| `sh_efficiency_text_scale` | `1` | Scale of the percentage text (0.25-8). |
+
 ## UPS Display
 
 Speed uses local predicted velocity when prediction is allowed; otherwise it
@@ -70,14 +105,11 @@ uses the current server snapshot, including when the server sets
 `PMF_NO_PREDICTION`. Gradient color derives acceleration from elapsed display
 time and resets its history when the speed source changes.
 
-The `sh ups ypos` and `sh ups scale` commands reject malformed, non-finite,
-or out-of-range values and extra arguments without changing the setting.
-Viewport clipping does not replace the saved UPS offset.
-
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_ups` | `1` | Enables the centered UPS display. |
 | `sh_ups_scale` | `1.250000` | Text scale for the UPS display (0.25-8). |
+| `sh_ups_x` | `0` | Horizontal offset from screen center for the UPS display, in HUD units (-4000-4000). |
 | `sh_ups_y` | `-5` | Vertical offset for the UPS display (-4000-4000). |
 | `sh_ups_shadow` | `1` | Draws a shadow behind UPS text. |
 | `sh_ups_hide_zero` | `1` | Hides the UPS display when rounded speed is zero. |
@@ -304,3 +336,168 @@ Virtual `--show-if` cvars provided by the UI are `ui_exclusive_fullscreen`, `ui_
 | --- | --- | --- |
 | `gl_lava_intensity` | `1` | Multiplies opaque lava texture brightness in the shader renderer after the global `intensity` value. Values are clamped to `0.1`-`5`. |
 | `vid_noborder` | `0` | Enables borderless fullscreen/window behavior on Windows. |
+
+## Drag-and-drop HUD editor
+
+Open **Jump/Race Setup → Edit HUD layout**, or run `hud_edit`.
+The editor works over the current view or from the main menu. Multiplayer
+continues while editing; entering the editor does not pause a server.
+
+- Click an overlay or its row in the element list; Tab / Shift+Tab cycle selection.
+  The compact toolbox uses normal menu scale, with up to six rows and fewer when
+  needed to fit the window. Use the All / Client / Server tabs (keys 1-3) to narrow
+  the list. Client includes jump overlays and custom text; Server includes recognized
+  status-bar groups, server menus/scores, and unrecognized server HUD. Mouse wheel changes
+  selection; PgUp/PgDn move by the current page size. Clicking a HUD element
+  outside the current category switches back to All. Rows show ON, OFF, or LOCK.
+  Long names end with an ellipsis; hover their row to see the full name.
+- Drag the title bar to move the toolbox. Undo, Redo, and Hide are in the header;
+  Visible, Lock, and Focus remain directly below the list. The selected element
+  has a name tag on the canvas. Apply and Cancel remain visible at the bottom of
+  the toolbox; Apply * indicates unsaved changes. Hover controls for shortcut hints.
+- Arrange and Reset start collapsed, and only one section can be open at a time.
+  Arrange contains position/size readouts, four nudge buttons, Snap, and screen
+  alignment in two rows of three buttons. Nudge by one HUD unit, or ten with Shift.
+  Hover the readout for move/resize guidance. Reset contains Reset selected element
+  and Restore all defaults. Expanding or collapsing a section changes only the view.
+- Drag to move. The strafe helper remains horizontally centered, and efficiency
+  keeps its position relative to the helper. Netgraph mode remains full width.
+- Drag the selected lower-right handle to resize supported jump overlays. The lagometer
+  and the additional server/client groups have position controls only.
+  Resizing a histogram horizontally selects its custom-width mode.
+- A toggles Arrange; D toggles Reset. Both sections start collapsed on opening.
+- Arrow keys move by one HUD unit; Shift uses ten. Ctrl+arrows resize.
+  UPS and text-only efficiency resize horizontally with proportional text scaling;
+  the helper's horizontal resize changes angle scale. Efficiency in bar/both mode
+  and the network meter resize their bar width and height.
+- Snap aligns to screen edges/center and other visible HUD elements' edges/centers.
+  Cyan guides mark the current snap while dragging. Toggle it with S or hold Alt
+  to bypass it. In Arrange, the Align to screen buttons place the selection at the
+  left, horizontal center, right, top, vertical center, or bottom. Existing movement
+  constraints still apply.
+- V / Visible changes the selected element's gameplay visibility. Disabled elements
+  still have editor previews. If NetMeter is disabled, its preview uses histogram mode.
+- R / Reset selected element restores the selected group's default layout and
+  visibility in the draft; the button is inside Reset.
+- Restore all defaults / Shift+R restores default layout and visibility for unlocked editable
+  HUD elements across all categories, including custom text offsets. Locked and
+  removed editor elements are untouched. Apply saves the reset; Cancel discards it.
+- Undo / Ctrl+Z and Redo / Ctrl+Y (also Ctrl+Shift+Z) retain up to 64 editing actions
+  during the current session. One completed drag or resize is one action; nudges,
+  visibility changes, alignment, resets, and lock changes are also undoable. A new
+  edit after Undo replaces the redo branch. Navigation, focus, and opening or closing
+  sections do not consume history. Keyboard shortcuts work with sections collapsed.
+- Lock / L protects the selected element from movement, resizing, alignment,
+  visibility changes, and resets. Locked elements remain selectable through the
+  list. Locking efficiency also protects the strafe helper that positions it.
+  Locks are saved on Apply as archived `hud_lock_<key>` cvars (default `0`);
+  Cancel discards lock changes. Undo can intentionally restore an earlier lock state.
+- Focus / F displays only the selected element's preview and outline. Other
+  elements retain their measured bounds for snapping. Focus never changes gameplay
+  visibility; changing selection updates the focused preview. Focus resets on opening.
+- H or Hide hides the toolbox; H restores it. The toolbox also disappears
+  automatically while dragging/resizing a HUD element and returns on release.
+  There are no full-width toolbars or bottom footer covering the HUD.
+- Enter / Apply accepts the draft. Esc / Cancel discards it. Closing the editor by
+  opening the console, changing maps, disconnecting, or restarting the UI also discards it.
+
+The original jump overlays are named **Speed (UPS)**, **Strafe helper**,
+**Strafe efficiency**, and **Network monitor** in the editor.
+Their sample speed, efficiency and graph values are local visual previews.
+They do not enter movement measurements or network history. Bounds and preview
+positions use HUD coordinates independently of menu scale. Resizing the window
+or losing focus ends an active drag.
+
+Apply updates only edited HUD settings; normal archived-cvar saving persists them.
+Preview-only clamping of untouched settings is not saved, including after Undo/Redo.
+Existing configurations retain their positioning conventions. `sh_ups_x` is the
+new horizontal offset from screen center, in HUD units; its default is `0`.
+`sh_ups_y` keeps its existing meaning. Both offsets are reported by the UPS status
+commands. `sh hud ypos`, `sh ups ypos`, and `sh ups scale` share the numeric
+validator used by the efficiency commands, so trailing text, extra arguments, and non-finite values are
+rejected without changing the current value. Console/editor limits and menu-slider
+ranges are described in the cvar tables; the `sh_y` menu slider uses a narrower
+range than the console/editor. A smaller viewport clips efficiency, UPS, and network-meter drawing
+without replacing saved dimensions or offsets; returning to a larger viewport
+restores the configured layout.
+
+The editor includes the four original jump overlays plus 32 additional groups,
+and each registered `draw` / `draw_dynamic` text object (up to 88 custom objects).
+Custom text registered while editing becomes available after reopening the editor.
+No server or protocol changes are required.
+
+### Server HUD groups
+
+The recognized server `ctf_statusbar` contains 19 independently movable groups:
+
+| Editor name | Contents | Cvar key |
+| --- | --- | --- |
+| Health | Health value and label | `health` |
+| Weapon icon | Selected weapon icon | `item` |
+| Speed (server) | Current speed and Speed label | `speed` |
+| Target player name | Player identification | `target` |
+| Run timer | Seconds, decimal point, tenths, Time label | `timer` |
+| Input keys | Directional, jump/crouch, attack icons | `inputs` |
+| Reported player FPS | Player's reported FPS setting or recorded replay FPS, and label | `server_fps` |
+| Vote information | Four voting lines together | `vote` |
+| Available maps | Number of available server maps and Maps label | `mapcount` |
+| Team / mode | Easy / Hard / Observer status | `status1` |
+| Run info line 1 | Dynamic race, replay, checkpoint or lap information | `status2` |
+| Run info line 2 | Dynamic race, replay, checkpoint or lap information | `status3` |
+| Run info line 3 | Dynamic race, replay, checkpoint or lap information | `status4` |
+| Current map | Current map name | `map` |
+| Previous map 1 | Most recent previous map | `prevmap1` |
+| Previous map 2 | Second previous map | `prevmap2` |
+| Previous map 3 | Third previous map | `prevmap3` |
+| Map time adjustment | Positive or negative adjustment to map time | `addedtime` |
+| Map time remaining | Remaining map time and its Time label | `timeleft` |
+
+Recognition matches the complete token structure of this server status bar,
+allowing whitespace and map-name changes. It does not identify a mod from a stat
+number alone. Unrecognized status bars use **Other server HUD**, moving the entire
+original program together. **Scoreboard / server menus** is a separate whole-panel
+control; its individual rows, selection logic and contents are preserved.
+Server stats, input image indices, timer precision, conditions, and replay/chase
+values are never rewritten. **Reported player FPS** retains the server-reported value
+rather than becoming a measured local rendering rate.
+
+### Client HUD groups
+
+Independent position/visibility controls cover **Chat history**, **Center messages**,
+**Console messages**, **Chat input**, **Network alerts**, **Ping graph / connection icon**,
+**Frame / prediction warnings**, **Inventory**, and **Classic network / debug graph**.
+Crosshair, hit marker, debug movement, debug frame stats, nerd stats, loading,
+demo progress, and pause are excluded from the editor list, selection, and previews.
+Their normal gameplay behavior and existing saved settings are retained.
+The full console, ordinary client menus, world-space race lines and other 3D effects
+are not HUD layout elements.
+
+**Render FPS** (`render_fps`, measured `r_mfps`) and **Movement rate (MPS)**
+(`move_fps`, measured `cl_mmps`) are optional new widgets, off by default. Enable them
+with V / Visible. Existing custom FPS/UPS/ping text remains independently editable
+under its original macro/cvar name; no `draw` commands are replaced.
+
+### Saved offsets and previews
+
+Each additional group has archived `hud_<key>_x`, `hud_<key>_y` (default `0`) and
+`hud_<key>_visible` (default `1`, except the render FPS and movement rate widgets). Offsets are in HUD
+units and are added to the original position, including any existing position cvars.
+For example, `hud_timer_x -80` moves the complete run timer 80 HUD units left.
+Custom draw objects use stable `hud_draw_<name-hash>_*` keys so config command order
+can change without assigning a saved position to a different object.
+
+Visibility is an additional local filter. Allowing a group does not override its
+normal feature setting or server condition: chat still needs `scr_chathud`, pause
+still requires a paused game, and zeroed server input stats remain hidden. Reset
+clears the selected group's added offsets/filter; it does not reset its original
+feature settings. Demo progress is excluded from editing; any existing saved
+demo offsets and its normal viewport reservation are retained.
+
+Additional groups use labeled preview boxes, with the last captured drawing bounds
+when available and representative bounds for inactive/unseen content. Original
+client position cvars are honored for crosshair, hit marker, chat and network-alert
+fallbacks. Custom text positions are read when opening the editor. Selecting a recognized server
+group shows the complete reference status bar; other inactive groups appear when
+selected. Sample text does not enter live stats, chat history, input state, or timers.
+Move the toolbox by its title bar or use H to hide it when working near screen edges. Resizing/color editing
+for these additional groups and named layout presets are not implemented.

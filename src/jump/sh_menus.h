@@ -65,6 +65,52 @@ void SH_Color_Optimal_f(void);
 
 void SH_Color_CenterMarker_f(void);
 
+void SH_Eff_Enable_f(void);
+
+void SH_Eff_Disable_f(void);
+
+void SH_Eff_Toggle_f(void);
+
+void SH_Eff_Status_f(void);
+
+void SH_Eff_Help_f(void);
+
+void SH_Eff_Style_f(void);
+
+void SH_Eff_Tint_f(void);
+
+void SH_Eff_TintStrength_f(void);
+
+void SH_Eff_Width_f(void);
+
+void SH_Eff_Height_f(void);
+
+void SH_Eff_Xpos_f(void);
+
+void SH_Eff_Ypos_f(void);
+
+void SH_Eff_Border_f(void);
+
+void SH_Eff_Marker_f(void);
+
+void SH_Eff_ColorMode_f(void);
+
+void SH_Eff_ColorGood_f(void);
+
+void SH_Eff_ColorMid_f(void);
+
+void SH_Eff_ColorBad_f(void);
+
+void SH_Eff_ColorBg_f(void);
+
+void SH_Eff_Midpoint_f(void);
+
+void SH_Eff_Smoothing_f(void);
+
+void SH_Eff_Hold_f(void);
+
+void SH_Eff_TextScale_f(void);
+
 void SH_Status_f(void);
 
 void SH_Hud_Help_f(void);

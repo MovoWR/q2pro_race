@@ -14,6 +14,7 @@ A configurable helper bar for reading strafe angles and acceleration behavior wh
 * Toggle the helper HUD with `sh_draw`.
 * Adjust position, scale, height, alpha, and marker widths.
 * Enable an optional center marker.
+* Show an airborne acceleration-efficiency bar with `sh_efficiency`.
 * Choose between solid, gradient, outline, and minimal bar styles.
 * Smooth helper movement to keep the HUD readable during fast runs.
 * Customize accelerating-zone, optimal-marker, and center-marker colors.
@@ -59,6 +60,10 @@ Controls how the camera interpolates when the player climbs stairs and steps. Th
 
 * `q2pro` (default): standard Q2PRO stair smoothing.
 * `r1q2-1` / `r1q2-2` / `r1q2-3`: alternative smoothing styles from R1Q2, ranging from subtle to aggressive.
+
+### HUD Layout Editor
+
+Open **Jump/Race Setup → Edit HUD layout** or run `hud_edit` to arrange jump overlays, all 19 recognized server HUD groups, client overlays, and custom draw text with the mouse. Move and resize supported elements, snap to screen edges/center, preview hidden elements, and apply or cancel the draft. See [editor controls](doc/custom-cvars.md#drag-and-drop-hud-editor).
 
 ### Expanded Menu System
 

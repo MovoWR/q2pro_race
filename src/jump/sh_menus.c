@@ -11,6 +11,7 @@ void SH_Help_f(void) {
     Com_Printf("========================================================================================\n");
     Com_Printf("Sections\n");
     Com_Printf("  %-18s %s\n", "hud", "Strafe bar visibility, geometry, style, and colors.");
+    Com_Printf("  %-18s %s\n", "eff", "Airborne acceleration-efficiency bar/text display.");
     Com_Printf("  %-18s %s\n", "ups", "Centered cl_ups readout and its display/color options.");
     Com_Printf("  %-18s %s\n", "status", "Show all current strafe helper settings.");
     Com_Printf("----------------------------------------------------------------------------------------\n");
@@ -18,6 +19,8 @@ void SH_Help_f(void) {
     Com_Printf("  sh hud enable\n");
     Com_Printf("  sh hud bar_style gradient\n");
     Com_Printf("  sh hud alpha 0.75\n");
+    Com_Printf("  sh eff enable\n");
+    Com_Printf("  sh eff style both\n");
     Com_Printf("  sh ups enable\n");
     Com_Printf("  sh ups color_mode dynamic\n");
     Com_Printf("----------------------------------------------------------------------------------------\n");
@@ -34,6 +37,7 @@ void SH_Help_f(void) {
 void SH_Cmd_g(genctx_t *ctx, int argnum) {
     if (argnum == 1) {
         Prompt_AddMatch(ctx, "hud");
+        Prompt_AddMatch(ctx, "eff");
         Prompt_AddMatch(ctx, "ups");
         Prompt_AddMatch(ctx, "status");
         Prompt_AddMatch(ctx, "help");
@@ -57,6 +61,30 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
             Prompt_AddMatch(ctx, "color_centermarker");
             Prompt_AddMatch(ctx, "preset");
             Prompt_AddMatch(ctx, "status");
+            Prompt_AddMatch(ctx, "help");
+        } else if (!strcmp(subcmd, "eff")) {
+            Prompt_AddMatch(ctx, "enable");
+            Prompt_AddMatch(ctx, "disable");
+            Prompt_AddMatch(ctx, "toggle");
+            Prompt_AddMatch(ctx, "status");
+            Prompt_AddMatch(ctx, "style");
+            Prompt_AddMatch(ctx, "tint");
+            Prompt_AddMatch(ctx, "tint_strength");
+            Prompt_AddMatch(ctx, "width");
+            Prompt_AddMatch(ctx, "height");
+            Prompt_AddMatch(ctx, "xpos");
+            Prompt_AddMatch(ctx, "ypos");
+            Prompt_AddMatch(ctx, "border");
+            Prompt_AddMatch(ctx, "marker");
+            Prompt_AddMatch(ctx, "color_mode");
+            Prompt_AddMatch(ctx, "color_good");
+            Prompt_AddMatch(ctx, "color_mid");
+            Prompt_AddMatch(ctx, "color_bad");
+            Prompt_AddMatch(ctx, "color_bg");
+            Prompt_AddMatch(ctx, "midpoint");
+            Prompt_AddMatch(ctx, "smoothing");
+            Prompt_AddMatch(ctx, "hold");
+            Prompt_AddMatch(ctx, "text_scale");
             Prompt_AddMatch(ctx, "help");
         } else if (!strcmp(subcmd, "ups")) {
             Prompt_AddMatch(ctx, "enable");
@@ -92,6 +120,24 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
                 Prompt_AddMatch(ctx, "cubic");
                 Prompt_AddMatch(ctx, "sine");
                 Prompt_AddMatch(ctx, "exponential");
+            }
+        } else if (!strcmp(subcmd, "eff")) {
+            if (!strcmp(cmd, "border")) {
+                Prompt_AddMatch(ctx, "0");
+                Prompt_AddMatch(ctx, "1");
+            } else if (!strcmp(cmd, "style")) {
+                Prompt_AddMatch(ctx, "bar");
+                Prompt_AddMatch(ctx, "text");
+                Prompt_AddMatch(ctx, "both");
+                Prompt_AddMatch(ctx, "none");
+            } else if (!strcmp(cmd, "tint")) {
+                Prompt_AddMatch(ctx, "off");
+                Prompt_AddMatch(ctx, "optimal");
+                Prompt_AddMatch(ctx, "zone");
+                Prompt_AddMatch(ctx, "both");
+            } else if (!strcmp(cmd, "color_mode")) {
+                Prompt_AddMatch(ctx, "dynamic");
+                Prompt_AddMatch(ctx, "static");
             }
         } else if (!strcmp(subcmd, "ups")) {
             if (!strcmp(cmd, "shadow") || !strcmp(cmd, "hide_zero")) {
@@ -167,6 +213,60 @@ void SH_Cmd_f(void) {
             SH_Hud_Help_f();
         else
             Com_Printf("Unknown hud command. Use 'sh hud' for a list of commands.\n");
+    } else if (!strcmp(subcmd, "eff")) {
+        const char *cmd = Cmd_Argv(2);
+        if (!cmd || !cmd[0]) {
+            SH_Eff_Help_f();
+            return;
+        }
+        if (!strcmp(cmd, "enable"))
+            SH_Eff_Enable_f();
+        else if (!strcmp(cmd, "disable"))
+            SH_Eff_Disable_f();
+        else if (!strcmp(cmd, "toggle"))
+            SH_Eff_Toggle_f();
+        else if (!strcmp(cmd, "status"))
+            SH_Eff_Status_f();
+        else if (!strcmp(cmd, "style"))
+            SH_Eff_Style_f();
+        else if (!strcmp(cmd, "tint"))
+            SH_Eff_Tint_f();
+        else if (!strcmp(cmd, "tint_strength"))
+            SH_Eff_TintStrength_f();
+        else if (!strcmp(cmd, "width"))
+            SH_Eff_Width_f();
+        else if (!strcmp(cmd, "height"))
+            SH_Eff_Height_f();
+        else if (!strcmp(cmd, "xpos"))
+            SH_Eff_Xpos_f();
+        else if (!strcmp(cmd, "ypos"))
+            SH_Eff_Ypos_f();
+        else if (!strcmp(cmd, "border"))
+            SH_Eff_Border_f();
+        else if (!strcmp(cmd, "marker"))
+            SH_Eff_Marker_f();
+        else if (!strcmp(cmd, "color_mode"))
+            SH_Eff_ColorMode_f();
+        else if (!strcmp(cmd, "color_good"))
+            SH_Eff_ColorGood_f();
+        else if (!strcmp(cmd, "color_mid"))
+            SH_Eff_ColorMid_f();
+        else if (!strcmp(cmd, "color_bad"))
+            SH_Eff_ColorBad_f();
+        else if (!strcmp(cmd, "color_bg"))
+            SH_Eff_ColorBg_f();
+        else if (!strcmp(cmd, "midpoint"))
+            SH_Eff_Midpoint_f();
+        else if (!strcmp(cmd, "smoothing"))
+            SH_Eff_Smoothing_f();
+        else if (!strcmp(cmd, "hold"))
+            SH_Eff_Hold_f();
+        else if (!strcmp(cmd, "text_scale"))
+            SH_Eff_TextScale_f();
+        else if (!strcmp(cmd, "help"))
+            SH_Eff_Help_f();
+        else
+            Com_Printf("Unknown eff command. Use 'sh eff' for a list of commands.\n");
     } else if (!strcmp(subcmd, "ups")) {
         const char *cmd = Cmd_Argv(2);
         if (!cmd || !cmd[0]) {
@@ -253,10 +353,33 @@ void SH_Status_f(void) {
     SH_PrintStatusString("Optimal color", cl_strafehelper_color_optimal);
     SH_PrintStatusString("Center marker color", cl_strafehelper_color_centermarker);
     Com_Printf("------------------------------------------------------------------\n");
+    Com_LPrintf(PRINT_WARNING, "                        Efficiency Display Status:\n");
+    Com_Printf("------------------------------------------------------------------\n");
+    SH_PrintStatusInt("Enabled", cl_strafehelperEfficiency);
+    SH_PrintStatusString("Style", cl_strafehelperEffStyle);
+    SH_PrintStatusString("Helper tint", cl_strafehelperEffTint);
+    SH_PrintStatusFloat("Tint strength", cl_strafehelperEffTintStrength);
+    SH_PrintStatusFloat("Width", cl_strafehelperEffWidth);
+    SH_PrintStatusFloat("Height", cl_strafehelperEffHeight);
+    SH_PrintStatusFloat("X offset", cl_strafehelperEffX);
+    SH_PrintStatusFloat("Y offset", cl_strafehelperEffY);
+    SH_PrintStatusInt("Border", cl_strafehelperEffBorder);
+    SH_PrintStatusFloat("Marker", cl_strafehelperEffMarker);
+    SH_PrintStatusString("Color mode", cl_strafehelperEffColorMode);
+    SH_PrintStatusString("Good color", cl_strafehelperEffColorGood);
+    SH_PrintStatusString("Mid color", cl_strafehelperEffColorMid);
+    SH_PrintStatusString("Bad color", cl_strafehelperEffColorBad);
+    SH_PrintStatusString("Background color", cl_strafehelperEffColorBg);
+    SH_PrintStatusFloat("Gradient midpoint", cl_strafehelperEffColorMidpoint);
+    SH_PrintStatusFloat("Smoothing", cl_strafehelperEffSmoothing);
+    SH_PrintStatusFloat("Hold time (ms)", cl_strafehelperEffHoldMs);
+    SH_PrintStatusFloat("Text scale", cl_strafehelperEffTextScale);
+    Com_Printf("------------------------------------------------------------------\n");
     Com_LPrintf(PRINT_WARNING, "                        Center UPS Status:\n");
     Com_Printf("------------------------------------------------------------------\n");
     SH_PrintStatusInt("Enabled", cl_strafehelperUps);
     SH_PrintStatusFloat("Scale", cl_strafehelperUpsScale);
+    SH_PrintStatusFloat("X offset", cl_strafehelperUpsX);
     SH_PrintStatusFloat("Y offset", cl_strafehelperUpsY);
     SH_PrintStatusInt("Shadow", cl_strafehelperUpsShadow);
     SH_PrintStatusInt("Hide zero", cl_strafehelperUpsHideZero);

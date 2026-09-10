@@ -1,5 +1,8 @@
 #include "strafe_helper_customization.h"
 #include "strafe_helper.h"
+#include "sh_efficiency_draw.h"
+#include "sh_draw_math.h"
+#include "client/hud_editor.h"
 #include "shared/shared.h"
 #include "refresh/refresh.h"
 #include "src/client/client.h"
@@ -56,9 +59,12 @@ static uint32_t shc_LerpColor(const uint32_t from, const uint32_t to, const floa
 }
 
 static float shc_HelperAlphaMultiplier(void) {
-    float multiplier = cl_strafehelperAlpha
-                       ? Cvar_ClampValue(cl_strafehelperAlpha, 0.0f, 1.0f)
-                       : 1.0f;
+    float multiplier = 1.0f;
+    if (cl_strafehelperAlpha) {
+        multiplier = sh_drawing_preview || HUD_EditorPreview()
+                     ? SH_ClampDrawValue(HUD_EditorValue(cl_strafehelperAlpha), 0.0f, 1.0f)
+                     : Cvar_ClampValue(cl_strafehelperAlpha, 0.0f, 1.0f);
+    }
 
     if (!sh_drawing_preview) {
         const float move =
@@ -71,7 +77,7 @@ static float shc_HelperAlphaMultiplier(void) {
     return multiplier;
 }
 
-static uint32_t shc_ApplyHelperAlpha(const uint32_t color) {
+uint32_t shc_ApplyHelperAlpha(const uint32_t color) {
     color_t out_color;
     out_color.u32 = color;
     out_color.u8[3] = (uint8_t) roundf((float) out_color.u8[3] * shc_HelperAlphaMultiplier());
@@ -145,7 +151,9 @@ uint32_t getColorForElement(const enum shc_ElementId element_id) {
             break;
         default: ;
     }
-    return shc_ApplyHelperAlpha(shc_ParseColorString(colorString, NULL, NULL, NULL, NULL));
+
+    const uint32_t base = shc_ParseColorString(colorString, NULL, NULL, NULL, NULL);
+    return shc_ApplyHelperAlpha(SH_Efficiency_ApplyTint(element_id, base));
 }
 
 void shc_drawFilledRectangle(const float x, const float y,

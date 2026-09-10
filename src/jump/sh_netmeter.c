@@ -1,6 +1,8 @@
 #include <src/client/client.h>
 #include "sh_netmeter.h"
 #include "sh_draw_math.h"
+#include "client/hud_editor.h"
+#include "client/hud_layout.h"
 #include <src/client/ui/ui.h>
 
 typedef enum {
@@ -422,8 +424,25 @@ static void SCR_DrawNetMeterNotice(int bar_y, int bar_h)
     }
 
     R_SetColor(MakeColor(r, g, b, alpha * 255));
+    HUD_LayoutBegin(HL_NETALERT);
     SCR_DrawString(draw_x, draw_y, align_flags, buffer);
+    HUD_LayoutEnd();
     R_ClearColor();
+}
+
+/* Synthetic samples never enter the live network history. */
+static bool SH_NetMeterEditorPreview(int x, int y, int width, int height)
+{
+    if (!HUD_EditorPreview()) return false;
+    HUD_EditorBounds(HUD_EDIT_NETWORK, x, y, width, height);
+    if (!HUD_EditorShow(HUD_EDIT_NETWORK)) return true;
+    R_DrawFill32(x, y, width, height, MakeColor(20, 28, 35, 220));
+    for (int i = 0; i < width; i++) {
+        int h = max(1, height * (30 + (i * 13 % 45)) / 100);
+        R_DrawFill32(x + i, y + height - h, 1, h,
+                     i % 29 == 0 ? MakeColor(225, 170, 60, 230) : MakeColor(80, 180, 125, 220));
+    }
+    return true;
 }
 
 static void SCR_DrawNetMeterLagometer(float global_alpha)
@@ -431,8 +450,8 @@ static void SCR_DrawNetMeterLagometer(float global_alpha)
     int i, v, c, v_min, v_max, v_range;
     int x, y, draw_x, draw_y, draw_w, draw_h;
 
-    x = sh_lagometer_x->integer;
-    y = sh_lagometer_y->integer;
+    x = (int)HUD_EditorValue(sh_lagometer_x);
+    y = (int)HUD_EditorValue(sh_lagometer_y);
     draw_w = 48;
     draw_h = 48;
 
@@ -451,6 +470,8 @@ static void SCR_DrawNetMeterLagometer(float global_alpha)
         draw_y = y;
     }
     draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
+
+    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) return;
 
     int min_val = sh_netmeter_min_ms->integer;
     int max_val = sh_netmeter_max_ms->integer;
@@ -516,9 +537,9 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
     float graph_alpha;
 
     w = scr.hud_width;
-    draw_h = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_netgraph_height, 1, 4000),
+    draw_h = (int)SH_ClampDrawValue(HUD_EditorClamp(sh_netgraph_height, 1, 4000),
                                    1, scr.hud_height);
-    y = sh_netgraph_y->integer;
+    y = (int)HUD_EditorValue(sh_netgraph_y);
 
     if (y < 0) {
         draw_y = scr.hud_height + y - draw_h + 1;
@@ -526,6 +547,8 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
         draw_y = y;
     }
     draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
+
+    if (SH_NetMeterEditorPreview(0, draw_y, w, draw_h)) return;
 
     int min_val = sh_netmeter_min_ms->integer;
     int max_val = sh_netmeter_max_ms->integer;
@@ -601,7 +624,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
     const netmeter_sample_t *column = NULL;
     int column_height = 0, column_priority = 0;
 
-    switch (Cvar_ClampInteger(sh_histogram_width_mode, 0, 2)) {
+    switch ((int)HUD_EditorClamp(sh_histogram_width_mode, 0, 2)) {
     case 2:
         draw_w = max(10, scr.hud_width);
         break;
@@ -609,14 +632,14 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         draw_w = Q_clip(scr.hud_width / 2, 10, max(10, scr.hud_width));
         break;
     default:
-        draw_w = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_histogram_width, 10, 4000),
+        draw_w = (int)SH_ClampDrawValue(HUD_EditorClamp(sh_histogram_width, 10, 4000),
                                        10, scr.hud_width);
         break;
     }
-    draw_h = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_histogram_height, 1, 4000),
+    draw_h = (int)SH_ClampDrawValue(HUD_EditorClamp(sh_histogram_height, 1, 4000),
                                    1, scr.hud_height);
-    x = sh_histogram_x->integer;
-    y = sh_histogram_y->integer;
+    x = (int)HUD_EditorValue(sh_histogram_x);
+    y = (int)HUD_EditorValue(sh_histogram_y);
 
     if (x < 0) {
         draw_x = scr.hud_width + x - draw_w + 1;
@@ -633,6 +656,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         draw_y = y;
     }
     draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
+    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) return;
 
     history = Cvar_ClampInteger(sh_histogram_history, 500, 120000);
 
@@ -763,8 +787,8 @@ void SH_NetMeter_Draw(void)
         is_test = true;
     }
 
-    mode = Cvar_ClampInteger(sh_netmeter, 0, 4);
-    if (!cls.netchan.protocol || cls.demo.playback) {
+    mode = HUD_EditorPreview() ? HUD_EditorNetworkMode() : Cvar_ClampInteger(sh_netmeter, 0, 4);
+    if (!HUD_EditorPreview() && (!cls.netchan.protocol || cls.demo.playback)) {
         if (is_test && sh_netalert->integer) {
             SCR_DrawNetMeterNotice(0, 0);
         }

@@ -52,6 +52,7 @@ client_src = [
   'src/client/predict.c',
   'src/client/refresh.c',
   'src/client/screen.c',
+  'src/client/hud_layout.c',
   'src/client/sound/main.c',
   'src/client/sound/mem.c',
   'src/client/tent.c',
@@ -70,6 +71,7 @@ client_src = [
 
 ui_src = [
   'src/client/ui/demos.c',
+  'src/client/ui/hud_editor.c',
   'src/client/ui/menu.c',
   'src/client/ui/modelpreview.c',
   'src/client/ui/playerconfig.c',
@@ -79,6 +81,8 @@ ui_src = [
   'src/client/ui/ui.c',
   'src/client/ui/builtin_menu.c',
   'src/jump/sh_netmeter.c',
+  'src/jump/strafe_efficiency.c',
+  'src/jump/sh_efficiency_draw.c',
   'src/jump/strafe_helper.c',
   'src/jump/sh_menus.c',
   'src/jump/sh_nerdstats.c',
@@ -368,7 +372,7 @@ else
   subdir('src/unix')
 endif
 
-# Compile the production helper and prediction paths with boundary stubs.
+# Stubbed tests must remain available without a configured video backend.
 jump_test_deps = []
 if not win32 and libm.found()
   jump_test_deps += libm
@@ -387,9 +391,10 @@ strafe_efficiency_test_exe = executable(
 )
 test('strafe-efficiency', strafe_efficiency_test_exe, suite: 'jump-hud')
 
+# Compile the production helper and prediction paths with boundary stubs.
 strafe_helper_test_exe = executable(
   'strafe_helper_test',
-  'tests/strafe_helper_test.c',
+  ['tests/strafe_helper_test.c', 'src/jump/strafe_efficiency.c'],
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
   dependencies: jump_test_deps + common_deps,
@@ -409,6 +414,25 @@ strafe_prediction_test_exe = executable(
 )
 test('strafe-prediction', strafe_prediction_test_exe, suite: 'jump-hud')
 
+hud_editor_test_exe = executable(
+  'hud_editor_test',
+  'tests/hud_editor_test.c',
+  dependencies: jump_test_deps,
+  build_by_default: false,
+  install: false,
+)
+test('hud-editor-layout', hud_editor_test_exe, suite: 'jump-hud')
+
+hud_layout_match_test = executable(
+  'hud_layout_match_test',
+  'tests/hud_layout_match_test.c',
+  include_directories: ['inc', '.'],
+  dependencies: jump_test_deps,
+  build_by_default: false,
+  install: false,
+)
+test('hud-server-layout', hud_layout_match_test, suite: 'jump-hud')
+
 draw_group_test = executable(
   'draw_group_test',
   'tests/draw_group_test.c',
@@ -418,6 +442,7 @@ draw_group_test = executable(
 )
 test('hud-draw-group', draw_group_test, suite: 'jump-hud')
 
+# UI fixtures include production controllers with boundary stubs.
 if get_option('client-ui')
   netmeter_test_exe = executable(
     'netmeter_test',
@@ -440,6 +465,40 @@ if get_option('client-ui')
     install: false,
   )
   test('jump-menu', sh_menu_test_exe, suite: 'jump-hud')
+
+  strafe_efficiency_draw_test_exe = executable(
+    'strafe_efficiency_draw_test',
+    ['tests/strafe_efficiency_draw_test.c', 'src/jump/strafe_efficiency.c'],
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+    dependencies: jump_test_deps + common_deps +
+                  [subproject('khr-headers').get_variable('khr_headers_dep')],
+    build_by_default: false,
+    install: false,
+  )
+  test('strafe-efficiency-draw', strafe_efficiency_draw_test_exe, suite: 'jump-hud')
+
+  hud_editor_state_test_exe = executable(
+    'hud_editor_state_test',
+    'tests/hud_editor_state_test.c',
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+    dependencies: jump_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('hud-editor-state', hud_editor_state_test_exe, suite: 'jump-hud')
+
+  hud_layout_state_test = executable(
+    'hud_layout_state_test',
+    'tests/hud_layout_state_test.c',
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+    dependencies: jump_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('hud-layout-state', hud_layout_state_test, suite: 'jump-hud')
 endif
 
 if get_option('client-gtv')

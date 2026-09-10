@@ -18,6 +18,8 @@ bool shc_ParseColorCvar(const char *cvarValue, uint32_t *outUint32, color_t *out
 
 uint32_t shc_ParseColorString(const char *colorStr, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a);
 
+uint32_t shc_ApplyHelperAlpha(uint32_t color);
+
 uint32_t getColorForElement(enum shc_ElementId element_id);
 
 void shc_drawFilledRectangle(float x, float y, float w, float h, enum shc_ElementId element_id);

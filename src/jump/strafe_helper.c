@@ -1,6 +1,8 @@
 #include "strafe_helper.h"
+#include "client/hud_editor.h"
 #include <src/client/client.h>
 #include "strafe_helper_customization.h"
+#include "sh_efficiency_draw.h"
 #include "sh_draw_math.h"
 
 #ifndef M_PI
@@ -18,6 +20,8 @@ static bool sh_predicting;
 static float sh_raw_side;
 static float sh_previous_side;
 static unsigned sh_visual_realtime;
+static StrafeEfficiency sh_efficiency;
+static unsigned sh_efficiency_realtime;
 
 bool sh_drawing_preview = false;
 
@@ -80,14 +84,39 @@ static void clearStrafeAngles(void) {
     sh_previous_side = 0.0f;
 }
 
+void StrafeHelper_SetEfficiency(const float velocity[3],
+                                const float wishdir[3],
+                                const float target, const float budget) {
+    if (!sh_predicting) {
+        return;
+    }
+
+    sh_efficiency = StrafeEfficiency_Calculate(velocity, wishdir,
+                                               target, budget);
+    sh_efficiency_realtime = cls.realtime;
+}
+
+void StrafeHelper_UpdateEfficiency(void)
+{
+    const bool valid = sh_efficiency.valid && sh_efficiency_realtime == cls.realtime;
+    SH_Efficiency_Update(valid, sh_efficiency.efficiency);
+}
+
+void StrafeHelper_ClearEfficiency(void) {
+    sh_efficiency = (StrafeEfficiency) { 0 };
+    sh_efficiency_realtime = 0;
+}
+
 void StrafeHelper_Clear(void) {
     clearStrafeAngles();
+    StrafeHelper_ClearEfficiency();
 }
 
 void StrafeHelper_BeginPrediction(void) {
     sh_predicting = true;
     sh_raw = (StrafeHelper) { 0 };
     sh_raw_side = 0.0f;
+    StrafeHelper_ClearEfficiency();
 }
 
 bool StrafeHelper_IsPredicting(void) {
@@ -503,7 +532,7 @@ static bool SH_Ups_FormatText(const float speed, char *buffer, const size_t size
 
 void SH_Ups_Draw(const float hud_width, const float hud_height,
                  const float hud_scale, const int font_pic) {
-    if (!cl_strafehelperUps || !cl_strafehelperUps->integer) {
+    if (!HUD_EditorPreview() && (!cl_strafehelperUps || !cl_strafehelperUps->integer)) {
         sh_ups_history.valid = false;
         return;
     }
@@ -511,26 +540,34 @@ void SH_Ups_Draw(const float hud_width, const float hud_height,
     char buffer[MAX_STRING_CHARS];
     float speed;
     const float text_scale = cl_strafehelperUpsScale
-                             ? Cvar_ClampValue(cl_strafehelperUpsScale,
+                             ? HUD_EditorClamp(cl_strafehelperUpsScale,
                                                SH_UPS_SCALE_MIN, SH_UPS_SCALE_MAX)
                              : 1.0f;
     const float draw_scale = (hud_scale > 0.0f ? hud_scale : 1.0f) / text_scale;
     const float draw_hud_width = hud_width / text_scale;
     const float draw_hud_height = hud_height / text_scale;
     const float y_offset = cl_strafehelperUpsY
-                           ? SH_ClampDrawValue(Cvar_ClampValue(cl_strafehelperUpsY,
+                           ? SH_ClampDrawValue(HUD_EditorClamp(cl_strafehelperUpsY,
                                                                SH_UPS_Y_MIN, SH_UPS_Y_MAX),
                                                -hud_height, hud_height) / text_scale
                            : 0.0f;
+    const float x_offset = cl_strafehelperUpsX
+                           ? SH_ClampDrawValue(HUD_EditorClamp(cl_strafehelperUpsX,
+                                                               SH_UPS_X_MIN, SH_UPS_X_MAX),
+                                               -hud_width, hud_width) / text_scale
+                           : 0.0f;
     int flags = UI_CENTER;
 
-    if (!SH_Ups_GetSpeed(&speed)) {
+    speed = 742;
+    if (!HUD_EditorPreview() && !SH_Ups_GetSpeed(&speed)) {
         sh_ups_history.valid = false;
         return;
     }
 
     if (!SH_Ups_FormatText(speed, buffer, sizeof(buffer))) {
-        sh_ups_history.valid = false;
+        if (!HUD_EditorPreview()) {
+            sh_ups_history.valid = false;
+        }
         return;
     }
 
@@ -540,9 +577,15 @@ void SH_Ups_Draw(const float hud_width, const float hud_height,
         flags |= UI_NOSHADOW;
     }
 
-    const float x = Q_rint(draw_hud_width / 2.0f);
+    const float x = Q_rint(draw_hud_width / 2.0f + x_offset);
     const float y = Q_rint((draw_hud_height - CHAR_HEIGHT) / 2.0f + y_offset);
-    R_SetColor(SH_Ups_ColorForSpeed(speed));
+    HUD_EditorBounds(HUD_EDIT_UPS, (x - strlen(buffer) * CHAR_WIDTH * 0.5f) * text_scale,
+                     y * text_scale, strlen(buffer) * CHAR_WIDTH * text_scale + 1,
+                     CHAR_HEIGHT * text_scale + 1);
+    if (!HUD_EditorShow(HUD_EDIT_UPS)) {
+        return;
+    }
+    R_SetColor(HUD_EditorPreview() ? U32_WHITE : SH_Ups_ColorForSpeed(speed));
     R_SetScale(draw_scale);
     SCR_DrawStringEx(x, y,
                      flags, MAX_STRING_CHARS, buffer, font_pic);
@@ -699,7 +742,8 @@ bool StrafeHelper_HasData(void) {
 }
 
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
-                              const float hud_width, const float hud_height) {
+                              const float hud_width, const float hud_height,
+                              const int font_pic) {
     if (params->height <= 0.0f) {
         return;
     }
@@ -716,6 +760,16 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     const float accel_end = center_x + accel_width * 0.5f;
     const float optimal_offset = CLAMP(36.0f * scale, 12.0f, accel_width * 0.35f);
     const float optimal_x = center_x + optimal_offset;
+    HUD_EditorBounds(HUD_EDIT_STRAFE, accel_start, upper_y, accel_width, params->height);
+
+    SH_Efficiency_DrawPreview(upper_y, params->height, hud_width,
+                              params->hud_scale, font_pic);
+
+    if (!HUD_EditorShow(HUD_EDIT_STRAFE)) {
+        sh_drawing_preview = false;
+        return;
+    }
+
     drawAccelerationZone(accel_start, accel_end, accel_start, accel_end,
                          upper_y, params->height, optimal_x, optimal_width);
 
@@ -755,6 +809,11 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     }
 
     const float upper_y = (hud_height - params->height) / 2.0f + params->y;
+
+    if (cl.frame.ps.pmove.pm_type == PM_NORMAL) {
+        SH_Efficiency_Draw(upper_y, params->height, hud_width,
+                           params->hud_scale, font_pic);
+    }
 
     if (!StrafeHelper_HasData()) {
         return;

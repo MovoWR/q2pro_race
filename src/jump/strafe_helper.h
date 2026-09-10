@@ -5,10 +5,25 @@ extern "C" {
 
 #include <math.h>
 #include "src/client/client.h"
+#include "strafe_efficiency.h"
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
 // Fixed setting limits; viewport clipping must not change saved preferences.
+#define SH_EFFICIENCY_WIDTH_MIN       8.0f
+#define SH_EFFICIENCY_WIDTH_MAX       4000.0f
+#define SH_EFFICIENCY_HEIGHT_MIN      1.0f
+#define SH_EFFICIENCY_HEIGHT_MAX      64.0f
+#define SH_EFFICIENCY_X_MIN           (-4000.0f)
+#define SH_EFFICIENCY_X_MAX           4000.0f
+#define SH_EFFICIENCY_Y_MIN           (-400.0f)
+#define SH_EFFICIENCY_Y_MAX           400.0f
+#define SH_EFFICIENCY_HOLD_MIN        0.0f
+#define SH_EFFICIENCY_HOLD_MAX        2000.0f
+#define SH_EFFICIENCY_TEXT_SCALE_MIN  0.25f
+#define SH_EFFICIENCY_TEXT_SCALE_MAX  8.0f
+#define SH_UPS_X_MIN                  (-4000.0f)
+#define SH_UPS_X_MAX                  4000.0f
 #define SH_UPS_Y_MIN                  (-4000.0f)
 #define SH_UPS_Y_MAX                  4000.0f
 #define SH_UPS_SCALE_MIN              0.25f
@@ -20,6 +35,7 @@ struct StrafeHelperParams {
     float scale;
     float height;
     float y;
+    float hud_scale;
 };
 
 typedef struct {
@@ -84,6 +100,12 @@ void StrafeHelper_BeginPrediction(void);
 void StrafeHelper_EndPrediction(void);
 bool StrafeHelper_IsPredicting(void);
 void StrafeHelper_Clear(void);
+void StrafeHelper_SetEfficiency(const float velocity[3],
+                                const float wishdir[3],
+                                float target, float budget);
+void StrafeHelper_ClearEfficiency(void);
+// Publish the private prediction sample to the live display before HUD drawing.
+void StrafeHelper_UpdateEfficiency(void);
 
 // StrafeHud
 void StrafeHelper_Draw(const struct StrafeHelperParams *params,
@@ -94,7 +116,7 @@ bool StrafeHelper_HasData(void);
 extern bool sh_drawing_preview;
 
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
-                              float hud_width, float hud_height);
+                              float hud_width, float hud_height, int font_pic);
 
 void SH_Ups_Draw(float hud_width, float hud_height, float hud_scale, int font_pic);
 
@@ -130,6 +152,25 @@ void printKeyValueGeneric(const char *label, const char *value);
 // Cvar declarations (definitions + registration in sh_init.c)
 //
 extern cvar_t *cl_drawStrafeHelper;
+extern cvar_t *cl_strafehelperEfficiency;
+extern cvar_t *cl_strafehelperEffStyle;
+extern cvar_t *cl_strafehelperEffWidth;
+extern cvar_t *cl_strafehelperEffHeight;
+extern cvar_t *cl_strafehelperEffX;
+extern cvar_t *cl_strafehelperEffY;
+extern cvar_t *cl_strafehelperEffBorder;
+extern cvar_t *cl_strafehelperEffMarker;
+extern cvar_t *cl_strafehelperEffColorMode;
+extern cvar_t *cl_strafehelperEffColorGood;
+extern cvar_t *cl_strafehelperEffColorMid;
+extern cvar_t *cl_strafehelperEffColorBad;
+extern cvar_t *cl_strafehelperEffColorBg;
+extern cvar_t *cl_strafehelperEffColorMidpoint;
+extern cvar_t *cl_strafehelperEffSmoothing;
+extern cvar_t *cl_strafehelperEffHoldMs;
+extern cvar_t *cl_strafehelperEffTextScale;
+extern cvar_t *cl_strafehelperEffTint;
+extern cvar_t *cl_strafehelperEffTintStrength;
 extern cvar_t *cl_strafeHelperCenter;
 extern cvar_t *cl_strafeHelperCenterMarker;
 extern cvar_t *cl_strafeHelperHeight;
@@ -138,6 +179,7 @@ extern cvar_t *cl_strafeHelperY;
 extern cvar_t *cl_strafehelperUps;
 extern cvar_t *cl_strafehelperUpsScale;
 extern cvar_t *cl_strafehelperUpsY;
+extern cvar_t *cl_strafehelperUpsX;
 extern cvar_t *cl_strafehelperUpsShadow;
 extern cvar_t *cl_strafehelperUpsHideZero;
 extern cvar_t *cl_strafehelperUpsColorMode;

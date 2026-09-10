@@ -743,7 +743,8 @@ void Key_Event(unsigned key, bool down, unsigned time)
 //
     if ((cls.key_dest == KEY_GAME) ||
         ((cls.key_dest & KEY_CONSOLE) && !Q_IsBitSet(consolekeys, key)) ||
-        ((cls.key_dest & KEY_MENU) && (key >= K_F1 && key <= K_F12)) ||
+        ((cls.key_dest & KEY_MENU) && !UI_IsMenuActive("hud_editor") &&
+         (key >= K_F1 && key <= K_F12)) ||
         (!down && Q_IsBitSet(buttondown, key))) {
 //
 // Key up events only generate commands if the game key binding is a button

@@ -368,6 +368,225 @@ void SH_SmoothingMode_f(void) {
     }
 }
 
+void SH_Eff_Enable_f(void) {
+    Cvar_Set("sh_efficiency", "1");
+    Com_Printf("Efficiency display enabled.\n");
+}
+
+void SH_Eff_Disable_f(void) {
+    Cvar_Set("sh_efficiency", "0");
+    Com_Printf("Efficiency display disabled.\n");
+}
+
+void SH_Eff_Toggle_f(void) {
+    const bool enable = !cl_strafehelperEfficiency->integer;
+    Cvar_Set("sh_efficiency", enable ? "1" : "0");
+    Com_Printf("Efficiency display %s.\n", enable ? "enabled" : "disabled");
+}
+
+void SH_Eff_Style_f(void) {
+    const char *style = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Efficiency style: %s\n", cl_strafehelperEffStyle->string);
+        return;
+    }
+
+    if (!Q_stricmp(style, "bar") || !Q_stricmp(style, "text") ||
+        !Q_stricmp(style, "both") || !Q_stricmp(style, "none")) {
+        Cvar_Set("sh_efficiency_style", style);
+        Com_Printf("Efficiency style set to: %s\n", style);
+    } else {
+        Com_Printf("Invalid style. Usage: 'sh eff style <bar|text|both|none>'\n");
+    }
+}
+
+void SH_Eff_Tint_f(void) {
+    const char *mode = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Efficiency helper tint: %s\n", cl_strafehelperEffTint->string);
+        return;
+    }
+
+    if (!Q_stricmp(mode, "off") || !Q_stricmp(mode, "optimal") ||
+        !Q_stricmp(mode, "zone") || !Q_stricmp(mode, "both")) {
+        Cvar_Set("sh_efficiency_tint", mode);
+        Com_Printf("Efficiency helper tint set to: %s\n", mode);
+    } else {
+        Com_Printf("Invalid tint mode. Usage: 'sh eff tint <off|optimal|zone|both>'\n");
+    }
+}
+
+void SH_Eff_TintStrength_f(void) {
+    SH_SetFloatCvar("sh_efficiency_tint_strength", "Efficiency tint strength",
+                    "sh eff tint_strength <0.0-1.0>", 0.0f, 1.0f);
+}
+
+void SH_Eff_Width_f(void) {
+    SH_SetFloatCvar("sh_efficiency_width", "Efficiency bar width",
+                    "sh eff width <8-4000>", SH_EFFICIENCY_WIDTH_MIN, SH_EFFICIENCY_WIDTH_MAX);
+}
+
+void SH_Eff_Height_f(void) {
+    SH_SetFloatCvar("sh_efficiency_height", "Efficiency bar height",
+                    "sh eff height <1-64>", SH_EFFICIENCY_HEIGHT_MIN, SH_EFFICIENCY_HEIGHT_MAX);
+}
+
+void SH_Eff_Xpos_f(void) {
+    SH_SetFloatCvar("sh_efficiency_x", "Efficiency X offset",
+                    "sh eff xpos <-4000-4000>", SH_EFFICIENCY_X_MIN, SH_EFFICIENCY_X_MAX);
+}
+
+void SH_Eff_Ypos_f(void) {
+    SH_SetFloatCvar("sh_efficiency_y", "Efficiency Y offset",
+                    "sh eff ypos <-400-400>", SH_EFFICIENCY_Y_MIN, SH_EFFICIENCY_Y_MAX);
+}
+
+void SH_Eff_Border_f(void) {
+    const char *value = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Efficiency border: %d\n", cl_strafehelperEffBorder->integer);
+        return;
+    }
+
+    if (SH_IsOnOffValue(value)) {
+        Cvar_Set("sh_efficiency_border", value);
+        Com_Printf("Efficiency border %s.\n",
+                   cl_strafehelperEffBorder->integer ? "enabled" : "disabled");
+    } else {
+        Com_Printf("Invalid value. Usage: 'sh eff border <0|1>'\n");
+    }
+}
+
+void SH_Eff_Marker_f(void) {
+    SH_SetFloatCvar("sh_efficiency_marker", "Efficiency marker",
+                    "sh eff marker <0.0-1.0>", 0.0f, 1.0f);
+}
+
+void SH_Eff_ColorMode_f(void) {
+    const char *mode = Cmd_Argv(3);
+
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- Efficiency color mode: %s\n", cl_strafehelperEffColorMode->string);
+        return;
+    }
+
+    if (!Q_stricmp(mode, "dynamic") || !Q_stricmp(mode, "static")) {
+        Cvar_Set("sh_efficiency_color_mode", mode);
+        Com_Printf("Efficiency color mode set to: %s\n", mode);
+    } else {
+        Com_Printf("Invalid color mode. Usage: 'sh eff color_mode <dynamic|static>'\n");
+    }
+}
+
+void SH_Eff_ColorGood_f(void) {
+    SH_SetColorCvar("sh_efficiency_color_good", "Efficiency good color",
+                    "sh eff color_good R G B A");
+}
+
+void SH_Eff_ColorMid_f(void) {
+    SH_SetColorCvar("sh_efficiency_color_mid", "Efficiency mid color",
+                    "sh eff color_mid R G B A");
+}
+
+void SH_Eff_ColorBad_f(void) {
+    SH_SetColorCvar("sh_efficiency_color_bad", "Efficiency bad color",
+                    "sh eff color_bad R G B A");
+}
+
+void SH_Eff_ColorBg_f(void) {
+    SH_SetColorCvar("sh_efficiency_color_bg", "Efficiency background color",
+                    "sh eff color_bg R G B A");
+}
+
+void SH_Eff_Midpoint_f(void) {
+    SH_SetFloatCvar("sh_efficiency_color_midpoint", "Efficiency gradient midpoint",
+                    "sh eff midpoint <0.05-0.95>", 0.05f, 0.95f);
+}
+
+void SH_Eff_Smoothing_f(void) {
+    SH_SetFloatCvar("sh_efficiency_smoothing", "Efficiency smoothing",
+                    "sh eff smoothing <0.0-10.0>", 0.0f, 10.0f);
+}
+
+void SH_Eff_Hold_f(void) {
+    SH_SetFloatCvar("sh_efficiency_hold_ms", "Efficiency hold time",
+                    "sh eff hold <0-2000>", SH_EFFICIENCY_HOLD_MIN, SH_EFFICIENCY_HOLD_MAX);
+}
+
+void SH_Eff_TextScale_f(void) {
+    SH_SetFloatCvar("sh_efficiency_text_scale", "Efficiency text scale",
+                    "sh eff text_scale <0.25-8.0>", SH_EFFICIENCY_TEXT_SCALE_MIN, SH_EFFICIENCY_TEXT_SCALE_MAX);
+}
+
+void SH_Eff_Status_f(void) {
+    Com_Printf("- Efficiency display: %s\n",
+               cl_strafehelperEfficiency->integer ? "enabled" : "disabled");
+    Com_Printf("- Style: %s\n", cl_strafehelperEffStyle->string);
+    Com_Printf("- Width: %.0f\n", cl_strafehelperEffWidth->value);
+    Com_Printf("- Height: %.0f\n", cl_strafehelperEffHeight->value);
+    Com_Printf("- X offset: %.0f\n", cl_strafehelperEffX->value);
+    Com_Printf("- Y offset: %.0f\n", cl_strafehelperEffY->value);
+    Com_Printf("- Border: %d\n", cl_strafehelperEffBorder->integer);
+    Com_Printf("- Marker: %.2f\n", cl_strafehelperEffMarker->value);
+    Com_Printf("- Helper tint: %s\n", cl_strafehelperEffTint->string);
+    Com_Printf("- Tint strength: %.2f\n", cl_strafehelperEffTintStrength->value);
+    Com_Printf("- Color mode: %s\n", cl_strafehelperEffColorMode->string);
+    Com_Printf("- Good color: %s\n", cl_strafehelperEffColorGood->string);
+    Com_Printf("- Mid color: %s\n", cl_strafehelperEffColorMid->string);
+    Com_Printf("- Bad color: %s\n", cl_strafehelperEffColorBad->string);
+    Com_Printf("- Background color: %s\n", cl_strafehelperEffColorBg->string);
+    Com_Printf("- Gradient midpoint: %.2f\n", cl_strafehelperEffColorMidpoint->value);
+    Com_Printf("- Smoothing: %.2f\n", cl_strafehelperEffSmoothing->value);
+    Com_Printf("- Hold time: %.0f ms\n", cl_strafehelperEffHoldMs->value);
+    Com_Printf("- Text scale: %.2f\n", cl_strafehelperEffTextScale->value);
+}
+
+void SH_Eff_Help_f(void) {
+    Com_Printf("========================================================================================\n");
+    Com_LPrintf(PRINT_WARNING, "Efficiency Display Menu\n");
+    Com_Printf("Usage: sh eff <command> [options]\n");
+    Com_Printf("========================================================================================\n");
+    Com_Printf("Visibility\n");
+    Com_Printf("  %-32s %s\n", "enable", "Show the airborne efficiency display.");
+    Com_Printf("  %-32s %s\n", "disable", "Hide the efficiency display.");
+    Com_Printf("  %-32s %s\n", "toggle", "Toggle the efficiency display.");
+    Com_Printf("  %-32s %s\n", "status", "Show current efficiency settings.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Layout\n");
+    Com_Printf("  %-32s %s\n", "style <bar|text|both|none>", "Bar, percentage readout, both, or neither.");
+    Com_Printf("  %-32s %s\n", "tint <off|optimal|zone|both>", "Tint strafe helper elements by efficiency.");
+    Com_Printf("  %-32s %s\n", "tint_strength <0.0-1.0>", "How strongly the tint overrides helper colors.");
+    Com_Printf("  %-32s %s\n", "width <8-4000>", "Bar width in pixels.");
+    Com_Printf("  %-32s %s\n", "height <1-64>", "Bar height in pixels.");
+    Com_Printf("  %-32s %s\n", "xpos <-4000-4000>", "Horizontal offset from center.");
+    Com_Printf("  %-32s %s\n", "ypos <-400-400>", "Gap below the helper; negative places above.");
+    Com_Printf("  %-32s %s\n", "border <0|1>", "Toggle the 1 pixel outline.");
+    Com_Printf("  %-32s %s\n", "marker <0.0-1.0>", "Threshold marker position; 0 hides it.");
+    Com_Printf("  %-32s %s\n", "text_scale <0.25-8.0>", "Percentage text scale.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Behavior\n");
+    Com_Printf("  %-32s %s\n", "smoothing <0.0-10.0>", "Smooth the displayed value; 0 disables.");
+    Com_Printf("  %-32s %s\n", "hold <0-2000>", "Keep last value this many ms after data stops.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Color\n");
+    Com_Printf("  %-32s %s\n", "color_mode <dynamic|static>", "Color by value or use one fixed color.");
+    Com_Printf("  %-32s %s\n", "color_good R G B A", "Color near 100%; also the static color.");
+    Com_Printf("  %-32s %s\n", "color_mid R G B A", "Color at the gradient midpoint.");
+    Com_Printf("  %-32s %s\n", "color_bad R G B A", "Color near 0%.");
+    Com_Printf("  %-32s %s\n", "color_bg R G B A", "Bar track background color.");
+    Com_Printf("  %-32s %s\n", "midpoint <0.05-0.95>", "Value where the mid color sits.");
+    Com_Printf("----------------------------------------------------------------------------------------\n");
+    Com_Printf("Examples\n");
+    Com_Printf("  sh eff enable\n");
+    Com_Printf("  sh eff style both\n");
+    Com_Printf("  sh eff smoothing 3\n");
+    Com_Printf("  sh eff color_mode static\n");
+    Com_Printf("========================================================================================\n");
+}
+
 void SH_Ups_Enable_f(void) {
     Cvar_Set("sh_ups", "1");
     Com_Printf("Center UPS enabled.\n");
@@ -387,6 +606,7 @@ void SH_Ups_Toggle_f(void) {
 void SH_Ups_Status_f(void) {
     Com_Printf("- Center UPS: %s\n", cl_strafehelperUps->integer ? "enabled" : "disabled");
     Com_Printf("- Scale: %.2f\n", cl_strafehelperUpsScale->value);
+    Com_Printf("- X offset: %.2f\n", cl_strafehelperUpsX->value);
     Com_Printf("- Y offset: %.2f\n", cl_strafehelperUpsY->value);
     Com_Printf("- Shadow: %d\n", cl_strafehelperUpsShadow->integer);
     Com_Printf("- Hide zero: %d\n", cl_strafehelperUpsHideZero->integer);

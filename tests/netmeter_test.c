@@ -122,9 +122,10 @@ static cvar_t *test_cvars[] = { &scr_alpha_storage,
 
 enum { COLOR_NORMAL = 201, COLOR_SPIKE, COLOR_JITTER, COLOR_S2C, COLOR_C2S };
 static struct { int x, y, w, h, color; float alpha; } rectangles[10000];
-static int rectangle_count, text_count, checks, failures;
+static int rectangle_count, text_count, preview_count, checks, failures;
 static char last_text[64];
 static float draw_alpha;
+static bool editor_preview;
 
 #define CHECK(expr) do { checks++; if (!(expr)) { \
     fprintf(stderr, "%s:%d: %s\n", __func__, __LINE__, #expr); failures++; \
@@ -132,9 +133,23 @@ static float draw_alpha;
 
 int Cvar_ClampInteger(cvar_t *var, int low, int high) { return Test_ClampCvarInteger(var, low, high); }
 float Cvar_ClampValue(cvar_t *var, float low, float high) { return Test_ClampCvarValue(var, low, high); }
+bool HUD_EditorPreview(void) { return editor_preview; }
+bool HUD_EditorShow(int id) { return true; }
+int HUD_EditorNetworkMode(void) { return 3; }
+float HUD_EditorValue(const cvar_t *var) { return var->value; }
+float HUD_EditorClamp(cvar_t *var, float low, float high)
+{
+    if (editor_preview)
+        return SH_ClampDrawValue(var->value, low, high);
+    return Cvar_ClampValue(var, low, high);
+}
+void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h) {}
+void HUD_LayoutBegin(int id) {}
+void HUD_LayoutEnd(void) {}
 void R_SetAlpha(float alpha) { draw_alpha = alpha; }
 void UI_SetColor_Wrapper(uint32_t color) { draw_alpha = ((color >> 24) & 255) / 255.0f; }
 void UI_ClearColor_Wrapper(void) { draw_alpha = 1; }
+void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color) { preview_count++; }
 void R_DrawStretchPic(int x, int y, int w, int h, qhandle_t pic) {}
 void R_DrawFill8(int x, int y, int w, int h, int color)
 {
@@ -178,7 +193,7 @@ static void Set(cvar_t *var, float value)
 }
 static void ResetDrawing(void)
 {
-    rectangle_count = text_count = 0;
+    rectangle_count = text_count = preview_count = 0;
     last_text[0] = 0;
     draw_alpha = scr_alpha->value;
 }
@@ -190,6 +205,7 @@ static void Setup(void)
     memset(&uis, 0, sizeof(uis));
     for (size_t i = 0; i < q_countof(test_cvars); i++)
         memset(test_cvars[i], 0, sizeof(*test_cvars[i]));
+    editor_preview = false;
     cls.netchan.protocol = PROTOCOL_VERSION_Q2PRO;
     cls.realtime = 1000;
     scr.hud_width = 640;
@@ -385,7 +401,10 @@ static void CheckNotices(void)
     static menuFrameWork_t menu;
     menu.name = "jumpnetalerts"; uis.activeMenu = &menu;
     SH_NetMeter_Draw(); CHECK(text_count == 1 && !strcmp(last_text, "TEST ALERT"));
-    uis.activeMenu = NULL;
+    uis.activeMenu = NULL; ResetDrawing(); editor_preview = true;
+    unsigned head = netmeter.head;
+    SH_NetMeter_Draw();
+    CHECK(preview_count > 0 && netmeter.head == head);
 }
 
 static void DrawHistogram(void)

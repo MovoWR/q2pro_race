@@ -14,6 +14,9 @@ static struct {
 static int drawn_count;
 static bool test_gradient, saw_clipped_gradient;
 static int last_ups_x, last_ups_y;
+static bool efficiency_update_valid;
+static float efficiency_update_value;
+static unsigned efficiency_updates;
 
 static void CheckNear(float actual, float expected, float tolerance)
 {
@@ -119,7 +122,7 @@ static void CheckDrawing(float yaw, float wish_yaw, float velocity_yaw, int cent
     const vec3_t wish = { cosf(yaw + wish_yaw), sinf(yaw + wish_yaw), 0 };
     const vec3_t velocity = { 400 * cosf(yaw + velocity_yaw), 400 * sinf(yaw + velocity_yaw), 0 };
     const struct StrafeHelperParams params = {
-        .center = center, .center_marker = 1, .scale = 1, .height = 12
+        .center = center, .center_marker = 1, .scale = 1, .height = 12, .hud_scale = 1
     };
     Setup(smoothing);
     cl_strafehelper_center_width = &width;
@@ -263,23 +266,43 @@ static void CheckUps(void)
     CheckNear(sh_ups_history.acceleration, 150, .001f);
 }
 
+static void CheckEfficiencyBridge(void)
+{
+    Setup(0);
+    efficiency_updates = 0;
+    sh_efficiency = (StrafeEfficiency) { .valid = true, .efficiency = .75f };
+    sh_efficiency_realtime = cls.realtime;
+    StrafeHelper_UpdateEfficiency();
+    assert(efficiency_updates == 1 && efficiency_update_valid);
+    CheckNear(efficiency_update_value, .75f, .00001f);
+    cls.realtime++;
+    StrafeHelper_UpdateEfficiency();
+    assert(efficiency_updates == 2 && !efficiency_update_valid);
+    StrafeHelper_ClearEfficiency();
+    StrafeHelper_UpdateEfficiency();
+    assert(efficiency_updates == 3 && !efficiency_update_valid);
+}
 
 static void CheckUpsViewport(void)
 {
+    cvar_t x = { .value = 800, .integer = 800, .string = "800" };
     cvar_t y = { .value = 600, .integer = 600, .string = "600" };
     cvar_t scale = { .value = 1 }, color = { .string = "static" };
-    cvar_t *old_y = cl_strafehelperUpsY;
+    cvar_t *old_x = cl_strafehelperUpsX, *old_y = cl_strafehelperUpsY;
     cvar_t *old_scale = cl_strafehelperUpsScale, *old_mode = cl_strafehelperUpsColorMode;
+    cl_strafehelperUpsX = &x;
     cl_strafehelperUpsY = &y;
     cl_strafehelperUpsScale = &scale;
     cl_strafehelperUpsColorMode = &color;
     test_cvar_writes = 0;
     SH_Ups_Draw(640, 480, 1, 0);
-    assert(last_ups_x == 320 && last_ups_y == (480 - CHAR_HEIGHT) / 2 + 480);
+    assert(last_ups_x == 960 && last_ups_y == (480 - CHAR_HEIGHT) / 2 + 480);
     SH_Ups_Draw(1280, 960, 1, 0);
-    assert(last_ups_x == 640 && last_ups_y == (960 - CHAR_HEIGHT) / 2 + 600);
+    assert(last_ups_x == 1440 && last_ups_y == (960 - CHAR_HEIGHT) / 2 + 600);
+    assert(x.value == 800 && x.integer == 800 && !strcmp(x.string, "800"));
     assert(y.value == 600 && y.integer == 600 && !strcmp(y.string, "600"));
-    assert(!y.modified && test_cvar_writes == 0);
+    assert(!x.modified && !y.modified && test_cvar_writes == 0);
+    cl_strafehelperUpsX = old_x;
     cl_strafehelperUpsY = old_y;
     cl_strafehelperUpsScale = old_scale;
     cl_strafehelperUpsColorMode = old_mode;
@@ -287,6 +310,7 @@ static void CheckUpsViewport(void)
 
 int main(void)
 {
+    CheckEfficiencyBridge();
     CheckUps();
     CheckUpsViewport();
     for (int style = 0; style < 2; style++) {
@@ -374,6 +398,9 @@ int main(void)
     const StrafeHelper previous = sh;
     SetSample(900, -1, 1, 0, 30, 48); /* History/entity calls cannot change the HUD. */
     assert(!memcmp(&sh, &previous, sizeof(sh)));
+    const vec3_t velocity = { 400, 0, 0 }, wishdir = { 0, 1, 0 };
+    StrafeHelper_SetEfficiency(velocity, wishdir, 300, 2.4f);
+    assert(!sh_efficiency.valid);
     StrafeHelper_BeginPrediction();
     SetSample(600, .5f, 1, 0, 300, 2.4f);
     SetSample(800, .5f, 1, 0, 300, 2.4f);
@@ -392,11 +419,12 @@ int main(void)
     StrafeHelper_BeginPrediction();
     StrafeHelper_Clear();
     assert(StrafeHelper_IsPredicting());
+    StrafeHelper_SetEfficiency(velocity, wishdir, 300, 2.4f);
     StrafeHelper_EndPrediction();
-    assert(!StrafeHelper_HasData());
+    assert(!StrafeHelper_HasData() && sh_efficiency.valid);
     StrafeHelper_BeginPrediction();
     StrafeHelper_EndPrediction();
-    assert(!StrafeHelper_HasData() && !sh_smoothing_initialized);
+    assert(!StrafeHelper_HasData() && !sh_efficiency.valid && !sh_smoothing_initialized);
     Sample(400, .5f, .6f, 400, 300, 48); /* Every horizontal direction loses speed. */
     assert(!StrafeHelper_HasData());
 
@@ -410,6 +438,12 @@ int main(void)
 
 /* Rendering and configuration are boundary stubs; production math remains real. */
 float Cvar_ClampValue(cvar_t *var, float low, float high) { return Test_ClampCvarValue(var, low, high); }
+#if USE_UI
+bool HUD_EditorPreview(void) { return false; }
+bool HUD_EditorShow(int id) { return true; }
+float HUD_EditorClamp(cvar_t *var, float low, float high) { return Cvar_ClampValue(var, low, high); }
+void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h) {}
+#endif
 void R_SetScale(float scale) {}
 void R_SetColor(uint32_t color) {}
 void R_ClearColor(void) {}
@@ -453,6 +487,14 @@ void shc_drawGradientRectangle(float x, float y, float w, float h, float peak,
         saw_clipped_gradient = true;
     shc_drawFilledRectangle(x, y, w, h, edge);
 }
+void SH_Efficiency_Update(bool valid, float value)
+{
+    efficiency_updates++;
+    efficiency_update_valid = valid;
+    efficiency_update_value = value;
+}
+void SH_Efficiency_Draw(float y, float h, float width, float scale, int font) {}
+void SH_Efficiency_DrawPreview(float y, float h, float width, float scale, int font) {}
 cvar_t *cl_predict;
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_outline;
@@ -471,4 +513,5 @@ cvar_t *cl_strafehelperUpsFormat;
 cvar_t *cl_strafehelperUpsHideZero;
 cvar_t *cl_strafehelperUpsScale;
 cvar_t *cl_strafehelperUpsShadow;
+cvar_t *cl_strafehelperUpsX;
 cvar_t *cl_strafehelperUpsY;

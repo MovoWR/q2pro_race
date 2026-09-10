@@ -18,6 +18,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // cl_scrn.c -- master for refresh, status bar, console, chat, notify, etc
 
 #include "client.h"
+#include "client/hud_editor.h"
+#include "client/hud_layout.h"
 #include "src/jump/strafe_helper.h"
 #include "src/jump/strafe_helper_customization.h"
 #include "src/jump/sh_netmeter.h"
@@ -925,6 +927,7 @@ static void SCR_DrawObjects(void)
     drawobj_t *obj;
 
     FOR_EACH_DRAWOBJ(obj) {
+        HUD_LayoutBegin(HUD_LayoutObject(obj->macro ? obj->macro->name : obj->cvar->name));
         x = obj->x;
         y = obj->y;
         if (x < 0) {
@@ -952,6 +955,7 @@ static void SCR_DrawObjects(void)
             R_ClearColor();
             R_SetAlpha(scr_alpha->value);
         }
+        HUD_LayoutEnd();
     }
 }
 
@@ -1435,6 +1439,7 @@ SCR_Init
 */
 void SCR_Init(void)
 {
+    HUD_LayoutInit();
     scr_viewsize = Cvar_Get("viewsize", "100", CVAR_ARCHIVE);
     scr_showpause = Cvar_Get("scr_showpause", "1", 0);
     scr_centertime = Cvar_Get("scr_centertime", "2.5", 0);
@@ -1791,7 +1796,7 @@ static void SCR_DrawHealthBar(int x, int y, int value)
     R_DrawFill8(x + w, y, bar_width - w, h, 4);
 }
 
-static void SCR_ExecuteLayoutString(const char *s)
+static void SCR_ExecuteLayoutString(const char *s, bool statusbar)
 {
     char    buffer[MAX_QPATH];
     int     x, y;
@@ -1804,10 +1809,17 @@ static void SCR_ExecuteLayoutString(const char *s)
     if (!s[0])
         return;
 
+    bool grouped = statusbar && HUD_LayoutMatch(s);
+    const char *layout = s;
+    if (statusbar && !grouped) HUD_LayoutBegin(HL_OTHER_STATUS);
     x = 0;
     y = 0;
 
     while (s) {
+        if (grouped) {
+            HUD_LayoutEnd();
+            HUD_LayoutBegin(HUD_LayoutToken(layout, s));
+        }
         token = COM_Parse(&s);
         if (token[2] == 0) {
             if (token[0] == 'x') {
@@ -2152,6 +2164,7 @@ static void SCR_ExecuteLayoutString(const char *s)
         }
     }
 
+    if (statusbar) HUD_LayoutEnd();
     R_ClearColor();
     R_SetAlpha(scr_alpha->value);
 }
@@ -2221,6 +2234,48 @@ static void SCR_DrawHitMarker(void)
                      scr.hit_marker_pic);
 }
 
+static void SCR_DrawOverlay(int id, void (*draw_fn)(void))
+{
+    HUD_LayoutBegin(id);
+    draw_fn();
+    HUD_LayoutEnd();
+}
+
+void SCR_HudEditorPrepare(void)
+{
+    drawobj_t *obj;
+    int width = Q_rint(r_config.width * scr.hud_scale);
+    int height = Q_rint(r_config.height * scr.hud_scale);
+    FOR_EACH_DRAWOBJ(obj) {
+        char buffer[MAX_QPATH];
+        const char *text;
+        int id = HUD_LayoutObject(obj->macro ? obj->macro->name : obj->cvar->name);
+        if (obj->macro) { obj->macro->function(buffer, sizeof(buffer)); text = buffer; }
+        else text = obj->cvar->string;
+        int w = max(CHAR_WIDTH, (int)strlen(text) * CHAR_WIDTH);
+        int x = obj->x < 0 ? width + obj->x + 1 : obj->x;
+        int y = obj->y < 0 ? height + obj->y - CHAR_HEIGHT + 1 : obj->y;
+        if (obj->flags & UI_RIGHT) x -= w;
+        HUD_LayoutSetBounds(id, (vrect_t) { x, y, w, CHAR_HEIGHT });
+    }
+}
+
+static void SCR_DrawLocalFPS(void)
+{
+    const char *macros[] = { "r_mfps", "cl_mmps" };
+    const char *labels[] = { "Render", "Moves" };
+    for (int i = 0; i < 2; i++) {
+        char value[32], text[64];
+        cmd_macro_t *macro = Cmd_FindMacro(macros[i]);
+        if (!macro) continue;
+        macro->function(value, sizeof(value));
+        Q_snprintf(text, sizeof(text), "%s: %s %s", labels[i], value, i ? "MPS" : "FPS");
+        HUD_LayoutBegin(i ? HL_MOVE_FPS : HL_RENDER_FPS);
+        SCR_DrawString(scr.hud_width - 8, 40 + i * 10, UI_RIGHT, text);
+        HUD_LayoutEnd();
+    }
+}
+
 static void SCR_DrawCrosshair(void)
 {
     int x, y;
@@ -2235,13 +2290,15 @@ static void SCR_DrawCrosshair(void)
 
     R_SetColor(scr.crosshair_color.u32);
 
+    HUD_LayoutBegin(HL_CROSSHAIR);
     R_DrawStretchPic(x + ch_x->integer,
                      y + ch_y->integer,
                      scr.crosshair_width,
                      scr.crosshair_height,
                      scr.crosshair_pic);
 
-    SCR_DrawHitMarker();
+    HUD_LayoutEnd();
+    SCR_DrawOverlay(HL_HITMARKER, SCR_DrawHitMarker);
 }
 
 // The status bar is a small layout program that is based on the stats array
@@ -2252,7 +2309,7 @@ static void SCR_DrawStats(void)
     if (cl.frame.ps.stats[STAT_LAYOUTS] & LAYOUTS_HIDE_HUD)
         return;
 
-    SCR_ExecuteLayoutString(cl.configstrings[CS_STATUSBAR]);
+    SCR_ExecuteLayoutString(cl.configstrings[CS_STATUSBAR], true);
 }
 
 static void SCR_DrawLayout(void)
@@ -2267,14 +2324,15 @@ static void SCR_DrawLayout(void)
         return;
 
 draw:
-  SCR_ExecuteLayoutString(cl.layout);
+  SCR_ExecuteLayoutString(cl.layout, false);
 }
 
 //
 // q2pro_race strafe_helper
 //
 void SCR_DrawStrafeHelper(void) {
-    const bool preview = UI_IsMenuActive("strafehelper");
+    const bool preview = UI_IsMenuActive("strafehelper")
+                         || UI_IsMenuActive("shefficiency");
 
     if (preview) {
         if (!cl_drawStrafeHelper->integer) {
@@ -2288,13 +2346,20 @@ void SCR_DrawStrafeHelper(void) {
         .scale = cl_strafeHelperScale->value,
         .height = cl_strafeHelperHeight->value,
         .y = cl_strafeHelperY->value,
+        .hud_scale = scr.hud_scale,
     };
     if (preview) {
-        StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
+        StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height,
+                                 scr.font_pic);
     } else {
+        if (params.height > 0.0f && cl.frame.ps.pmove.pm_type == PM_NORMAL) {
+            StrafeHelper_UpdateEfficiency();
+        }
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.font_pic);
     }
+    HUD_LayoutBegin(HL_NERDSTATS);
     SH_NerdStats_Draw(scr.hud_width, scr.hud_height, scr.font_pic);
+    HUD_LayoutEnd();
     if (cl.frame.ps.pmove.pm_type == PM_FREEZE) {
         OriginUpdate();
     }
@@ -2385,11 +2450,14 @@ static void SCR_Draw2D(void)
     // crosshair has its own color and alpha
     SCR_DrawCrosshair();
 
-    // q2pro_race strafe_helper
-    if (cl_drawStrafeHelper->integer || UI_IsMenuActive("strafehelper")) {
-      SCR_DrawStrafeHelper();
+    if (!HUD_EditorActive()) {
+        // q2pro_race strafe_helper
+        if (cl_drawStrafeHelper->integer || UI_IsMenuActive("strafehelper")
+            || UI_IsMenuActive("shefficiency")) {
+          SCR_DrawStrafeHelper();
+        }
+        SH_Ups_Draw(scr.hud_width, scr.hud_height, scr.hud_scale, scr.font_pic);
     }
-    SH_Ups_Draw(scr.hud_width, scr.hud_height, scr.hud_scale, scr.font_pic);
 
     // the rest of 2D elements share common alpha
     R_ClearColor();
@@ -2399,37 +2467,39 @@ static void SCR_Draw2D(void)
         SCR_DebugGraph(cls.frametime * 300, 0xdc);
 
     if (scr_netgraph->integer == 2) {
-        SCR_DrawDetailedNetgraph();
+        SCR_DrawOverlay(HL_DEBUGGRAPH, SCR_DrawDetailedNetgraph);
     } else if (scr_debuggraph->integer || scr_timegraph->integer || scr_netgraph->integer) {
-        SCR_DrawDebugGraph();
+        SCR_DrawOverlay(HL_DEBUGGRAPH, SCR_DrawDebugGraph);
     }
 
-    SH_NetMeter_Draw();
+    if (!HUD_EditorActive())
+        SH_NetMeter_Draw();
 
     SCR_DrawStats();
 
-    SCR_DrawLayout();
+    SCR_DrawOverlay(HL_SCOREBOARD, SCR_DrawLayout);
 
-    SCR_DrawInventory();
+    SCR_DrawOverlay(HL_INVENTORY, SCR_DrawInventory);
 
-    SCR_DrawCenterString();
+    SCR_DrawOverlay(HL_CENTER, SCR_DrawCenterString);
 
-    SCR_DrawNet();
+    SCR_DrawOverlay(HL_NETICON, SCR_DrawNet);
 
     SCR_DrawObjects();
+    SCR_DrawLocalFPS();
 
-    SCR_DrawChatHUD();
+    SCR_DrawOverlay(HL_CHAT, SCR_DrawChatHUD);
 
-    SCR_DrawTurtle();
+    SCR_DrawOverlay(HL_TURTLE, SCR_DrawTurtle);
 
-    SCR_DrawPause();
+    SCR_DrawOverlay(HL_PAUSE, SCR_DrawPause);
 
     // debug stats have no alpha
     R_ClearColor();
 
 #if USE_DEBUG
-    SCR_DrawDebugStats();
-    SCR_DrawDebugPmove();
+    SCR_DrawOverlay(HL_DEBUG_STATS, SCR_DrawDebugStats);
+    SCR_DrawOverlay(HL_DEBUG_PMOVE, SCR_DrawDebugPmove);
 #endif
 
     R_SetScale(1.0f);
@@ -2456,7 +2526,7 @@ static void SCR_DrawActive(void)
     scr.hud_height = r_config.height;
     scr.hud_width = r_config.width;
 
-    SCR_DrawDemo();
+    SCR_DrawOverlay(HL_DEMO, SCR_DrawDemo);
 
     SCR_CalcVrect();
 
@@ -2506,6 +2576,7 @@ void SCR_UpdateScreen(void)
 
     recursive++;
 
+    HUD_LayoutFrame();
     R_BeginFrame();
 
     // do 3D refresh drawing
@@ -2518,7 +2589,7 @@ void SCR_UpdateScreen(void)
     Con_DrawConsole();
 
     // draw loading plaque
-    SCR_DrawLoading();
+    SCR_DrawOverlay(HL_LOADING, SCR_DrawLoading);
 
     R_EndFrame();
 

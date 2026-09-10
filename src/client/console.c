@@ -18,6 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // console.c
 
 #include "client.h"
+#include "client/hud_layout.h"
 
 #define CON_TIMES       16
 #define CON_TIMES_MASK  (CON_TIMES - 1)
@@ -758,6 +759,7 @@ static void Con_DrawNotify(void)
         j = CON_TIMES;
     }
 
+    HUD_LayoutBegin(HL_NOTIFY);
     v = 0;
     for (i = con.current - j + 1; i <= con.current; i++) {
         if (i < 0)
@@ -778,9 +780,11 @@ static void Con_DrawNotify(void)
         v += CHAR_HEIGHT;
     }
 
+    HUD_LayoutEnd();
     R_ClearColor();
 
     if (cls.key_dest & KEY_MESSAGE) {
+        HUD_LayoutBegin(HL_MESSAGE);
         if (con.chat == CHAT_TEAM) {
             text = "say_team:";
             skip = 11;
@@ -794,6 +798,7 @@ static void Con_DrawNotify(void)
         con.chatPrompt.inputLine.visibleChars = con.linewidth - skip + 1;
         IF_Draw(&con.chatPrompt.inputLine, skip * CHAR_WIDTH, v,
                 UI_DRAWCURSOR, con.charsetImage);
+        HUD_LayoutEnd();
     }
 }
 

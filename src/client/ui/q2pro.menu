@@ -305,6 +305,7 @@ begin jump
 
     style --live
     blank
+    action --status "Arrange jump overlays with the mouse." "edit HUD layout" hud_edit
     action --status "Configure the visual strafe-assist bar." "strafe helper" pushmenu strafehelper
     action --status "Show your current speed (Units Per Second)." "UPS display" pushmenu jumpups
     action --status "Draw a trailing line behind your movement." "race line" pushmenu raceline
@@ -389,6 +390,8 @@ begin strafehelper
 
     style --live
     toggle --show-value --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
+    toggle --show-value --status "Show an airborne acceleration-efficiency display below the helper." "efficiency" sh_efficiency --show-if sh_draw !0
+    action --status "Customize the efficiency display." --align "   efficiency options..." pushmenu shefficiency --show-if sh_efficiency !0
     toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker --show-if sh_draw !0
     range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1 --show-if sh_draw !0
     range --show-value --status "Vertical offset from screen center; negative values move upward." "Y position" sh_y -320 320 5 --show-if sh_draw !0
@@ -405,6 +408,31 @@ begin strafehelper
     field --picker --status "Color of the center neutral marker." "center marker color" sh_color_centermarker --show-if sh_draw !0
     blank --show-if sh_draw !0
     action --status "Choose from a set of pre-defined color schemes." --align "apply color preset..." pushmenu shpresets --show-if sh_draw !0
+end
+
+begin shefficiency
+    title "Efficiency Display"
+
+    style --live
+    toggle --show-value --status "Show the airborne acceleration-efficiency display." "enabled" sh_efficiency
+    strings --show-value --status "Show a bar, a percentage readout, both, or neither (tint only)." "style" sh_efficiency_style bar text both none --show-if sh_efficiency !0
+    strings --show-value --status "Tint strafe helper elements by current efficiency." "helper tint" sh_efficiency_tint off optimal zone both --show-if sh_efficiency !0
+    range --show-value --status "How strongly the tint overrides the helper colors." "   tint strength" sh_efficiency_tint_strength 0 1 0.05 --show-if sh_efficiency !0
+    range --show-value --status "Width of the efficiency bar in pixels." "width" sh_efficiency_width 8 4000 1 --show-if sh_efficiency !0
+    range --show-value --status "Height of the efficiency bar in pixels." "height" sh_efficiency_height 1 64 1 --show-if sh_efficiency !0
+    range --show-value --status "Horizontal offset from screen center." "X offset" sh_efficiency_x -4000 4000 5 --show-if sh_efficiency !0
+    range --show-value --status "Gap below the helper; negative values place it above." "Y offset" sh_efficiency_y -400 400 1 --show-if sh_efficiency !0
+    toggle --show-value --status "Draw a 1 pixel outline around the bar." "border" sh_efficiency_border --show-if sh_efficiency !0
+    range --show-value --status "Threshold marker position on the bar; 0 hides it." "marker" sh_efficiency_marker 0 1 0.05 --show-if sh_efficiency !0
+    range --show-value --status "Smooth the displayed value; 0 disables it." "smoothing" sh_efficiency_smoothing 0 10 0.1 --show-if sh_efficiency !0
+    range --show-value --status "Keep the last value on screen this long after data stops." "hold ms" sh_efficiency_hold_ms 0 2000 25 --show-if sh_efficiency !0
+    range --show-value --status "Scale of the percentage text." "text scale" sh_efficiency_text_scale 0.25 8 0.25 --show-if sh_efficiency !0
+    strings --show-value --status "Color by efficiency value, or use one fixed color." "color mode" sh_efficiency_color_mode dynamic static --show-if sh_efficiency !0
+    field --picker --status "Color near 100% efficiency; also the static color." "good color" sh_efficiency_color_good --show-if sh_efficiency !0
+    field --picker --status "Color at the gradient midpoint." "mid color" sh_efficiency_color_mid --show-if sh_efficiency !0
+    field --picker --status "Color near 0% efficiency." "bad color" sh_efficiency_color_bad --show-if sh_efficiency !0
+    field --picker --status "Background color of the bar track." "background color" sh_efficiency_color_bg --show-if sh_efficiency !0
+    range --show-value --status "Efficiency value where the mid color sits." "gradient midpoint" sh_efficiency_color_midpoint 0.05 0.95 0.05 --show-if sh_efficiency !0
 end
 
 begin shpresets

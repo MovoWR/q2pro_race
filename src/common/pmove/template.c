@@ -58,6 +58,22 @@ static bool PM_StrafeHelper_ShouldTrack(void)
     return true;
 }
 
+static bool PM_StrafeEfficiency_ShouldTrack(void)
+{
+    if (!cl_strafehelperEfficiency || !cl_strafehelperEfficiency->integer)
+        return false;
+    if (pm->s.pm_type != PM_NORMAL || pm->groundentity)
+        return false;
+    if (pml.ladder || pm->waterlevel != 0)
+        return false;
+    if (pm->s.pm_flags & (PMF_TIME_TELEPORT | PMF_TIME_WATERJUMP))
+        return false;
+    if (!pm->cmd.forwardmove && !pm->cmd.sidemove)
+        return false;
+
+    return true;
+}
+
 static void PM_UpdateStrafeHelper(const vec3_t wishdir, float wishspeed,
                                   float acceleration_target, float accel)
 {
@@ -70,6 +86,14 @@ static void PM_UpdateStrafeHelper(const vec3_t wishdir, float wishspeed,
                                            accel, pml.frametime);
     } else {
         StrafeHelper_Clear();
+    }
+
+    if (PM_StrafeEfficiency_ShouldTrack()) {
+        StrafeHelper_SetEfficiency(pml.velocity, wishdir,
+                                   acceleration_target,
+                                   accel * pml.frametime * wishspeed);
+    } else {
+        StrafeHelper_ClearEfficiency();
     }
 }
 #endif

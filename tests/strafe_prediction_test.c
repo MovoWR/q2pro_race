@@ -11,10 +11,11 @@ client_state_t cl;
 client_static_t cls;
 centity_t cl_entities[MAX_EDICTS];
 
-static cvar_t predict_var, paused_var, step_var;
+static cvar_t predict_var, paused_var, step_var, efficiency_var;
 cvar_t *cl_predict = &predict_var;
 cvar_t *sv_paused = &paused_var;
 cvar_t *cl_step_smoothing_mode = &step_var;
+cvar_t *cl_strafehelperEfficiency = &efficiency_var;
 #if USE_DEBUG
 static cvar_t showmiss_var;
 cvar_t *cl_showmiss = &showmiss_var;
@@ -24,6 +25,7 @@ static bsp_t empty_bsp;
 static mnode_t empty_node;
 static bool capturing, helper_have, slick_ground;
 static int failures, begins, ends, samples, helper_clears;
+static int efficiency_samples;
 static float sampled_target, sampled_wishspeed, end_velocity;
 
 static void Check(const char *name, bool condition)
@@ -52,6 +54,7 @@ void StrafeHelper_EndPrediction(void)
 
 bool StrafeHelper_IsPredicting(void) { return capturing; }
 void StrafeHelper_Clear(void) { helper_have = false; helper_clears++; }
+void StrafeHelper_ClearEfficiency(void) {}
 
 
 void StrafeHelper_SetAccelerationValues(const float forward[3],
@@ -65,6 +68,12 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
     samples++;
 }
 
+void StrafeHelper_SetEfficiency(const float velocity[3], const float wishdir[3],
+    float target, float budget)
+{
+    Check("efficiency sample belongs to final prediction", capturing);
+    efficiency_samples++;
+}
 
 
 void SH_NetMeter_PredictionError(int len) {}
@@ -120,6 +129,7 @@ static void Setup(void)
     predict_var = (cvar_t) { .integer = 1 };
     paused_var = (cvar_t) { 0 };
     step_var = (cvar_t) { .string = "q2pro" };
+    efficiency_var = (cvar_t) { .integer = 1 };
     cls.state = ca_active;
     cls.realtime = 100;
     cls.frametime = 0.008f;
@@ -137,6 +147,7 @@ static void Setup(void)
     capturing = slick_ground = false;
     helper_have = true;
     begins = ends = samples = helper_clears = 0;
+    efficiency_samples = 0;
     sampled_target = sampled_wishspeed = end_velocity = 0;
 }
 
@@ -148,6 +159,7 @@ static void TestFinalCommand(void)
     Check("historical non-strafe commands do not clear", helper_clears == 0 && helper_have);
     Check("capture closes after predicted results", !capturing && end_velocity == cl.predicted_velocity[0]
           && end_velocity != 0);
+    Check("only final efficiency sample is published", efficiency_samples == 1);
     CL_PredictMovement();
     Check("replaying history still publishes once", begins == 2 && ends == 2 && samples == 2
           && helper_clears == 0);
@@ -210,7 +222,8 @@ static void TestUnownedMovement(void)
             move.cmd = cl.cmds[3];
             PmoveNew(&move, &cl.pmp);
             Check("server or historical movement cannot change HUD", helper_have
-                  && samples == 0 && helper_clears == 0);
+                  && samples == 0 && helper_clears == 0
+                  && efficiency_samples == 0);
         }
     }
 }
@@ -250,7 +263,7 @@ static void TestMovementIsUnchanged(void)
     slick_ground = true;
     CL_PredictMovement();
     Check("slick ground still publishes regular strafe telemetry",
-          samples == 1 && begins == 1 && ends == 1);
+          samples == 1 && begins == 1 && ends == 1 && efficiency_samples == 0);
 
     pmove_t coast = { 0 };
     coast.s = cl.frame.ps.pmove;
