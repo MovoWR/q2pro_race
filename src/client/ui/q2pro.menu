@@ -491,8 +491,8 @@ begin jumpnetwork
     static "[Run Feedback]"
     pairs --show-value --status "Localized network status indicator." "network bar" sh_netmeter off 0 lagometer 1 netgraph 2 histogram 3
     pairs --show-value --status "Scale netmeter dynamically based on recent latency baseline." "adaptive scaling" sh_netmeter_adaptive off 0 on 1 --show-if sh_netmeter !0
-    range --show-value --status "Minimum latency scaling threshold in milliseconds." "min latency" sh_netmeter_min_ms 0 1000 10 --show-if sh_netmeter_adaptive 1
-    range --show-value --status "Maximum latency scaling threshold in milliseconds." "max latency" sh_netmeter_max_ms 0 1000 10 --show-if sh_netmeter_adaptive 1
+    range --show-value --status "Minimum latency scaling threshold in milliseconds." "min latency" sh_netmeter_min_ms 0 1000 10 --show-if sh_netmeter_adaptive 0
+    range --show-value --status "Maximum latency scaling threshold in milliseconds." "max latency" sh_netmeter_max_ms 0 1000 10 --show-if sh_netmeter_adaptive 0
     blank --show-if sh_netmeter !0
     static "[Lagometer Layout]" --show-if sh_netmeter 1
     range --show-value --status "Horizontal offset; negative values align from the right edge." "X position" sh_lagometer_x -640 640 1 --show-if sh_netmeter 1
