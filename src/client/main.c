@@ -106,6 +106,7 @@ cvar_t  *info_uf;
 extern cvar_t *gl_modulate_world;
 extern cvar_t *gl_modulate_entities;
 extern cvar_t *gl_brightness;
+extern cvar_t *gl_lava_intensity;
 #endif
 
 
@@ -702,6 +703,7 @@ void CL_ClearState(void)
     gl_modulate_world->flags &= ~CVAR_CHEAT;
     gl_modulate_entities->flags &= ~CVAR_CHEAT;
     gl_brightness->flags &= ~CVAR_CHEAT;
+    gl_lava_intensity->flags &= ~CVAR_CHEAT;
 #endif
 }
 

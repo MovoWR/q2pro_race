@@ -46,6 +46,7 @@ cvar_t *gl_modulate_world;
 cvar_t *gl_coloredlightmaps;
 cvar_t *gl_lightmap_bits;
 cvar_t *gl_brightness;
+cvar_t *gl_lava_intensity;
 cvar_t *gl_dynamic;
 cvar_t *gl_dlight_falloff;
 cvar_t *gl_modulate_entities;
@@ -1043,6 +1044,7 @@ static void GL_Register(void)
     gl_lightmap_bits->changed = gl_lightmap_changed;
     gl_brightness = Cvar_Get("gl_brightness", "0", 0);
     gl_brightness->changed = gl_lightmap_changed;
+    gl_lava_intensity = Cvar_Get("gl_lava_intensity", "1", 0);
     gl_dynamic = Cvar_Get("gl_dynamic", "1", 0);
     gl_dynamic->changed = gl_lightmap_changed;
     gl_dlight_falloff = Cvar_Get("gl_dlight_falloff", "1", 0);

@@ -237,6 +237,7 @@ extern cvar_t *gl_modulate_world;
 extern cvar_t *gl_coloredlightmaps;
 extern cvar_t *gl_lightmap_bits;
 extern cvar_t *gl_brightness;
+extern cvar_t *gl_lava_intensity;
 extern cvar_t *gl_dynamic;
 extern cvar_t *gl_dlight_falloff;
 extern cvar_t *gl_modulate_entities;
@@ -543,12 +544,14 @@ void GL_LoadWorld(const char *name);
 #define GLS_FOG_HEIGHT          BIT_ULL(27)
 #define GLS_FOG_SKY             BIT_ULL(28)
 
-#define GLS_BLOOM_GENERATE      BIT_ULL(29)
-#define GLS_BLOOM_OUTPUT        BIT_ULL(30)
-#define GLS_BLOOM_SHELL         BIT_ULL(31)
+#define GLS_LAVA_INTENSITY      BIT_ULL(29)
 
-#define GLS_BLUR_GAUSS          BIT_ULL(32)
-#define GLS_BLUR_BOX            BIT_ULL(33)
+#define GLS_BLOOM_GENERATE      BIT_ULL(30)
+#define GLS_BLOOM_OUTPUT        BIT_ULL(31)
+#define GLS_BLOOM_SHELL         BIT_ULL(32)
+
+#define GLS_BLUR_GAUSS          BIT_ULL(33)
+#define GLS_BLUR_BOX            BIT_ULL(34)
 
 #define GLS_BLEND_MASK          (GLS_BLEND_BLEND | GLS_BLEND_ADD | GLS_BLEND_MODULATE)
 #define GLS_COMMON_MASK         (GLS_DEPTHMASK_FALSE | GLS_DEPTHTEST_DISABLE | GLS_CULL_DISABLE | GLS_BLEND_MASK)
@@ -561,9 +564,9 @@ void GL_LoadWorld(const char *name);
 #define GLS_SHADER_MASK         (GLS_ALPHATEST_ENABLE | GLS_TEXTURE_REPLACE | GLS_SCROLL_ENABLE | \
                                  GLS_LIGHTMAP_ENABLE | GLS_WARP_ENABLE | GLS_INTENSITY_ENABLE | \
                                  GLS_GLOWMAP_ENABLE | GLS_SKY_MASK | GLS_DEFAULT_FLARE | GLS_MESH_MASK | \
-                                 GLS_FOG_MASK | GLS_BLOOM_MASK | GLS_BLUR_MASK)
+                                 GLS_FOG_MASK | GLS_LAVA_INTENSITY | GLS_BLOOM_MASK | GLS_BLUR_MASK)
 #define GLS_UNIFORM_MASK        (GLS_WARP_ENABLE | GLS_LIGHTMAP_ENABLE | GLS_INTENSITY_ENABLE | \
-                                 GLS_SKY_MASK | GLS_FOG_MASK | GLS_BLUR_MASK)
+                                 GLS_SKY_MASK | GLS_FOG_MASK | GLS_LAVA_INTENSITY | GLS_BLUR_MASK)
 #define GLS_SCROLL_MASK         (GLS_SCROLL_ENABLE | GLS_SCROLL_X | GLS_SCROLL_Y | GLS_SCROLL_FLIP | GLS_SCROLL_SLOW)
 
 typedef enum {
@@ -669,7 +672,8 @@ typedef struct {
     vec4_t      heightfog_end;
     GLfloat     heightfog_density;
     GLfloat     heightfog_falloff;
-    vec2_t      pad_4;
+    GLfloat     lava_intensity;
+    GLfloat     pad_4;
     vec4_t      vieworg;
 } glUniformBlock_t;
 

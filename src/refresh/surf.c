@@ -552,6 +552,11 @@ static uint32_t color_for_surface(const mface_t *surf)
     return U32_WHITE;
 }
 
+static bool is_opaque_lava_surface(const mface_t *surf)
+{
+    return !(surf->drawflags & SURF_TRANS_MASK) && strstr(surf->texinfo->name, "lava");
+}
+
 static bool enable_intensity_for_surface(const mface_t *surf)
 {
     // enable for any surface with a lightmap in DECOUPLED_LM maps
@@ -563,7 +568,7 @@ static bool enable_intensity_for_surface(const mface_t *surf)
         return true;
 
     // enable for non-transparent lava (hack)
-    if (!(surf->drawflags & SURF_TRANS_MASK) && strstr(surf->texinfo->name, "lava"))
+    if (is_opaque_lava_surface(surf))
         return true;
 
     return false;
@@ -586,6 +591,8 @@ static glStateBits_t statebits_for_surface(const mface_t *surf)
             statebits |= GLS_TEXTURE_REPLACE;
         if (enable_intensity_for_surface(surf))
             statebits |= GLS_INTENSITY_ENABLE;
+        if (is_opaque_lava_surface(surf))
+            statebits |= GLS_LAVA_INTENSITY;
     } else {
         if (!(surf->drawflags & SURF_COLOR_MASK))
             statebits |= GLS_TEXTURE_REPLACE;

@@ -105,7 +105,8 @@ static void write_block(sizebuf_t *buf, glStateBits_t bits)
         vec4 u_heightfog_end;
         float u_heightfog_density;
         float u_heightfog_falloff;
-        vec2 pad_4;
+        float u_lava_intensity;
+        float pad_4;
         vec4 u_vieworg;
     )
     GLSF("};\n");
@@ -580,6 +581,12 @@ static void write_fragment_shader(sizebuf_t *buf, glStateBits_t bits)
     if (bits & GLS_INTENSITY_ENABLE)
         GLSL(diffuse.rgb *= u_intensity;)
 
+    if (bits & GLS_LAVA_INTENSITY) {
+        GLSL(diffuse.rgb *= u_lava_intensity;)
+        if (bits & GLS_BLOOM_GENERATE)
+            GLSL(bloom.rgb *= u_lava_intensity;)
+    }
+
     if (bits & GLS_DEFAULT_FLARE)
         GLSL(
              diffuse.rgb *= (diffuse.r + diffuse.g + diffuse.b) / 3.0;
@@ -926,6 +933,7 @@ static void shader_setup_2d(void)
     gls.u_block.add = 0.0f;
     gls.u_block.intensity = 1.0f;
     gls.u_block.intensity2 = 1.0f;
+    gls.u_block.lava_intensity = 1.0f;
 
     gls.u_block.w_amp[0] = 0.0025f;
     gls.u_block.w_amp[1] = 0.0025f;
@@ -959,6 +967,7 @@ static void shader_setup_3d(void)
     gls.u_block.add = gl_brightness->value;
     gls.u_block.intensity = gl_intensity->value;
     gls.u_block.intensity2 = gl_intensity->value * gl_glowmap_intensity->value;
+    gls.u_block.lava_intensity = Cvar_ClampValue(gl_lava_intensity, 0.1f, 5.0f);
 
     gls.u_block.w_amp[0] = 0.0625f;
     gls.u_block.w_amp[1] = 0.0625f;
