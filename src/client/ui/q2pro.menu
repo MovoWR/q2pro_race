@@ -78,16 +78,18 @@ color focus_border #b8bec8aa
 color disabled   #aa4651ff
 
 begin video
-    title "Video Setup"
-
+    title "Video - Display"
     style --live
     values --show-value --status "Switch between fullscreen and windowed modes." "video mode" vid_fullscreen windowed $$vid_modelist
     toggle --show-value --status "Use a borderless window. With fullscreen enabled, this becomes borderless fullscreen." "borderless" vid_noborder
-    values --show-value --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
     toggle --show-value --status "Synchronize frame rate with monitor refresh to prevent tearing." "vertical sync" gl_swapinterval
+    action "Graphics settings..." pushmenu video_graphics
+end
+
+begin video_graphics
+    title "Graphics"
+    style --live
     pairs --show-value --status "Smooth jagged edges of geometry." "anti-aliasing" gl_multisamples no 0 "2x MSAA" 2 "4x MSAA" 4 "8x MSAA" 8
-    range --show-value --status "Adjust the brightness balance of game textures." "texture gamma" vid_gamma 1.3 0.3
-    toggle --show-value --status "Toggle use of monitor hardware for gamma correction." "hardware gamma" vid_hwgamma
     range --show-value --status "Lower values increase texture detail." "texture quality" gl_picmip 3 0 -1
     pairs --status "Choose between classic pixelated or modern smooth textures." "texture filter" gl_texturemode \
         nearest GL_NEAREST \
@@ -95,18 +97,27 @@ begin video
         bilinear GL_LINEAR_MIPMAP_NEAREST \
         trilinear GL_LINEAR_MIPMAP_LINEAR
     pairs --show-value --status "Improve texture clarity on surfaces viewed at an angle." "anisotropic filter" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16
+    values --show-value --status "Adjust how Field of View is calculated for wide screens." "fov scaling" cl_adjustfov vert- hor+
+    blank
+    action "Brightness and color..." pushmenu video_color
+    action "Advanced rendering..." pushmenu video_advanced
+end
+
+begin video_color
+    title "Brightness and Color"
+    style --live
+    range --show-value --status "Adjust the brightness balance of game textures." "texture gamma" vid_gamma 1.3 0.3
     range --show-value --status "Adjust the color intensity of game world textures." "texture saturation" gl_saturation 0 1
     range --show-value --status "Boost the overall brightness of textures." "texture intensity" intensity 1 3 0.1
     range --show-value --status "Scale opaque lava brightness without changing other textures (shader renderer only)." "lava brightness" gl_lava_intensity 0.1 3 0.1 --show-if gl_shaders !0
     range --show-value --status "Adjust the color intensity of static lightmaps." "lightmap saturation" gl_coloredlightmaps 0 1
     range --show-value --status "Fine-tune the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
-    values --status "Legacy GL1.x vs Modern GL3.x shaders." "rendering backend" gl_shaders legacy shaders
-    blank
-    action --status "Configure advanced and modern rendering options." --align "advanced settings..." pushmenu video_advanced
 end
 
 begin video_advanced
-    title "Advanced Video"
+    title "Advanced Rendering"
+    values --status "Legacy GL1.x vs Modern GL3.x shaders." "rendering backend" gl_shaders legacy shaders
+    toggle --show-value --status "Toggle use of monitor hardware for gamma correction." "hardware gamma" vid_hwgamma
 
     toggle --status "Draw skybox textures (disable to draw black sky)." "draw skybox" gl_drawsky
     toggle --status "Bilinear filtering of skybox textures." "sky filtering" gl_bilerp_skies

@@ -1,8 +1,17 @@
-Prerequisities
---------------
+Prerequisites
+-------------
 
-Q2PRO can be built on Linux, BSD and similar platfroms using a recent version
+Q2PRO can be built on Linux, BSD and similar platforms using a recent version
 of GCC or Clang.
+
+The build requires a C11 compiler, Python 3, Meson >= 0.59.0, and Ninja.
+`meson.build` declares the language/version requirements; `version.py` uses
+Python during configuration. CI installs the Python build tools with:
+
+    pip3 install --no-input meson ninja
+
+Run the recipes below from the repository root. See [Testing](#testing) for
+standalone regression checks.
 
 Q2PRO client requires either SDL2 or OpenAL for sound output. For video output,
 native X11 and Wayland backends are available, as well as generic SDL2 backend.
@@ -33,10 +42,9 @@ Ubuntu use the following command:
                     libavcodec-dev libavformat-dev libavutil-dev \
                     libswresample-dev libswscale-dev
 
-If you intend to build just dedicated server, smaller set of dependencies can
-be installed:
-
-    apt-get install meson gcc libc6-dev zlib1g-dev
+This fork currently builds the client and the bundled base game library.
+The dedicated `q2proded` executable block is commented out in `meson.build`;
+there is no enabled dedicated-server-only recipe in this checkout.
 
 Users of other distributions should look for equivalent development packages
 and install them.
@@ -56,7 +64,22 @@ Review and configure options:
     meson configure builddir
 
 Q2PRO specific options are listed in `Project options` section. They are
-defined in `meson_options.txt` file.
+defined in `meson_options.txt` file. Keep `client-ui=true` for full client
+builds: jump runtime sources currently share the menu source gate.
+The default game directory is `jump`, while the base game is `baseq2`.
+
+Optional libraries are selected with Meson feature options and the wrap files
+in `subprojects/`. Native Windows video links `opengl32`, sound/input uses
+`winmm`, and sockets use `ws2_32`. The tracked
+[Khronos archive](subprojects/packagefiles/khr-headers.tar.xz) supplies
+`subprojects/khr-headers.wrap` locally; Meson extracts it into
+`subprojects/khr-headers/`. Keep `subprojects/packagefiles/khr-headers.tar.xz`
+in the source tree, including offline/CI copies. If it is missing, obtain that
+file from the same source snapshot; the wrap has no download URL.
+
+On Unix, absent OpenGL headers or all video backends can disable the client
+target. Inspect the setup output; building only the game library or fixtures
+is not evidence of a successful client build.
 
 E.g. to install to different prefix:
 
@@ -67,6 +90,36 @@ Finally, invoke build command:
     meson compile -C builddir
 
 To enable verbose output during the build, use `meson compile -C builddir -v`.
+The outputs are in the build directory. For the Windows MSVC configurations:
+
+| Architecture | Client | Base game library |
+| --- | --- | --- |
+| x64 | `builddir/q2pro_race.exe` | `builddir/gamex86_64.dll` |
+| x86 | `builddir/q2pro_race.exe` | `builddir/gamex86.dll` |
+
+Other platforms use `q2pro_race` and a `game` library with the configured CPU
+suffix and platform library extension.
+
+
+Testing
+-------
+
+Run the standalone jump/HUD fixtures in a configured build directory:
+
+    meson test -C builddir --suite jump-hud --print-errorlogs
+
+Meson builds the required fixture targets before running them. The full suite
+has 11 tests with `client-ui=true`; no game assets or live server are needed.
+To run one fixture:
+
+    meson test -C builddir --suite jump-hud hud-editor-state --print-errorlogs
+
+The dependency-minimal Linux recipe is in [.github/workflows/build.yml](.github/workflows/build.yml).
+For display tests, coverage, and validation limits, see
+[Display settings](doc/display-settings.md#implementation-and-validation).
+
+Leave `-Dtests=false` for normal builds. The `tests` option enables dangerous
+built-in engine diagnostics and is not needed for the standalone suite.
 
 
 Installation
@@ -79,7 +132,7 @@ Run `sudo ninja -C builddir install` to install Q2PRO system-wide into
 configured prefix (`/usr/local` by default).
 
 Copy `baseq2/pak*.pak` files and `baseq2/players` directory from unpacked
-Quake 2 data into `/usr/local/share/q2pro/baseq2` to complete the
+Quake 2 data into `/usr/local/share/q2pro_race/baseq2` to complete the
 installation.
 
 Alternatively, configure with `-Dsystem-wide=false` to build a ‘portable’
@@ -89,6 +142,15 @@ is default when building for Windows).
 On Windows, Q2PRO automatically sets current directory to the directory Q2PRO
 executable is in. On other platforms current directory must be set before
 launching Q2PRO executable if portable version is built.
+
+The engine and bundled base game library do not supply a complete game-data
+installation. Joining an external Q2Jump server does not mean the bundled
+`src/game/` library implements that server's mod.
+For a portable Windows installation, the client belongs in the Quake II data
+root beside `baseq2/`. If installing the locally built base game library, place
+the architecture-matching DLL in `baseq2/`; do not substitute it for a Q2Jump
+server's own mod. Preserve the existing installation when choosing an output
+directory or copying files.
 
 
 Music support
@@ -110,8 +172,9 @@ MinGW-w64
 MinGW-w64 cross-compiler is available in recent versions of all major Linux
 distributions.
 
-Library dependencies that Q2PRO uses have been prepared as Meson subprojects
-and will be automatically downloaded and built by Meson.
+Wrapped dependencies with download URLs can be downloaded and built by Meson
+when downloads are allowed. The Khronos headers instead use the tracked local
+archive described in [Building](#building); retain it in the source tree.
 
 To install MinGW-w64 on Debian or Ubuntu, use the following command:
 
@@ -122,20 +185,12 @@ with SIMD support:
 
     apt-get install nasm
 
-Meson needs correct cross build definition file for compilation. Example
-cross-files can be found in `.ci` subdirectory (available in git
-repository, but not source tarball). Note that these cross-files are specific
-to CI scripts and shouldn't be used directly (you'll need, at least, to
-customize default `pkg-config` search path). Refer to Meson documentation for
-more info.
-
-Setup build directory:
-
-    meson setup --cross-file x86_64-w64-mingw32.txt -Dwrap_mode=forcefallback builddir
-
-Build:
-
-    meson compile -C builddir
+Meson needs a cross-file describing your compiler, target machine, and
+`pkg-config` search paths. This checkout has no `.ci` directory or bundled
+MinGW cross-file, so the historical cross-file command is not a ready-to-run
+recipe here. Supply and verify a file for your toolchain before configuring.
+Current Windows CI uses MSVC instead; MinGW was not validated in this
+documentation update.
 
 
 Visual Studio
@@ -143,18 +198,36 @@ Visual Studio
 
 It is possible to build Q2PRO on Windows using Visual Studio 2022 and Meson.
 
-Install Visual Studio and Meson using official installers.
+Install Visual Studio with the MSVC C/C++ toolset and a Windows SDK. Install
+Python 3 and the Meson/Ninja tools described under [Prerequisites](#prerequisites).
+Make Python, Meson, and Ninja available on PATH in the developer shell.
 
 Optionally, download and install nasm executable. The easiest way to add it
 into PATH is to put it into `Program Files/Meson`.
 
 The build needs to be launched from appropriate Visual Studio command line
-shell, e.g. `x64 Native Tools Command Prompt`.
+shell: use `x64 Native Tools Command Prompt` for x64 or
+`x86 Native Tools Command Prompt` for x86. Use a separate build directory per
+architecture.
 
 Change to Q2PRO source directory, then setup build directory:
 
     meson setup -Dwrap_mode=forcefallback builddir
 
+This permits Meson to download/build available dependency fallbacks. It does
+not install Visual Studio, the Windows SDK, or dependencies without a wrap.
+CI additionally disables FFmpeg, SDL2, X11, and Wayland, and uses release
+builds with `-Db_ndebug=true`; see `.github/workflows/build.yml` for the exact
+matrix and feature flags.
+
 Build:
 
     meson compile -C builddir
+
+Run the regression suite:
+
+    meson test -C builddir --suite jump-hud --print-errorlogs
+
+The CI configuration defines Windows x64 and x86 builds. Its existence is
+not a current test result or a guarantee that an old local executable matches
+your working tree.

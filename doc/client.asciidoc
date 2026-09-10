@@ -623,18 +623,34 @@ Video mode change no longer requires ‘vid_restart’ and is nearly instant.  I
 windowed mode, size as well as position of the main window can be changed
 freely.
 
+On Windows, the Display menu provides Windowed, Borderless fullscreen and
+Exclusive fullscreen modes, a monitor selector, and mode-specific size/rate
+controls. Apply starts a 15-second Keep/Revert confirmation before saving the
+configuration. Back discards unapplied changes. See
+link:display-settings.md[Display settings] for behavior and validation details.
+
 vid_modelist::
     Space separated list of fullscreen video modes. Both _freq_ and _bpp_
     parameters are optional. Full syntax is: 'WxH[@freq][:bpp] [...]'. Default
     value is "640x480 800x600 1024x768". On Linux, _freq_ parameter is currently
     ignored. Special keyword ‘desktop’ means to use default desktop video mode.
+    Confirming an exclusive mode in the Windows Display menu saves its entry
+    in this list and archives the list together with the selected index.
 
 vid_fullscreen::
     If set to non zero _value_, run in the specified fullscreen mode. This way,
     _value_ acts as index into the list of video modes specified by
     ‘vid_modelist’. Default value is 0, which means to run in windowed mode.
     On Windows, `vid_fullscreen` with `vid_noborder` set selects borderless
-    fullscreen on the nearest monitor instead of exclusive fullscreen.
+    fullscreen on the selected monitor instead of exclusive fullscreen.
+
+vid_monitor::
+    On Windows, selects a display by its Windows device identifier. Empty means
+    automatic selection. The Display menu populates this archived value.
+
+_vid_fullscreen_borderless::
+    Remembers the last confirmed fullscreen type for Alt-Enter on Windows.
+    Empty preserves the initial exclusive-fullscreen preference.
 
 vid_geometry::
     Size and optional position of the main window on virtual desktop.
@@ -648,7 +664,9 @@ vid_flip_on_switch::
 vid_noborder::
     On Windows, hides the main window border. If combined with non-zero
     `vid_fullscreen`, the Windows port uses borderless fullscreen instead of
-    changing the desktop display mode. Default value is 0.
+    changing the desktop display mode. Default value is 0. Selecting Windowed
+    in the Display menu clears this, `win_notitle`, and `win_noresize` to restore
+    a draggable, resizable window.
 
 vid_hwgamma::
     Instructs the video driver to use hardware gamma correction for

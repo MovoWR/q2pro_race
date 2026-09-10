@@ -49,9 +49,10 @@ HELPER FUNCTIONS
 // 640x480@75
 // 640x480@75:32
 // 640x480:32@75
-bool VID_GetFullscreen(vrect_t *rc, int *freq_p, int *depth_p)
+bool VID_GetFullscreenMode(int index, vrect_t *rc, int *freq_p, int *depth_p)
 {
     unsigned long w, h, freq, depth;
+    bool desktop;
     char *s;
     int mode;
 
@@ -77,7 +78,8 @@ bool VID_GetFullscreen(vrect_t *rc, int *freq_p, int *depth_p)
 
     mode = 1;
     while (1) {
-        if (!strncmp(s, "desktop", 7)) {
+        desktop = !strncmp(s, "desktop", 7);
+        if (desktop) {
             s += 7;
             if (*s && !Q_isspace(*s)) {
                 Com_DPrintf("Mode %d is malformed\n", mode);
@@ -104,20 +106,20 @@ bool VID_GetFullscreen(vrect_t *rc, int *freq_p, int *depth_p)
                 }
             }
         }
-        if (mode == vid_fullscreen->integer) {
+        if (mode == index) {
             break;
         }
         while (Q_isspace(*s))
             s++;
         if (!*s) {
-            Com_DPrintf("Mode %d not found\n", vid_fullscreen->integer);
+            Com_DPrintf("Mode %d not found\n", index);
             return false;
         }
         mode++;
     }
 
     // sanity check
-    if (w < 320 || w > 8192 || h < 240 || h > 8192 || freq > 1000 || depth > 32) {
+    if (!desktop && (w < 320 || w > 8192 || h < 240 || h > 8192 || freq > 1000 || depth > 32)) {
         Com_DPrintf("Mode %lux%lu@%lu:%lu doesn't look sane\n", w, h, freq, depth);
         return false;
     }
@@ -131,6 +133,12 @@ bool VID_GetFullscreen(vrect_t *rc, int *freq_p, int *depth_p)
         *depth_p = depth;
 
     return true;
+}
+
+bool VID_GetFullscreen(vrect_t *rc, int *freq_p, int *depth_p)
+{
+    // Existing backends use false for the desktop-fullscreen path.
+    return VID_GetFullscreenMode(vid_fullscreen ? vid_fullscreen->integer : 0, rc, freq_p, depth_p) && rc->width != 0;
 }
 
 // 640x480
@@ -198,6 +206,9 @@ void VID_SetGeometry(const vrect_t *rc)
 
 void VID_ToggleFullscreen(void)
 {
+    if (VID_ToggleDisplay())
+        return;
+
     if (!vid_fullscreen || !_vid_fullscreen)
         return;
 
@@ -270,6 +281,7 @@ void CL_RunRefresh(void)
     }
 
     vid->pump_events();
+    VID_DisplayFrame();
 
     if (mode_changed) {
         if (mode_changed & MODE_FULLSCREEN) {
@@ -343,6 +355,8 @@ void CL_InitRefresh(void)
     vid_fullscreen = Cvar_Get("vid_fullscreen", "0", CVAR_ARCHIVE);
     _vid_fullscreen = Cvar_Get("_vid_fullscreen", "1", CVAR_ARCHIVE);
     vid_geometry = Cvar_Get("vid_geometry", VID_GEOMETRY, CVAR_ARCHIVE);
+    Cvar_Get("vid_monitor", "", CVAR_ARCHIVE);
+    Cvar_Get("_vid_fullscreen_borderless", "", CVAR_ARCHIVE);
 
     if (vid_fullscreen->integer) {
         Cvar_Set("_vid_fullscreen", vid_fullscreen->string);

@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "ui.h"
 #include "client/hud_editor.h"
 #include "client/input.h"
+#include "client/video.h"
 #include "common/files.h"
 #include "common/prompt.h"
 
@@ -573,18 +574,15 @@ void UI_MouseEvent(int x, int y)
 
 static bool UI_ShouldDrawCursor(void)
 {
-    cvar_t *vid_noborder;
-
-    if (!(r_config.flags & QVF_FULLSCREEN) || !uis.cursorHandle) {
+    if (!UI_GetCursorTextureName(cl_menu_cursor->string) && !VID_PendingDisplaySettings())
         return false;
-    }
-
-    vid_noborder = Cvar_WeakGet("vid_noborder");
-    if (vid_noborder && vid_noborder->integer) {
+    if (vid && vid->uses_system_cursor)
+        return !vid->uses_system_cursor();
+    // Legacy backends show a system cursor in windowed menus.
+    if (!(r_config.flags & QVF_FULLSCREEN))
         return false;
-    }
-
-    return true;
+    cvar_t *vid_noborder = Cvar_WeakGet("vid_noborder");
+    return !vid_noborder || !vid_noborder->integer;
 }
 
 static int UI_ClampColorComponent(int value)
@@ -995,6 +993,7 @@ void UI_Draw(unsigned realtime)
     bool cvar_changed = false;
 
     uis.realtime = realtime;
+    M_VideoFrame();
 
     if (!(Key_GetDest() & KEY_MENU)) {
         return;
@@ -1050,10 +1049,19 @@ void UI_Draw(unsigned realtime)
 
 
 
-    // draw custom cursor only in exclusive fullscreen when the OS cursor is disabled
+    // Cursor rendering must not inherit text tint or menu transition alpha.
     if (UI_ShouldDrawCursor()) {
-        R_DrawPic(uis.mouseCoords[0] - uis.cursorWidth / 2,
-                  uis.mouseCoords[1] - uis.cursorHeight / 2, uis.cursorHandle);
+        R_ClearColor();
+        if (uis.cursorHandle) {
+            R_DrawPic(uis.mouseCoords[0] - uis.cursorWidth / 2,
+                      uis.mouseCoords[1] - uis.cursorHeight / 2, uis.cursorHandle);
+        } else {
+            int x = uis.mouseCoords[0], y = uis.mouseCoords[1];
+            (R_DrawFill32)(x - 5, y - 2, 11, 5, 0xff000000);
+            (R_DrawFill32)(x - 2, y - 5, 5, 11, 0xff000000);
+            (R_DrawFill32)(x - 4, y, 9, 1, 0xffffffff);
+            (R_DrawFill32)(x, y - 4, 1, 9, 0xffffffff);
+        }
     }
 
     if (ui_debug->integer) {
@@ -1488,6 +1496,7 @@ void UI_Init(void)
     M_Menu_PlayerConfig();
     M_Menu_Servers();
     M_Menu_Demos();
+    M_Menu_Video();
     HUD_EditorInit();
 
     Com_DPrintf("Registered %d menus.\n", List_Count(&ui_menus));

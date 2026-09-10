@@ -583,6 +583,8 @@ void        Menu_FreeColorPicker(void);
 
 void M_Menu_PlayerConfig(void);
 void M_Menu_Demos(void);
+void M_Menu_Video(void);
+void M_VideoFrame(void);
 void M_Menu_Servers(void);
 
 extern menuFrameWork_t *ui_drawing_menu;

@@ -189,6 +189,10 @@ const vid_driver_t vid_win32egl = {
     .get_mode_list = Win_GetModeList,
     .get_dpi_scale = Win_GetDpiScale,
     .set_mode = Win_SetMode,
+    .get_displays = Win_GetDisplays,
+    .get_display_modes = Win_GetDisplayModes,
+    .get_display_settings = Win_GetDisplaySettings,
+    .apply_display_settings = Win_ApplyDisplaySettings,
     .update_gamma = Win_UpdateGamma,
 
     .get_proc_addr = egl_get_proc_addr,
@@ -204,4 +208,5 @@ const vid_driver_t vid_win32egl = {
     .grab_mouse = Win_GrabMouse,
     .warp_mouse = Win_WarpMouse,
     .get_mouse_motion = Win_GetMouseMotion,
+    .uses_system_cursor = Win_UsesSystemCursor,
 };

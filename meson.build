@@ -39,6 +39,7 @@ client_src = [
   'src/client/console.c',
   'src/client/crc.c',
   'src/client/demo.c',
+  'src/client/display.c',
   'src/client/download.c',
   'src/client/effects.c',
   'src/client/entities.c',
@@ -71,6 +72,7 @@ client_src = [
 
 ui_src = [
   'src/client/ui/demos.c',
+  'src/client/ui/video.c',
   'src/client/ui/hud_editor.c',
   'src/client/ui/menu.c',
   'src/client/ui/modelpreview.c',
@@ -373,9 +375,9 @@ else
 endif
 
 # Stubbed tests must remain available without a configured video backend.
-jump_test_deps = []
+strafe_efficiency_test_deps = []
 if not win32 and libm.found()
-  jump_test_deps += libm
+  strafe_efficiency_test_deps += libm
 endif
 
 strafe_efficiency_test_exe = executable(
@@ -385,11 +387,41 @@ strafe_efficiency_test_exe = executable(
     'src/jump/strafe_efficiency.c',
   ],
   include_directories: 'src/jump',
-  dependencies: jump_test_deps,
+  dependencies: strafe_efficiency_test_deps,
   build_by_default: false,
   install: false,
 )
 test('strafe-efficiency', strafe_efficiency_test_exe, suite: 'jump-hud')
+
+if get_option('client-ui')
+  # Exercise the production mode parser, controller and menu with engine stubs.
+  display_settings_test = executable(
+    'display_settings_test',
+    ['tests/display_settings_test.c', 'src/client/refresh.c', 'src/shared/shared.c'],
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+            cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+    link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+    dependencies: strafe_efficiency_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('display-settings', display_settings_test, suite: 'video')
+  if win32
+    windows_display_test = executable(
+      'windows_display_test',
+      ['tests/windows_display_test.c', 'src/client/refresh.c', 'src/shared/shared.c'],
+      include_directories: ['inc', '.'],
+      c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1', '-D_WIN32_WINNT=0x0601'] +
+              cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+      link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+      dependencies: common_deps,
+      build_by_default: false,
+      install: false,
+    )
+    test('windows-display', windows_display_test, suite: 'video')
+  endif
+endif
 
 # Compile the production helper and prediction paths with boundary stubs.
 strafe_helper_test_exe = executable(
@@ -397,7 +429,7 @@ strafe_helper_test_exe = executable(
   ['tests/strafe_helper_test.c', 'src/jump/strafe_efficiency.c'],
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-  dependencies: jump_test_deps + common_deps,
+  dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
 )
@@ -405,10 +437,12 @@ test('strafe-helper', strafe_helper_test_exe, suite: 'jump-hud')
 
 strafe_prediction_test_exe = executable(
   'strafe_prediction_test',
-  'tests/strafe_prediction_test.c',
+  [
+    'tests/strafe_prediction_test.c',
+  ],
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-  dependencies: jump_test_deps + common_deps,
+  dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
 )
@@ -417,7 +451,7 @@ test('strafe-prediction', strafe_prediction_test_exe, suite: 'jump-hud')
 hud_editor_test_exe = executable(
   'hud_editor_test',
   'tests/hud_editor_test.c',
-  dependencies: jump_test_deps,
+  dependencies: strafe_efficiency_test_deps,
   build_by_default: false,
   install: false,
 )
@@ -427,7 +461,7 @@ hud_layout_match_test = executable(
   'hud_layout_match_test',
   'tests/hud_layout_match_test.c',
   include_directories: ['inc', '.'],
-  dependencies: jump_test_deps,
+  dependencies: strafe_efficiency_test_deps,
   build_by_default: false,
   install: false,
 )
@@ -436,7 +470,7 @@ test('hud-server-layout', hud_layout_match_test, suite: 'jump-hud')
 draw_group_test = executable(
   'draw_group_test',
   'tests/draw_group_test.c',
-  dependencies: jump_test_deps,
+  dependencies: strafe_efficiency_test_deps,
   build_by_default: false,
   install: false,
 )
@@ -449,7 +483,7 @@ if get_option('client-ui')
     'tests/netmeter_test.c',
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps,
+    dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )
@@ -460,7 +494,7 @@ if get_option('client-ui')
     'tests/sh_menu_test.c',
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps,
+    dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )
@@ -471,7 +505,7 @@ if get_option('client-ui')
     ['tests/strafe_efficiency_draw_test.c', 'src/jump/strafe_efficiency.c'],
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps,
+    dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )
@@ -482,7 +516,7 @@ if get_option('client-ui')
     'tests/hud_editor_state_test.c',
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps,
+    dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )
@@ -493,7 +527,7 @@ if get_option('client-ui')
     'tests/hud_layout_state_test.c',
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps,
+    dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )

@@ -95,7 +95,7 @@ The menu has been rebuilt around the race and jump workflow while keeping classi
 
 ## Custom Cvars
 
-See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD, network, menu and video cvars added by this fork.
+See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD, network, sound, menu and video cvars added by this fork.
 
 ## Install
 

@@ -81,6 +81,11 @@ typedef struct {
     HDC     dc;
 
     DEVMODE  dm;
+    DEVMODEA desktop_dm;
+    char display_device[64];
+    vid_display_mode_t display_mode;
+    unsigned window_flags;
+    bool applying_display;
 
     DWORD   lastMsgTime;
     HHOOK   kbdHook;
@@ -109,6 +114,7 @@ typedef struct {
         MODE_POS        = BIT(1),
         MODE_STYLE      = BIT(2),
         MODE_REPOSITION = BIT(3),
+        MODE_DISPLAY    = BIT(4),
     } mode_changed;
 
     struct {
@@ -121,6 +127,7 @@ typedef struct {
     } mouse;
 
     UINT (WINAPI *GetDpiForWindow)(HWND hwnd);
+    BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT rect, DWORD style, BOOL menu, DWORD ex_style, UINT dpi);
 } win_state_t;
 
 extern win_state_t      win;
@@ -130,6 +137,10 @@ void Win_Shutdown(void);
 char *Win_GetModeList(void);
 int Win_GetDpiScale(void);
 void Win_SetMode(void);
+vid_display_t *Win_GetDisplays(int *count);
+vid_display_resolution_t *Win_GetDisplayModes(const char *display, int *count);
+bool Win_GetDisplaySettings(vid_display_settings_t *settings);
+bool Win_ApplyDisplaySettings(const vid_display_settings_t *settings);
 void Win_UpdateGamma(const byte *table);
 void Win_PumpEvents(void);
 char *Win_GetClipboardData(void);
@@ -140,6 +151,7 @@ void Win_ShutdownMouse(void);
 void Win_GrabMouse(bool grab);
 void Win_WarpMouse(int x, int y);
 bool Win_GetMouseMotion(int *dx, int *dy);
+bool Win_UsesSystemCursor(void);
 
 #endif // USE_CLIENT
 

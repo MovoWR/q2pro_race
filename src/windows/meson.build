@@ -4,7 +4,10 @@ common_src += files('system.c', 'hunk.c')
 client_src += files('client.c', 'wgl.c')
 
 common_deps += cc.find_library('ws2_32')
-client_deps += cc.find_library('opengl32')
+client_deps += [
+  cc.find_library('opengl32'),
+  cc.find_library('winmm'),
+]
 
 rc_args = ['-DHAVE_CONFIG_H']
 rc_inc = meson.project_build_root()
@@ -30,7 +33,6 @@ client_deps += subproject('khr-headers').get_variable('khr_headers_dep')
 
 if get_option('software-sound').allowed()
   client_src += files('wave.c', 'dsound.c')
-  client_deps += cc.find_library('winmm')
 endif
 
 if get_option('windows-egl')

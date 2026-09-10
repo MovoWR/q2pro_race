@@ -40,9 +40,9 @@ jobs:
           meson setup --auto-features=disabled --wrap-mode=nodownload \
             -Dsystem-wide=false -Db_ndebug=true builddir-strafe
 
-      - name: Build and run jump and HUD unit tests
+      - name: Build and run jump, HUD and video unit tests
         run: |
-          meson test -C builddir-strafe --suite jump-hud --print-errorlogs
+          meson test -C builddir-strafe --suite jump-hud --suite video --print-errorlogs
 
   windows:
     runs-on: windows-latest
@@ -96,8 +96,8 @@ jobs:
       - name: Build
         run: meson compile -C builddir-${{ matrix.arch }}
 
-      - name: Run jump and HUD unit tests
-        run: meson test -C builddir-${{ matrix.arch }} --suite jump-hud --print-errorlogs
+      - name: Run jump, HUD and video unit tests
+        run: meson test -C builddir-${{ matrix.arch }} --suite jump-hud --suite video --print-errorlogs
 
       - name: Collect artifacts
         run: |
