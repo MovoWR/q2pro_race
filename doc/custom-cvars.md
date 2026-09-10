@@ -102,6 +102,12 @@ Viewport clipping does not replace the saved UPS offset.
 
 ## Network Meter Core
 
+Netgraph and histogram heights use fixed limits of 1-4000 HUD pixels; custom
+histogram width uses 10-4000. Drawing clips to the current viewport without
+replacing saved dimensions, so a larger viewport restores the configured size.
+The legacy detailed graph (`scr_netgraph 2`) keeps its 10-200 pixel drawing range
+without changing the shared `sh_netgraph_height` setting.
+
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_netmeter` | `3` | Selects the network display mode: off, lagometer, netgraph, or histogram. |
@@ -122,7 +128,7 @@ Viewport clipping does not replace the saved UPS offset.
 
 | Cvar | Default | Description |
 | --- | --- | --- |
-| `sh_netalert` | `1` | Enables network incident text alerts. |
+| `sh_netalert` | `1` | Enables network incident text alerts independently of the network graph; alerts also work with `sh_netmeter 0`. |
 | `sh_netalert_x` | `0` | Alert X position. |
 | `sh_netalert_y` | `353` | Alert Y position. |
 | `sh_netalert_color` | `1` | Alert color or severity-based color mode. |
@@ -160,6 +166,12 @@ Viewport clipping does not replace the saved UPS offset.
 | `sh_netgraph_color_loss_c2s` | `11` | Palette index for client-to-server/choke loss. |
 
 ## Histogram Display
+
+Samples mapped to one column retain the greatest height and highest incident
+priority: server-to-client loss, client-to-server loss, spike, jitter, then normal.
+The newest sample wins equal-priority ties for color fading. Burst client loss
+that exhausts command redundancy is included in loss detection and excluded from
+the clean latency/jitter baseline. Jitter averaging retains fractional milliseconds.
 
 | Cvar | Default | Description |
 | --- | --- | --- |

@@ -2316,7 +2316,7 @@ static void SCR_DrawDetailedNetgraph(void)
 
     if (graph_alpha <= 0.0f) graph_alpha = 0.35f;
 
-    height = Cvar_ClampInteger(sh_netgraph_height, 10, 200);
+    height = Q_clip(sh_netgraph_height->integer, 10, 200);
     w = scr.hud_width;
     y = scr.hud_height;
     max_height = height;

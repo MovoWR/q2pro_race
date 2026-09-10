@@ -397,6 +397,17 @@ strafe_prediction_test_exe = executable(
 test('strafe-prediction', strafe_prediction_test_exe, suite: 'jump-hud')
 
 if get_option('client-ui')
+  netmeter_test_exe = executable(
+    'netmeter_test',
+    'tests/netmeter_test.c',
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+    dependencies: jump_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('jump-netmeter', netmeter_test_exe, suite: 'jump-hud')
+
   sh_menu_test_exe = executable(
     'sh_menu_test',
     'tests/sh_menu_test.c',

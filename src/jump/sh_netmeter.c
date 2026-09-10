@@ -1,5 +1,6 @@
 #include <src/client/client.h>
 #include "sh_netmeter.h"
+#include "sh_draw_math.h"
 #include <src/client/ui/ui.h>
 
 typedef enum {
@@ -7,7 +8,7 @@ typedef enum {
     NETEVENT_JITTER = BIT(1),  // Unstable latency variation
     NETEVENT_LOSS   = BIT(2),  // Packet loss detected
     NETEVENT_CHOKE  = BIT(3),  // Updates limited by rate/bandwidth
-    NETEVENT_PRED   = BIT(4)   // Client prediction disagrees with server
+    NETEVENT_PRED   = BIT(4)   // Client commands lost on their way to the server
 } netevent_flags_t;
 
 typedef struct {
@@ -37,8 +38,8 @@ static struct {
     unsigned        avg_ping;
     unsigned        display_ping;
     unsigned        last_ping;
-    unsigned        jitter;
-    unsigned        jitter_base;
+    double          jitter;
+    double          jitter_base;
     unsigned        ping_samples;
 } netmeter;
 
@@ -69,7 +70,8 @@ static void SH_NetMeter_PushSample(unsigned time, unsigned ping,
 void SH_NetMeter_Sample(unsigned ping)
 {
     unsigned events = 0;
-    unsigned delta, spike_threshold, jitter_threshold;
+    unsigned delta, spike_threshold;
+    double jitter_threshold;
     int spike, spike_pct, jitter;
     bool has_loss = false;
 
@@ -86,7 +88,7 @@ void SH_NetMeter_Sample(unsigned ping)
         has_loss = true;
     }
 
-    if (cl.frameflags & FF_CLIENTDROP) {
+    if (cl.frameflags & (FF_CLIENTDROP | FF_CLIENTPRED)) {
         events |= NETEVENT_PRED;
         has_loss = true;
     }
@@ -110,7 +112,7 @@ void SH_NetMeter_Sample(unsigned ping)
 
             // Adaptive jitter threshold: with a minimum floor of 10ms to avoid noise
             unsigned jitter_floor = jitter > 10 ? jitter : 10;
-            jitter_threshold = max(jitter_floor, netmeter.jitter_base + spike_threshold / 4);
+            jitter_threshold = max(jitter_floor, netmeter.jitter_base + spike_threshold / 4.0);
         } else {
             spike_threshold = spike;
             jitter_threshold = jitter;
@@ -135,12 +137,12 @@ void SH_NetMeter_Sample(unsigned ping)
 
         if (netmeter.ping_samples > 0) {
             delta = abs((int)ping - (int)netmeter.last_ping);
-            netmeter.jitter = (netmeter.jitter * 7 + delta) >> 3;
+            netmeter.jitter = (netmeter.jitter * 7 + delta) / 8.0;
 
             if (netmeter.ping_samples == 1) {
                 netmeter.jitter_base = netmeter.jitter;
             } else if (netmeter.jitter < netmeter.jitter_base + 2) {
-                netmeter.jitter_base = (netmeter.jitter_base * 15 + netmeter.jitter) >> 4;
+                netmeter.jitter_base = (netmeter.jitter_base * 15 + netmeter.jitter) / 16.0;
             }
         }
 
@@ -514,7 +516,8 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
     float graph_alpha;
 
     w = scr.hud_width;
-    draw_h = Cvar_ClampInteger(sh_netgraph_height, 1, scr.hud_height);
+    draw_h = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_netgraph_height, 1, 4000),
+                                   1, scr.hud_height);
     y = sh_netgraph_y->integer;
 
     if (y < 0) {
@@ -579,12 +582,24 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
     R_SetAlpha(global_alpha);
 }
 
+/* Match the visible graph colors; choke has no separate graph styling. */
+static int SCR_NetMeterGraphPriority(unsigned flags)
+{
+    if (flags & NETEVENT_LOSS) return 4;
+    if (flags & NETEVENT_PRED) return 3;
+    if (flags & NETEVENT_SPIKE) return 2;
+    if (flags & NETEVENT_JITTER) return 1;
+    return 0;
+}
+
 static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
 {
     int x, y, draw_x, draw_y, draw_w, draw_h, history, count, n, h, color;
     int v_min, v_max, v_range;
     unsigned age;
     float alpha, age_scale;
+    const netmeter_sample_t *column = NULL;
+    int column_height = 0, column_priority = 0;
 
     switch (Cvar_ClampInteger(sh_histogram_width_mode, 0, 2)) {
     case 2:
@@ -594,10 +609,12 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         draw_w = Q_clip(scr.hud_width / 2, 10, max(10, scr.hud_width));
         break;
     default:
-        draw_w = Cvar_ClampInteger(sh_histogram_width, 10, max(10, scr.hud_width));
+        draw_w = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_histogram_width, 10, 4000),
+                                       10, scr.hud_width);
         break;
     }
-    draw_h = Cvar_ClampInteger(sh_histogram_height, 1, max(1, scr.hud_height));
+    draw_h = (int)SH_ClampDrawValue(Cvar_ClampValue(sh_histogram_height, 1, 4000),
+                                   1, scr.hud_height);
     x = sh_histogram_x->integer;
     y = sh_histogram_y->integer;
 
@@ -616,6 +633,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         draw_y = y;
     }
     draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
+
     history = Cvar_ClampInteger(sh_histogram_history, 500, 120000);
 
     int min_val = sh_netmeter_min_ms->integer;
@@ -651,7 +669,7 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
     }
 
     for (n = count - 1; n >= 0; n--) {
-        netmeter_sample_t *sample = &netmeter.samples[(netmeter.head - 1 - n) & NETMETER_MASK];
+        const netmeter_sample_t *sample = &netmeter.samples[(netmeter.head - 1 - n) & NETMETER_MASK];
         int sample_x, span_end, span_w, fill_w;
 
         age = now - sample->time;
@@ -675,6 +693,23 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
                 span_end = draw_x + draw_w;
             }
         }
+        /* Equal destination columns share incident color and maximum height.
+         * Their final span ends at the next distinct column, so bars cannot overlap. */
+        int priority = SCR_NetMeterGraphPriority(sample->flags);
+        if (!column || priority >= column_priority) {
+            column = sample;
+            column_priority = priority;
+        }
+        if (sample->flags & (NETEVENT_LOSS | NETEVENT_PRED)) {
+            h = draw_h;
+        } else {
+            h = Q_clip(((int)sample->ping - v_min) * draw_h / v_range, 1, draw_h);
+        }
+        column_height = max(column_height, h);
+        if (n > 0 && span_end == sample_x) {
+            continue;
+        }
+
         span_w = max(1, span_end - sample_x);
         if (Cvar_ClampInteger(sh_histogram_fill_mode, 0, 1) == 1) {
             fill_w = span_w;
@@ -683,6 +718,8 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
             fill_w = min(bar_w, draw_x + draw_w - sample_x);
             fill_w = max(1, fill_w);
         }
+        sample = column;
+        age = now - sample->time;
         color = SCR_NetMeterColor(3, sample);
         age_scale = 0.35f + 0.65f * (float)(history - age) / history;
 
@@ -694,15 +731,12 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
             alpha = Cvar_ClampValue(sh_histogram_alpha, 0, 1) * age_scale;
         }
 
-        bool is_loss = (sample->flags & (NETEVENT_LOSS | NETEVENT_PRED));
-        if (is_loss) {
-            h = draw_h;
-        } else {
-            h = Q_clip(((int)sample->ping - v_min) * draw_h / v_range, 1, draw_h);
-        }
+        h = column_height;
 
         R_SetAlpha(alpha * global_alpha);
         R_DrawFill8(sample_x, draw_y + draw_h - h, fill_w, h, color);
+        column = NULL;
+        column_height = 0;
     }
 
     if (sh_histogram_ping && sh_histogram_ping->integer && netmeter.ping_samples > 0) {
@@ -730,7 +764,7 @@ void SH_NetMeter_Draw(void)
     }
 
     mode = Cvar_ClampInteger(sh_netmeter, 0, 4);
-    if (!mode || !cls.netchan.protocol || cls.demo.playback) {
+    if (!cls.netchan.protocol || cls.demo.playback) {
         if (is_test && sh_netalert->integer) {
             SCR_DrawNetMeterNotice(0, 0);
         }
@@ -741,6 +775,10 @@ void SH_NetMeter_Draw(void)
     now = cls.realtime;
 
     switch (mode) {
+    case 0:
+        SCR_DrawNetMeterNotice(0, 0);
+        R_SetAlpha(global_alpha);
+        break;
     case 1:
         SCR_DrawNetMeterLagometer(global_alpha);
         break;
