@@ -223,6 +223,14 @@ void    R_SetAltColor(uint32_t color);
 void    R_SetClipRect(const clipRect_t *clip);
 float   R_ClampScale(cvar_t *var);
 void    R_SetScale(float scale);
+/* One non-nesting 2D quad group. Begin replaces any active group; offsets and
+ * returned bounds use physical pixels, independently of the current draw scale.
+ * Hidden groups still measure translated, unclipped quads but emit none.
+ * End clears the group and returns whether it measured bounds; a false return
+ * leaves the optional bounds output untouched.
+ */
+void    R_BeginDrawGroup(float x, float y, bool hidden);
+bool    R_EndDrawGroup(vrect_t *bounds);
 void    R_DrawChar(int x, int y, int flags, int ch, qhandle_t font);
 int     R_DrawString(int x, int y, int flags, size_t maxChars,
                      const char *string, qhandle_t font);  // returns advanced x coord

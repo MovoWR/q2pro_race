@@ -409,6 +409,15 @@ strafe_prediction_test_exe = executable(
 )
 test('strafe-prediction', strafe_prediction_test_exe, suite: 'jump-hud')
 
+draw_group_test = executable(
+  'draw_group_test',
+  'tests/draw_group_test.c',
+  dependencies: jump_test_deps,
+  build_by_default: false,
+  install: false,
+)
+test('hud-draw-group', draw_group_test, suite: 'jump-hud')
+
 if get_option('client-ui')
   netmeter_test_exe = executable(
     'netmeter_test',

@@ -17,6 +17,27 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "gl.h"
+#include "draw_group.h"
+
+static draw_group_t draw_group;
+
+void R_BeginDrawGroup(float x, float y, bool hidden)
+{
+    draw_group = (draw_group_t) { .active = true, .hidden = hidden, .x = x, .y = y };
+}
+
+bool R_EndDrawGroup(vrect_t *bounds)
+{
+    bool have = draw_group.have_bounds;
+    if (bounds && have) {
+        bounds->x = (int)floorf(draw_group.left);
+        bounds->y = (int)floorf(draw_group.top);
+        bounds->width = (int)ceilf(draw_group.right) - bounds->x;
+        bounds->height = (int)ceilf(draw_group.bottom) - bounds->y;
+    }
+    draw_group = (draw_group_t) { 0 };
+    return have;
+}
 
 drawStatic_t draw;
 
@@ -27,6 +48,10 @@ static inline void GL_StretchPic_(
 {
     vec_t *dst_vert;
     glIndex_t *dst_indices;
+
+    DrawGroup_Rect(&draw_group, draw.scale, &x, &y, w, h);
+    if (draw_group.active && draw_group.hidden)
+        return;
 
     if (tess.numverts + 4 > TESS_MAX_VERTICES ||
         tess.numindices + 6 > TESS_MAX_INDICES ||
