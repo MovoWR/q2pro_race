@@ -9,7 +9,6 @@ on:
       - dev
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   MESON_ARGS: >-
     --auto-features=enabled
     --fatal-meson-warnings
@@ -28,26 +27,54 @@ env:
 
 
 jobs:
+  strafe-efficiency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: pip3 install --no-input meson ninja
+
+      - name: Configure jump and HUD unit tests
+        run: |
+          meson setup --auto-features=disabled --wrap-mode=nodownload \
+            -Dsystem-wide=false -Db_ndebug=true builddir-strafe
+
+      - name: Build and run jump and HUD unit tests
+        run: |
+          meson test -C builddir-strafe --suite jump-hud --print-errorlogs
+
   windows:
     runs-on: windows-latest
     strategy:
       matrix:
         arch: ["x64", "x86"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           submodules: recursive
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: subprojects/packagecache
           key: ${{ hashFiles('subprojects/*.wrap') }}
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.arch }}
+      - name: Configure MSVC
+        shell: pwsh
+        run: |
+          $before = @{}
+          Get-ChildItem Env: | ForEach-Object { $before[$_.Name] = $_.Value }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $vsPath = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vsPath) {
+            throw 'Visual Studio with the MSVC x86/x64 tools was not found.'
+          }
+          & (Join-Path $vsPath 'Common7/Tools/Launch-VsDevShell.ps1') -Arch ${{ matrix.arch }} -HostArch amd64 -SkipAutomaticLocation
+          Get-ChildItem Env: | Where-Object { $before[$_.Name] -cne $_.Value } | ForEach-Object {
+            "$($_.Name)=$($_.Value)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
 
       - name: Install NASM
         run: |
@@ -65,8 +92,9 @@ jobs:
 
       - name: Build
         run: |
-          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release
+          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release -Db_ndebug=true
           meson compile -C builddir-${{ matrix.arch }}
+          meson test -C builddir-${{ matrix.arch }} --suite jump-hud --print-errorlogs
 
       - name: Collect artifacts
         run: |
@@ -92,20 +120,20 @@ jobs:
           Add-Content $env:GITHUB_ENV "VERSION=$ver"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           retention-days: 2
           name: q2pro_race-windows-${{ matrix.arch }}-${{ env.VERSION }}
           path: artifacts
 
   release:
-    needs: [windows]
+    needs: [windows, strafe-efficiency]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -115,7 +143,7 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: q2pro_race-*
           path: artifacts
@@ -141,7 +169,7 @@ jobs:
             gh release create latest ./artifacts/*.zip --title "Latest" --notes "Automatically updated latest build"
           fi
       - name: Update tag
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.git.updateRef({

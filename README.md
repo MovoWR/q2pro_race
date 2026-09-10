@@ -115,6 +115,13 @@ meson compile -C buildDir
 
 For platform-specific dependencies, portable builds, and Windows build notes, see [INSTALL.md](INSTALL.md).
 
+Run the 11 jump/HUD regression tests with `meson test -C buildDir --suite jump-hud --print-errorlogs`.
+Meson builds these test targets automatically. The suite also works without a video backend;
+keep `client-ui` enabled to include the five UI fixtures. CI is configured to run it on Linux and Windows
+with `-Db_ndebug=true`; test assertions remain enabled.
+CI actions use Node 24. Windows jobs initialize the x86/x64 MSVC toolchain through
+Visual Studio's Developer PowerShell.
+
 ## License
 
 * **Q2PRO** is licensed under GPL-2.0.
