@@ -104,6 +104,7 @@ const char *ui_builtin_menu =
 "    pairs --show-value --status \"Improve texture clarity on surfaces viewed at an angle.\" \"anisotropic filter\" gl_anisotropy no 1 2x 2 4x 4 8x 8 16x 16\n"
 "    range --defer --show-value --status \"Adjust the color intensity of game world textures.\" \"texture saturation\" gl_saturation 0 1\n"
 "    range --show-value --status \"Boost the overall brightness of textures.\" \"texture intensity\" intensity 1 3 0.1\n"
+"    range --show-value --status \"Scale opaque lava brightness without changing other textures (shader renderer only).\" \"lava brightness\" gl_lava_intensity 0.1 3 0.1 --show-if gl_shaders !0\n"
 "    range --show-value --status \"Adjust the color intensity of static lightmaps.\" \"lightmap saturation\" gl_coloredlightmaps 0 1\n"
 "    range --show-value --status \"Fine-tune the brightness of static lighting.\" \"lightmap brightness\" gl_brightness 0 0.3\n"
 "    toggle --show-value --status \"Legacy GL1.x vs Modern GL3.x shaders.\" \"Shaders\" gl_shaders\n"

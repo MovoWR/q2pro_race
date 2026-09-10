@@ -264,4 +264,5 @@ Virtual `--show-if` cvars provided by the UI are `ui_exclusive_fullscreen`, `ui_
 
 | Cvar | Default | Description |
 | --- | --- | --- |
+| `gl_lava_intensity` | `1` | Multiplies opaque lava texture brightness in the shader renderer after the global `intensity` value. Values are clamped to `0.1`-`5`. |
 | `vid_noborder` | `0` | Enables borderless fullscreen/window behavior on Windows. |

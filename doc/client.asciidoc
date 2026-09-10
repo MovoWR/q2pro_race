@@ -848,6 +848,11 @@ gl_brightness::
     lightmaps. Positive values make lightmaps brighter, negative values make
     lightmaps darker.  Default value is 0 (keep original brightness).
 
+gl_lava_intensity::
+    Specifies a multiplier applied to non-transparent lava textures in
+    addition to the global ‘intensity’ value when using the shader rendering
+    backend. The allowed range is 0.1-5. Default value is 1 (identity).
+
 gl_coloredlightmaps::
     Enables grayscaling of world lightmaps. 1 keeps original colors, 0 converts
     lightmaps to grayscale format, any value in between reduces colorfulness.
