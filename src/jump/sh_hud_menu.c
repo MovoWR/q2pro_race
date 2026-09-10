@@ -209,8 +209,9 @@ void SH_Height_f(void) {
 }
 
 void SH_CenterMarker_f(void) {
-    Cvar_Set("sh_centermarker", cl_strafeHelperCenterMarker->integer ? "0" : "1");
-    Com_Printf("Center marker %s.\n", cl_strafeHelperCenterMarker->integer ? "disabled" : "enabled");
+    const bool enable = !cl_strafeHelperCenterMarker->integer;
+    Cvar_Set("sh_centermarker", enable ? "1" : "0");
+    Com_Printf("Center marker %s.\n", enable ? "enabled" : "disabled");
 }
 
 void SH_CenterWidth_f(void) {
