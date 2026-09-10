@@ -27,21 +27,31 @@ not reset existing slots.
 
 ## Strafe Helper HUD
 
+The angle bar follows the final command of local movement prediction, including
+the 30 UPS projection cap on air-acceleration servers. It clears when prediction
+is disabled or unavailable, including demo playback. Earlier replayed commands and
+listen-server movement do not update the local helper. Smoothing uses elapsed
+client time and resets when the strafe side changes.
+
+The `sh hud ypos` command uses the same numeric validation as the UPS controls.
+It accepts exactly one finite number from -4000 to 4000. Malformed values,
+numeric overflow or underflow, and extra arguments leave the setting unchanged.
+
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_draw` | `1` | Enables the strafe helper HUD bar. |
-| `sh_center` | `1` | Draws the center reference zone. |
+| `sh_center` | `1` | Centers the display on horizontal velocity; `0` uses view yaw and wraps at ±180 degrees. |
 | `sh_centermarker` | `1` | Draws the center marker. |
 | `sh_height` | `15` | Height of the strafe helper bar. |
 | `sh_scale` | `1.500000` | Visual scale of the helper. |
-| `sh_y` | `100` | Vertical position of the helper. |
+| `sh_y` | `100` | Offset from screen center; negative moves upward. Console supports -4000 to 4000; the menu slider covers -320 to 320. |
 | `sh_alpha` | `0.500000` | Overall helper alpha multiplier. |
 | `sh_bar_style` | `gradient` | Bar rendering style. |
 | `sh_center_width` | `2` | Width of the center marker/zone. |
 | `sh_optimal_width` | `2` | Width of the optimal acceleration zone. |
 | `sh_optimal_outline` | `1` | Draws the optimal zone as an outline. |
-| `sh_smoothing` | `0` | Amount of helper smoothing. |
-| `sh_smoothing_mode` | `1` | Smoothing curve/mode. |
+| `sh_smoothing` | `0` | Smooths the angle bar (0-10); `0` disables smoothing. |
+| `sh_smoothing_mode` | `1` | Smoothing curve/mode. Nonlinear modes `4` and `5` retain some sensitivity to frame timing. |
 
 ## Strafe Helper Colors and NerdStats
 
@@ -51,15 +61,24 @@ not reset existing slots.
 | `sh_color_optimal` | `255 215 0 255` | RGBA color for the optimal acceleration zone. |
 | `sh_color_centermarker` | `255 255 255 255` | RGBA color for the center marker. |
 | `sh_color_nerdstats` | `50 0 50 100` | RGBA background/color value used by NerdStats. |
-| `sh_nerdstats` | `0` | Enables detailed strafe helper NerdStats display. |
+| `sh_nerdstats` | `0` | Enables detailed strafe helper NerdStats display, including the command's Wishspeed in UPS. |
 
 ## UPS Display
+
+Speed uses local predicted velocity when prediction is allowed; otherwise it
+uses the current server snapshot, including when the server sets
+`PMF_NO_PREDICTION`. Gradient color derives acceleration from elapsed display
+time and resets its history when the speed source changes.
+
+The `sh ups ypos` and `sh ups scale` commands reject malformed, non-finite,
+or out-of-range values and extra arguments without changing the setting.
+Viewport clipping does not replace the saved UPS offset.
 
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `sh_ups` | `1` | Enables the centered UPS display. |
-| `sh_ups_scale` | `1.250000` | Text scale for the UPS display. |
-| `sh_ups_y` | `-5` | Vertical offset for the UPS display. |
+| `sh_ups_scale` | `1.250000` | Text scale for the UPS display (0.25-8). |
+| `sh_ups_y` | `-5` | Vertical offset for the UPS display (-4000-4000). |
 | `sh_ups_shadow` | `1` | Draws a shadow behind UPS text. |
 | `sh_ups_hide_zero` | `1` | Hides the UPS display when rounded speed is zero. |
 | `sh_ups_color_mode` | `dynamic` | UPS color mode. |
@@ -262,6 +281,8 @@ Custom color pickers work for any `sh_*` (strafe helper), `ui_menu_color_*`, and
 The `ui_reset_netmeter_settings` command restores all network bar, alert, and threshold settings to their defaults.
 
 Strafe helper color presets are selected with `sh hud preset <name>` and show colored swatches in the menu list.
+
+The `sh` console command supports Tab completion for sections, subcommands, and supported values.
 
 Virtual `--show-if` cvars provided by the UI are `ui_exclusive_fullscreen`, `ui_borderless_or_windowed`, and `ui_histogram_custom_width`.
 

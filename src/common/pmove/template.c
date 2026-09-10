@@ -58,15 +58,19 @@ static bool PM_StrafeHelper_ShouldTrack(void)
     return true;
 }
 
-static void PM_UpdateStrafeHelper(const vec3_t wishdir, float wishspeed, float accel)
+static void PM_UpdateStrafeHelper(const vec3_t wishdir, float wishspeed,
+                                  float acceleration_target, float accel)
 {
-    if (!PM_StrafeHelper_ShouldTrack()) {
-        StrafeHelper_Clear();
+    if (!StrafeHelper_IsPredicting())
         return;
-    }
 
-    StrafeHelper_SetAccelerationValues(pml.forward, pml.velocity, wishdir,
-                                       wishspeed, accel, pml.frametime);
+    if (PM_StrafeHelper_ShouldTrack()) {
+        StrafeHelper_SetAccelerationValues(pml.forward, pml.velocity, wishdir,
+                                           wishspeed, acceleration_target,
+                                           accel, pml.frametime);
+    } else {
+        StrafeHelper_Clear();
+    }
 }
 #endif
 
@@ -342,7 +346,7 @@ static void PM_Accelerate(const vec3_t wishdir, float wishspeed, float accel)
 
 // q2pro_race strafe_helper
 #if USE_CLIENT
-    PM_UpdateStrafeHelper(wishdir, wishspeed, accel);
+    PM_UpdateStrafeHelper(wishdir, wishspeed, wishspeed, accel);
 #endif
 
 
@@ -364,12 +368,13 @@ static void PM_AirAccelerate(const vec3_t wishdir, float wishspeed, float accel)
     int         i;
     float       addspeed, accelspeed, currentspeed, wishspd = wishspeed;
 
-#if USE_CLIENT
-    PM_UpdateStrafeHelper(wishdir, wishspeed, accel);
-#endif
-
     if (wishspd > 30)
         wishspd = 30;
+
+#if USE_CLIENT
+    PM_UpdateStrafeHelper(wishdir, wishspeed, wishspd, accel);
+#endif
+
     currentspeed = DotProduct(pml.velocity, wishdir);
     addspeed = wishspd - currentspeed;
     if (addspeed <= 0)
@@ -1089,7 +1094,8 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
 
     if (pm->s.pm_type == PM_SPECTATOR) {
 #if USE_CLIENT
-        StrafeHelper_Clear();
+        if (StrafeHelper_IsPredicting())
+            StrafeHelper_Clear();
 #endif
         pml.frametime = pmp->speedmult * pm->cmd.msec * 0.001f;
         PM_FlyMove();
@@ -1101,7 +1107,8 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
 
     if (pm->s.pm_type >= PM_DEAD) {
 #if USE_CLIENT
-        StrafeHelper_Clear();
+        if (StrafeHelper_IsPredicting())
+            StrafeHelper_Clear();
 #endif
         pm->cmd.forwardmove = 0;
         pm->cmd.sidemove = 0;
@@ -1110,7 +1117,8 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
 
     if (pm->s.pm_type == PM_FREEZE) {
 #if USE_CLIENT
-        StrafeHelper_Clear();
+        if (StrafeHelper_IsPredicting())
+            StrafeHelper_Clear();
 #endif
         return;     // no movement at all
     }
@@ -1145,12 +1153,14 @@ void PMOVE_FUNC(PMOVE_TYPE *pmove, const pmoveParams_t *params)
 
     if (pm->s.pm_flags & PMF_TIME_TELEPORT) {
 #if USE_CLIENT
-        StrafeHelper_Clear();
+        if (StrafeHelper_IsPredicting())
+            StrafeHelper_Clear();
 #endif
         // teleport pause stays exactly in place
     } else if (pm->s.pm_flags & PMF_TIME_WATERJUMP) {
 #if USE_CLIENT
-        StrafeHelper_Clear();
+        if (StrafeHelper_IsPredicting())
+            StrafeHelper_Clear();
 #endif
         // waterjump has no control, but falls
         pml.velocity[2] -= pm->s.gravity * pml.frametime;

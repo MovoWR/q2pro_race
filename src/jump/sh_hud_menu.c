@@ -3,6 +3,7 @@
 #include "strafe_helper_customization.h"
 #include "strafe_helper.h"
 #include <math.h>
+#include <errno.h>
 
 
 typedef struct {
@@ -172,22 +173,36 @@ void SH_Scale_f(void) {
     }
 }
 
-void SH_ypos_f(void) {
-    const char *ypos = Cmd_ArgsFrom(3);
-    float value;
+static void SH_SetFloatCvar(const char *cvar_name, const char *label,
+                            const char *usage, const float min_value,
+                            const float max_value) {
+    const char *arg = Cmd_Argv(3);
+    char *end;
 
-    if (Cmd_Argc() < 4) // Check if no value argument provided
-    {
-        Com_Printf("- Y pos: %.2f\n", cl_strafeHelperY->value);
+    if (Cmd_Argc() < 4) {
+        Com_Printf("- %s: %s\n", label, Cvar_VariableString(cvar_name));
         return;
     }
 
-    if (sscanf(ypos, "%f", &value) == 1 && value > 0.0f) {
-        Cvar_Set("sh_y", ypos);
-        Com_Printf("Strafe helper Y position set to: %s\n", ypos);
-    } else {
-        Com_EPrintf("Invalid Y position value. Usage: 'sh hud ypos <value>'\n");
+    errno = 0;
+    const float value = strtof(arg, &end);
+    const bool parsed = end != arg;
+    while (Q_isspace(*end)) {
+        end++;
     }
+
+    if (Cmd_Argc() == 4 && parsed && !*end && errno != ERANGE &&
+        isfinite(value) && value >= min_value && value <= max_value) {
+        Cvar_Set(cvar_name, arg);
+        Com_Printf("%s set to: %s\n", label, arg);
+    } else {
+        Com_Printf("Invalid value. Usage: '%s'\n", usage);
+    }
+}
+
+void SH_ypos_f(void) {
+    SH_SetFloatCvar("sh_y", "Strafe helper Y offset from center",
+                    "sh hud ypos <-4000-4000>", -4000.0f, 4000.0f);
 }
 
 void SH_Height_f(void) {
@@ -372,7 +387,7 @@ void SH_Ups_Toggle_f(void) {
 void SH_Ups_Status_f(void) {
     Com_Printf("- Center UPS: %s\n", cl_strafehelperUps->integer ? "enabled" : "disabled");
     Com_Printf("- Scale: %.2f\n", cl_strafehelperUpsScale->value);
-    Com_Printf("- Y pos: %.2f\n", cl_strafehelperUpsY->value);
+    Com_Printf("- Y offset: %.2f\n", cl_strafehelperUpsY->value);
     Com_Printf("- Shadow: %d\n", cl_strafehelperUpsShadow->integer);
     Com_Printf("- Hide zero: %d\n", cl_strafehelperUpsHideZero->integer);
     Com_Printf("- Color mode: %s\n", cl_strafehelperUpsColorMode->string);
@@ -383,37 +398,13 @@ void SH_Ups_Status_f(void) {
 }
 
 void SH_Ups_Ypos_f(void) {
-    const char *ypos = Cmd_Argv(3);
-    float value;
-
-    if (Cmd_Argc() < 4) {
-        Com_Printf("- Center UPS Y pos: %.2f\n", cl_strafehelperUpsY->value);
-        return;
-    }
-
-    if (sscanf(ypos, "%f", &value) == 1 && value >= -1000.0f && value <= 1000.0f) {
-        Cvar_Set("sh_ups_y", ypos);
-        Com_Printf("Center UPS Y pos set to: %s\n", ypos);
-    } else {
-        Com_Printf("Invalid Y position value. Usage: 'sh ups ypos <-1000-1000>'\n");
-    }
+    SH_SetFloatCvar("sh_ups_y", "Center UPS Y pos",
+                    "sh ups ypos <-4000-4000>", SH_UPS_Y_MIN, SH_UPS_Y_MAX);
 }
 
 void SH_Ups_Scale_f(void) {
-    const char *scale = Cmd_Argv(3);
-    float value;
-
-    if (Cmd_Argc() < 4) {
-        Com_Printf("- Center UPS scale: %.2f\n", cl_strafehelperUpsScale->value);
-        return;
-    }
-
-    if (sscanf(scale, "%f", &value) == 1 && value >= 0.25f && value <= 8.0f) {
-        Cvar_Set("sh_ups_scale", scale);
-        Com_Printf("Center UPS scale set to: %s\n", scale);
-    } else {
-        Com_Printf("Invalid scale value. Usage: 'sh ups scale <0.25-8.0>'\n");
-    }
+    SH_SetFloatCvar("sh_ups_scale", "Center UPS scale",
+                    "sh ups scale <0.25-8.0>", SH_UPS_SCALE_MIN, SH_UPS_SCALE_MAX);
 }
 
 void SH_Ups_Shadow_f(void) {
@@ -600,7 +591,7 @@ void SH_Hud_Help_f(void) {
     Com_Printf("----------------------------------------------------------------------------------------\n");
     Com_Printf("Layout\n");
     Com_Printf("  %-34s %s\n", "scale <value>", "Set bar horizontal scale.");
-    Com_Printf("  %-34s %s\n", "ypos <value>", "Set vertical position.");
+    Com_Printf("  %-34s %s\n", "ypos <-4000-4000>", "Set vertical offset from screen center.");
     Com_Printf("  %-34s %s\n", "height <value>", "Set bar height.");
     Com_Printf("  %-34s %s\n", "center_width <0.1-5.0>", "Set center marker width.");
     Com_Printf("  %-34s %s\n", "optimal_width <value>", "Set optimal marker width.");

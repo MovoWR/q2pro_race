@@ -391,7 +391,7 @@ begin strafehelper
     toggle --show-value --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
     toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker --show-if sh_draw !0
     range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1 --show-if sh_draw !0
-    range --show-value --status "Vertical position from the top of the screen." "Y position" sh_y 0 320 5 --show-if sh_draw !0
+    range --show-value --status "Vertical offset from screen center; negative values move upward." "Y position" sh_y -320 320 5 --show-if sh_draw !0
     range --show-value --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1 --show-if sh_draw !0
     range --show-value --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05 --show-if sh_draw !0
     strings --show-value --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal --show-if sh_draw !0
@@ -462,8 +462,8 @@ begin jumpups
 
     style --live
     toggle --show-value --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
-    range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 4 0.25 --show-if sh_ups !0
-    range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -300 300 5 --show-if sh_ups !0
+    range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 8 0.25 --show-if sh_ups !0
+    range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -4000 4000 5 --show-if sh_ups !0
     toggle --show-value --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow --show-if sh_ups !0
     toggle --show-value --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero --show-if sh_ups !0
     toggle --show-value --status "Include vertical velocity component in calculations." "3D speed" sh_ups_3d --show-if sh_ups !0

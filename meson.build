@@ -368,6 +368,47 @@ else
   subdir('src/unix')
 endif
 
+# Compile the production helper and prediction paths with boundary stubs.
+jump_test_deps = []
+if not win32 and libm.found()
+  jump_test_deps += libm
+endif
+
+strafe_helper_test_exe = executable(
+  'strafe_helper_test',
+  'tests/strafe_helper_test.c',
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: jump_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('strafe-helper', strafe_helper_test_exe, suite: 'jump-hud')
+
+strafe_prediction_test_exe = executable(
+  'strafe_prediction_test',
+  'tests/strafe_prediction_test.c',
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: jump_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('strafe-prediction', strafe_prediction_test_exe, suite: 'jump-hud')
+
+if get_option('client-ui')
+  sh_menu_test_exe = executable(
+    'sh_menu_test',
+    'tests/sh_menu_test.c',
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+    dependencies: jump_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('jump-menu', sh_menu_test_exe, suite: 'jump-hud')
+endif
+
 if get_option('client-gtv')
   client_src += 'src/client/gtv.c'
   config.set10('USE_CLIENT_GTV', true)

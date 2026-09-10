@@ -8,6 +8,12 @@ extern "C" {
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
+// Fixed setting limits; viewport clipping must not change saved preferences.
+#define SH_UPS_Y_MIN                  (-4000.0f)
+#define SH_UPS_Y_MAX                  4000.0f
+#define SH_UPS_SCALE_MIN              0.25f
+#define SH_UPS_SCALE_MAX              8.0f
+
 struct StrafeHelperParams {
     int center;
     int center_marker;
@@ -47,7 +53,6 @@ typedef struct {
     float accelspeed_nerd;
     float addspeed_nerd;
     float currentspeed_nerd;
-    float wishdir_nerd;
     float wishspeed_nerd;
     float forward_velocity_angle_nerd;
 } NerdStats;
@@ -71,8 +76,13 @@ void StrafeHelper_SetAccelerationValues(const float forward[3],
                                         const float velocity[3],
                                         const float wishdir[3],
                                         const float wishspeed,
+                                        const float acceleration_target,
                                         const float accel,
                                         const float frametime);
+// Capture only the final local prediction; publish its sample once per frame.
+void StrafeHelper_BeginPrediction(void);
+void StrafeHelper_EndPrediction(void);
+bool StrafeHelper_IsPredicting(void);
 void StrafeHelper_Clear(void);
 
 // StrafeHud
@@ -92,6 +102,7 @@ void SH_Ups_Draw(float hud_width, float hud_height, float hud_scale, int font_pi
 void NerdStatsUpdate(const float velocity[3],
                      const float wishdir[3],
                      float wishspeed,
+                     float acceleration_target,
                      float accel,
                      float frametime,
                      float forward_velocity_angle);

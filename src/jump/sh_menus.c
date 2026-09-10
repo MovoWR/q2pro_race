@@ -32,7 +32,6 @@ void SH_Help_f(void) {
 
 
 void SH_Cmd_g(genctx_t *ctx, int argnum) {
-    R_SetColor(U32_RED);
     if (argnum == 1) {
         Prompt_AddMatch(ctx, "hud");
         Prompt_AddMatch(ctx, "ups");
@@ -48,7 +47,6 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
             Prompt_AddMatch(ctx, "ypos");
             Prompt_AddMatch(ctx, "height");
             Prompt_AddMatch(ctx, "alpha");
-            Prompt_AddMatch(ctx, "fade_inactive");
             Prompt_AddMatch(ctx, "bar_style");
             Prompt_AddMatch(ctx, "smoothing");
             Prompt_AddMatch(ctx, "smoothing_mode");
@@ -83,10 +81,7 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
         const char *cmd = Cmd_Argv(2);
 
         if (!strcmp(subcmd, "hud")) {
-            if (!strcmp(cmd, "fade_inactive")) {
-                Prompt_AddMatch(ctx, "0");
-                Prompt_AddMatch(ctx, "1");
-            } else if (!strcmp(cmd, "bar_style")) {
+            if (!strcmp(cmd, "bar_style")) {
                 Prompt_AddMatch(ctx, "gradient");
                 Prompt_AddMatch(ctx, "solid");
                 Prompt_AddMatch(ctx, "outline");
@@ -262,7 +257,7 @@ void SH_Status_f(void) {
     Com_Printf("------------------------------------------------------------------\n");
     SH_PrintStatusInt("Enabled", cl_strafehelperUps);
     SH_PrintStatusFloat("Scale", cl_strafehelperUpsScale);
-    SH_PrintStatusFloat("Y pos", cl_strafehelperUpsY);
+    SH_PrintStatusFloat("Y offset", cl_strafehelperUpsY);
     SH_PrintStatusInt("Shadow", cl_strafehelperUpsShadow);
     SH_PrintStatusInt("Hide zero", cl_strafehelperUpsHideZero);
     SH_PrintStatusString("Color mode", cl_strafehelperUpsColorMode);

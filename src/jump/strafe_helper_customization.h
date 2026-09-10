@@ -22,7 +22,10 @@ uint32_t getColorForElement(enum shc_ElementId element_id);
 
 void shc_drawFilledRectangle(float x, float y, float w, float h, enum shc_ElementId element_id);
 
+// x/w describe the visible clipped rectangle. gradient_start/end describe the
+// ordered, full band in the same pixel coordinates and must contain x..x+w.
 void shc_drawGradientRectangle(float x, float y, float w, float h, float peak_x,
+                               float gradient_start, float gradient_end,
                                enum shc_ElementId edge_element_id,
                                enum shc_ElementId peak_element_id);
 

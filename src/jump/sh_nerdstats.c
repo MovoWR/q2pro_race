@@ -176,7 +176,7 @@ char *SH_NerdStats_Draw(float hud_width, float hud_height, int font_pic) {
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
 
-        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Wishdir:", ns.wishdir_nerd);
+        Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Wishspeed:", ns.wishspeed_nerd);
         R_DrawString(x + dataIndent, left_y, 0, MAX_STRING_CHARS, buffer, font_pic);
         left_y += lineSpacing;
         Q_scnprintf(buffer, sizeof(buffer), "%-12s %+8.2f", "Fwd vel ang:", ns.forward_velocity_angle_nerd);
@@ -283,7 +283,7 @@ void DebugNow(void) {
     printKeyValueFloat("Addspeed", ns.addspeed_nerd);
     printKeyValueFloat("Curr speed", ns.currentspeed_nerd);
     printKeyValueFloat("Accelspeed", ns.accelspeed_nerd);
-    printKeyValueFloat("Wishdir", ns.wishdir_nerd);
+    printKeyValueFloat("Wishspeed", ns.wishspeed_nerd);
     printKeyValueFloat("Fwd vel ang", ns.forward_velocity_angle_nerd);
 
     Com_LPrintf(PRINT_WARNING, "========================================\n");

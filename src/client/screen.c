@@ -2280,12 +2280,6 @@ void SCR_DrawStrafeHelper(void) {
         if (!cl_drawStrafeHelper->integer) {
             return;
         }
-        sh.angle_optimal = 0.6f;
-        sh.angle_minimum = 0.4f;
-        sh.angle_maximum = 0.8f;
-        sh.angle_current = 0.65f;
-        sh.angle_diff = 0.05f;
-        sh.velocity_norm = 320.0f;
     }
 
     const struct StrafeHelperParams params = {
@@ -2295,7 +2289,7 @@ void SCR_DrawStrafeHelper(void) {
         .height = cl_strafeHelperHeight->value,
         .y = cl_strafeHelperY->value,
     };
-    if (preview && !StrafeHelper_HasData()) {
+    if (preview) {
         StrafeHelper_DrawPreview(&params, scr.hud_width, scr.hud_height);
     } else {
         StrafeHelper_Draw(&params, scr.hud_width, scr.hud_height, scr.font_pic);
@@ -2395,9 +2389,7 @@ static void SCR_Draw2D(void)
     if (cl_drawStrafeHelper->integer || UI_IsMenuActive("strafehelper")) {
       SCR_DrawStrafeHelper();
     }
-    if (cl_strafehelperUps->integer) {
-      SH_Ups_Draw(scr.hud_width, scr.hud_height, scr.hud_scale, scr.font_pic);
-    }
+    SH_Ups_Draw(scr.hud_width, scr.hud_height, scr.hud_scale, scr.font_pic);
 
     // the rest of 2D elements share common alpha
     R_ClearColor();

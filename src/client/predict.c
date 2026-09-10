@@ -17,6 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "client.h"
+#include "src/jump/strafe_helper.h"
 
 typedef enum {
     STEP_SMOOTH_Q2PRO,
@@ -292,21 +293,21 @@ void CL_PredictMovement(void)
     bool        ran;
 
     if (cls.state != ca_active) {
-        return;
+        goto clear_helper;
     }
 
     if (cls.demo.playback) {
-        return;
+        goto clear_helper;
     }
 
     if (sv_paused->integer) {
-        return;
+        goto clear_helper;
     }
 
     if (!cl_predict->integer || (cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
         // just set angles
         CL_PredictAngles();
-        return;
+        goto clear_helper;
     }
 
     ack = cl.history[cls.netchan.incoming_acknowledged & CMD_MASK].cmdNumber;
@@ -315,12 +316,12 @@ void CL_PredictMovement(void)
     // if we are too far out of date, just freeze
     if (current - ack > CMD_BACKUP - 1) {
         SHOWMISS("%i: exceeded CMD_BACKUP\n", cl.frame.number);
-        return;
+        goto clear_helper;
     }
 
     if (!cl.cmd.msec && current == ack) {
         SHOWMISS("%i: not moved\n", cl.frame.number);
-        return;
+        goto clear_helper;
     }
 
     pm_clipmask = MASK_PLAYERSOLID;
@@ -346,6 +347,9 @@ void CL_PredictMovement(void)
     // run frames
     while (++ack <= current) {
         pm.cmd = cl.cmds[ack & CMD_MASK];
+        // Publish only the final local command, never historical replays.
+        if (ack == current && !cl.cmd.msec)
+            StrafeHelper_BeginPrediction();
         PmoveNew(&pm, &cl.pmp);
         pm.snapinitial = qfalse;
         ran = true;
@@ -361,6 +365,7 @@ void CL_PredictMovement(void)
         pm.cmd.forwardmove = cl.localmove[0];
         pm.cmd.sidemove = cl.localmove[1];
         pm.cmd.upmove = cl.localmove[2];
+        StrafeHelper_BeginPrediction();
         PmoveNew(&pm, &cl.pmp);
         ran = true;
         frame = current;
@@ -375,7 +380,7 @@ void CL_PredictMovement(void)
         VectorScale(pm.s.origin, 0.125f, cl.predicted_origin);
         VectorScale(pm.s.velocity, 0.125f, cl.predicted_velocity);
         CL_PredictAngles();
-        return;
+        goto clear_helper;
     }
 
     CL_DetectStep(&pm, ack, current, frame);
@@ -384,4 +389,9 @@ void CL_PredictMovement(void)
     VectorScale(pm.s.origin, 0.125f, cl.predicted_origin);
     VectorScale(pm.s.velocity, 0.125f, cl.predicted_velocity);
     VectorCopy(pm.viewangles, cl.predicted_angles);
+    StrafeHelper_EndPrediction();
+    return;
+
+clear_helper:
+    StrafeHelper_Clear();
 }

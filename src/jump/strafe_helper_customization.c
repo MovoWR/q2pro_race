@@ -157,10 +157,12 @@ void shc_drawFilledRectangle(const float x, const float y,
 
 void shc_drawGradientRectangle(float x, const float y,
                                float w, const float h, float peak_x,
+                               const float gradient_start, const float gradient_end,
                                enum shc_ElementId edge_element_id,
                                enum shc_ElementId peak_element_id) {
     if (!shc_IsFinite(x) || !shc_IsFinite(y) || !shc_IsFinite(w) ||
-        !shc_IsFinite(h) || !shc_IsFinite(peak_x)) {
+        !shc_IsFinite(h) || !shc_IsFinite(peak_x) ||
+        !shc_IsFinite(gradient_start) || !shc_IsFinite(gradient_end)) {
         return;
     }
     if (w == 0.0f || h == 0.0f) {
@@ -184,8 +186,9 @@ void shc_drawGradientRectangle(float x, const float y,
     const uint32_t peak_color = getColorForElement(peak_element_id);
     const int segment_count = shc_ClampInt((int) ceilf((float) iw / SHC_GRADIENT_TARGET_SEGMENT_WIDTH),
                                            1, min(iw, SHC_GRADIENT_MAX_SEGMENTS));
-    const float start_x = (float) ix;
-    const float end_x = (float) (ix + iw);
+    // Color follows the full band even when only one side of an angular wrap is visible.
+    const float start_x = roundf(gradient_start);
+    const float end_x = start_x + roundf(gradient_end - gradient_start);
     const float clamped_peak_x = shc_ClampFloat(peak_x, start_x, end_x);
 
     for (int i = 0; i < segment_count; i++) {

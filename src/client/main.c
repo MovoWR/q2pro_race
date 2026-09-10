@@ -3090,6 +3090,7 @@ static const cmdreg_t c_client[] = {
 };
 
 static const cmdreg_t c_jump_client[] = {
+    { "sh", SH_Cmd_f, SH_Cmd_g },
     { NULL }
 };
 
@@ -3122,7 +3123,6 @@ static void CL_InitLocal(void)
         var = Cvar_Get(va("adr%i", i), "", CVAR_ARCHIVE);
         var->generator = Com_Address_g;
     }
-    Cmd_AddCommand("sh", SH_Cmd_f);
     Cmd_AddCommand("debugnow", SH_DebugNow_f);
 
     for (i = 20; i <= 120; i++) {
