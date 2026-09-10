@@ -374,6 +374,19 @@ if not win32 and libm.found()
   jump_test_deps += libm
 endif
 
+strafe_efficiency_test_exe = executable(
+  'strafe_efficiency_test',
+  [
+    'tests/strafe_efficiency_test.c',
+    'src/jump/strafe_efficiency.c',
+  ],
+  include_directories: 'src/jump',
+  dependencies: jump_test_deps,
+  build_by_default: false,
+  install: false,
+)
+test('strafe-efficiency', strafe_efficiency_test_exe, suite: 'jump-hud')
+
 strafe_helper_test_exe = executable(
   'strafe_helper_test',
   'tests/strafe_helper_test.c',
