@@ -3271,16 +3271,16 @@ static void CL_InitLocal(void)
     Cmd_AddMacro("cl_playerpos_y", CL_PlayerPosY_m);
     Cmd_AddMacro("cl_playerpos_x", CL_PlayerPosX_m);
 
-    // fps hold/release slots
+    SH_Init();
+
+    // Configs and command-line overrides are loaded before missing slots are seeded.
     for (int i = 0; i < NUM_FPS_SLOTS; i++) {
         char name[32];
         Q_snprintf(name, sizeof(name), "fps_hold_%d", i + 1);
-        fps_hold[i] = Cvar_Get(name, "30", CVAR_ARCHIVE);
+        fps_hold[i] = Cvar_Get(name, Cvar_VariableString("fps_default_hold"), CVAR_ARCHIVE);
         Q_snprintf(name, sizeof(name), "fps_release_%d", i + 1);
-        fps_release[i] = Cvar_Get(name, "120", CVAR_ARCHIVE);
+        fps_release[i] = Cvar_Get(name, Cvar_VariableString("fps_default_release"), CVAR_ARCHIVE);
     }
-
-    SH_Init();
 }
 
 static const cmdreg_t c_ignores[] = {

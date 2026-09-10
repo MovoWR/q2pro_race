@@ -20,6 +20,11 @@
 | `fps_default_hold` | `30` | Default FPS value assigned to new `fps_hold_*` slot cvars. |
 | `fps_default_release` | `120` | Default FPS value assigned to new `fps_release_*` slot cvars. |
 
+FPS defaults seed missing slots at client startup, after normal config/autoexec
+loading and command-line `+set` overrides. Explicitly configured or saved slots
+keep their values. Changing a default at runtime or through a late `+exec` does
+not reset existing slots.
+
 ## Strafe Helper HUD
 
 | Cvar | Default | Description |
