@@ -11,7 +11,6 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "src/refresh/gl.h"
 
 #define SHC_GRADIENT_MAX_SEGMENTS 64
 #define SHC_GRADIENT_TARGET_SEGMENT_WIDTH 6.0f

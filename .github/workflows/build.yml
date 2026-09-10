@@ -90,11 +90,14 @@ jobs:
       - name: Install dependencies
         run: pip3 install --no-input meson ninja
 
+      - name: Configure
+        run: meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release -Db_ndebug=true
+
       - name: Build
-        run: |
-          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_WIN }} builddir-${{ matrix.arch }} --buildtype=release -Db_ndebug=true
-          meson compile -C builddir-${{ matrix.arch }}
-          meson test -C builddir-${{ matrix.arch }} --suite jump-hud --print-errorlogs
+        run: meson compile -C builddir-${{ matrix.arch }}
+
+      - name: Run jump and HUD unit tests
+        run: meson test -C builddir-${{ matrix.arch }} --suite jump-hud --print-errorlogs
 
       - name: Collect artifacts
         run: |

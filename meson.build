@@ -471,8 +471,7 @@ if get_option('client-ui')
     ['tests/strafe_efficiency_draw_test.c', 'src/jump/strafe_efficiency.c'],
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: jump_test_deps + common_deps +
-                  [subproject('khr-headers').get_variable('khr_headers_dep')],
+    dependencies: jump_test_deps + common_deps,
     build_by_default: false,
     install: false,
   )
