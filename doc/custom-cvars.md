@@ -35,6 +35,12 @@ slot values leave the current FPS unchanged. Slot numbers must be complete
 integers from 1 through 12. Invalid startup defaults use 30 for missing hold slots
 and 120 for missing release slots, without overwriting saved slots or defaults.
 
+The Hold / Release FPS Bindings menu preserves custom slot values when opened,
+closed, or cancelled. Values outside its preset list remain visible; choosing a
+preset changes only that hold or release value. Long values are shortened for
+display without changing the saved string. Invalid saved values are preserved
+until explicitly changed and remain subject to the FPS command validation above.
+
 `toggle cl_maxfps 30 120` cycles between 30 and 120. If the current FPS is
 outside the list (for example, 60), the next toggle selects its first value,
 30. This recovery applies to all explicit `toggle` value lists.

@@ -606,6 +606,19 @@ test('bind-reminders', bind_reminders_test, suite: 'jump-hud')
 
 # UI fixtures include production controllers with boundary stubs.
 if get_option('client-ui')
+  menu_bindselect2_test = executable(
+    'menu_bindselect2_test',
+    ['tests/menu_bindselect2_test.c', 'src/shared/shared.c'],
+    include_directories: ['inc', '.'],
+    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1', '-DUSE_UI=1'] +
+            cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+    link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
+    dependencies: strafe_efficiency_test_deps + common_deps,
+    build_by_default: false,
+    install: false,
+  )
+  test('menu-bindselect2', menu_bindselect2_test, suite: 'console')
+
   netmeter_test_exe = executable(
     'netmeter_test',
     'tests/netmeter_test.c',

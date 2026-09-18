@@ -1149,6 +1149,7 @@ BINDSELECT2 FIELD (bind + two selects in one row)
 
 #define BINDSELECT2_INDEX_WIDTH    (CHAR_WIDTH * 2)
 #define BINDSELECT2_COL_GAP        (CHAR_WIDTH * 2)
+#define BINDSELECT2_VALUE_CHARS    16
 
 static int BindSelect2_TableWidth(const menuBindSelect2_t *bs)
 {
@@ -1224,8 +1225,7 @@ static void BindSelect2_Migrate(menuBindSelect2_t *bs)
 static void BindSelect2_Push(menuBindSelect2_t *bs)
 {
     int key;
-    int side, i, val;
-    bool numeric;
+    int side, i;
     BindSelect2_Migrate(bs);
     key = Key_EnumBindings(0, bs->cmd);
     bs->altbinding[0] = 0;
@@ -1235,15 +1235,11 @@ static void BindSelect2_Push(menuBindSelect2_t *bs)
         if (key != -1) Q_strlcpy(bs->altbinding, Key_KeynumToLabel(key), sizeof(bs->altbinding)); }
     bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1; bs->focusPart = 0;
     for (side = 0; side < 2; side++) {
-        val = bs->cvar[side]->integer; bs->curvalue[side] = -1;
-        numeric = COM_IsFloat(bs->cvar[side]->string);
+        bs->curvalue[side] = -1;
         for (i = 0; i < bs->numItems[side]; i++) {
-            if (!strcmp(bs->itemnames[side][i], bs->cvar[side]->string) ||
-                (numeric && COM_IsFloat(bs->itemnames[side][i]) &&
-                 Q_atoi(bs->itemnames[side][i]) == val))
+            if (!strcmp(bs->itemnames[side][i], bs->cvar[side]->string))
             { bs->curvalue[side] = i; break; }
         }
-        if (bs->curvalue[side] < 0 && bs->numItems[side] > 0) bs->curvalue[side] = 0;
     }
 }
 
@@ -1261,23 +1257,30 @@ static void BindSelect2_Update(menuFrameWork_t *menu)
 
 static void BindSelect2_Pop(menuBindSelect2_t *bs)
 {
-    int side;
     Key_WaitKey(NULL, NULL);
     if (bs->open) { if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL; bs->open = false; bs->openIdx = -1; }
-    for (side = 0; side < 2; side++)
-        if (bs->curvalue[side] >= 0 && bs->curvalue[side] < bs->numItems[side])
-            Cvar_SetByVar(bs->cvar[side], bs->itemnames[side][bs->curvalue[side]], FROM_MENU);
+    /* Deliberate selections are saved immediately; closing preserves custom values. */
 }
 
 static void BindSelect2_Init(menuBindSelect2_t *bs)
 {
-    int side, i, len, maxW;
+    int side, i, row, len, maxW;
+    const menuFrameWork_t *menu = bs->generic.parent;
     bs->generic.uiFlags &= ~(UI_LEFT | UI_RIGHT);
     bs->generic.rect.y = bs->generic.y;
     bs->generic.rect.height = CHAR_HEIGHT;
     bs->colWidth[0] = 10 * CHAR_WIDTH;
     for (side = 0; side < 2; side++) {
         maxW = side ? 7 : 4;
+        /* Keep the table columns aligned when any row has a custom value. */
+        for (row = 0; row < menu->nitems; row++) {
+            const menuCommon_t *item = menu->items[row];
+            if (item->type == MTYPE_BINDSELECT2) {
+                const menuBindSelect2_t *other = (const menuBindSelect2_t *)item;
+                len = min((int)strlen(other->cvar[side]->string), BINDSELECT2_VALUE_CHARS);
+                if (maxW < len) maxW = len;
+            }
+        }
         for (i = 0; i < bs->numItems[side]; i++) {
             len = strlen(bs->itemnames[side][i]); if (maxW < len) maxW = len;
         }
@@ -1350,12 +1353,18 @@ static void BindSelect2_Draw(menuBindSelect2_t *bs)
     UI_DrawString(xOff, bs->generic.y, UI_LEFT | ((hasFocus && bs->focusPart == 0) ? 0 : flags), string);
     for (side = 0; side < 2; side++) {
         bool sf = hasFocus && bs->focusPart == (side + 1);
-        const char *n = (bs->curvalue[side] >= 0 && bs->curvalue[side] < bs->numItems[side])
-            ? bs->itemnames[side][bs->curvalue[side]] : "???";
+        const char *n = bs->cvar[side]->string;
+        char value[BINDSELECT2_VALUE_CHARS + 1];
+        size_t length = Q_strlcpy(value, n, sizeof(value));
+        if (length >= sizeof(value))
+            memcpy(value + BINDSELECT2_VALUE_CHARS - 3, "...", 3);
+        for (char *p = value; *p; p++)
+            if ((unsigned char)*p < 32 || (unsigned char)*p == 127)
+                *p = ' ';
         xOff = BindSelect2_SelectX(bs, side);
         if (sf) { Menu_SetColor(uis.color.active.u32);
             R_DrawFill32(xOff, bs->generic.y - 1, bs->colWidth[side + 1], CHAR_HEIGHT + 2, uis.color.selection.u32); }
-        Q_snprintf(buf, sizeof(buf), "%s \x1f", n);
+        Q_snprintf(buf, sizeof(buf), "%s \x1f", value);
         UI_DrawString(xOff, bs->generic.y, UI_LEFT | (sf ? 0 : flags), buf);
         if (sf) Menu_SetNormalColor();
     }
@@ -1391,15 +1400,22 @@ static void BindSelect2_DrawDropDown(menuBindSelect2_t *bs)
     }
 }
 
+static void BindSelect2_Select(menuBindSelect2_t *bs, int side, int index)
+{
+    if (side < 0 || side >= 2 || index < 0 || index >= bs->numItems[side])
+        return;
+    bs->curvalue[side] = index;
+    Cvar_SetByVar(bs->cvar[side], bs->itemnames[side][index], FROM_MENU);
+}
+
 static menuSound_t BindSelect2_DoEnter(menuBindSelect2_t *bs)
 {
     menuFrameWork_t *menu = bs->generic.parent;
     if (bs->open) {
         int cs = bs->openIdx;
-        if (bs->hoverIndex >= 0) bs->curvalue[cs] = bs->hoverIndex;
+        BindSelect2_Select(bs, cs, bs->hoverIndex);
         bs->open = false; bs->openIdx = -1; bs->hoverIndex = -1;
         if (g_openSelect == (menuSelect_t *)bs) g_openSelect = NULL;
-        Cvar_SetByVar(bs->cvar[cs], bs->itemnames[cs][bs->curvalue[cs]], FROM_MENU);
         return QMS_OUT;
     }
     if (bs->focusPart == 0) {
@@ -1438,12 +1454,12 @@ static menuSound_t BindSelect2_Key(menuBindSelect2_t *bs, int key)
     } else {
         int s = bs->focusPart - 1;
         if (key == K_LEFTARROW) {
-            if (bs->curvalue[s] > 0) bs->curvalue[s]--; else bs->curvalue[s] = bs->numItems[s] - 1;
-            Cvar_SetByVar(bs->cvar[s], bs->itemnames[s][bs->curvalue[s]], FROM_MENU); return QMS_MOVE;
+            BindSelect2_Select(bs, s, bs->curvalue[s] > 0 ? bs->curvalue[s] - 1 : bs->numItems[s] - 1);
+            return QMS_MOVE;
         }
         if (key == K_RIGHTARROW) {
-            if (bs->curvalue[s] < bs->numItems[s] - 1) bs->curvalue[s]++; else bs->curvalue[s] = 0;
-            Cvar_SetByVar(bs->cvar[s], bs->itemnames[s][bs->curvalue[s]], FROM_MENU); return QMS_MOVE;
+            BindSelect2_Select(bs, s, bs->curvalue[s] < bs->numItems[s] - 1 ? bs->curvalue[s] + 1 : 0);
+            return QMS_MOVE;
         }
     }
     if (key == K_TAB) {
@@ -5418,13 +5434,10 @@ static menuSound_t Menu_DefaultKey(menuFrameWork_t *m, int key)
                 int i, side = bs->openIdx;
                 for (i = 0; i < bs->numItems[side]; i++) {
                     if (UI_CursorInRect(&bs->itemRects[i])) {
-                        if (bs->hoverIndex >= 0)
-                            bs->curvalue[side] = bs->hoverIndex;
+                        BindSelect2_Select(bs, side, i);
                         bs->open = false;
                         bs->openIdx = -1;
                         bs->hoverIndex = -1;
-                        Cvar_SetByVar(bs->cvar[side],
-                                      bs->itemnames[side][bs->curvalue[side]], FROM_MENU);
                         g_openSelect = NULL;
                         return QMS_OUT;
                     }
