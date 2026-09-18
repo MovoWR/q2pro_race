@@ -975,7 +975,7 @@ static void Cvar_Toggle_f(void)
         }
     }
 
-    Com_Printf("\"%s\" is \"%s\", can't cycle\n", var->name, var->string);
+    Cvar_SetByVar(var, Cmd_Argv(2), Cmd_From());
 }
 
 static void Cvar_Toggle_c(genctx_t *ctx, int argnum)

@@ -1520,7 +1520,9 @@ Cvar Operations
 
 toggle <cvar> [value1 value2 ...]::
     If _values_ are omitted, toggle the specified _cvar_ between 0 and 1.
-    If two or more _values_ are specified, cycle through them.
+    If explicit _values_ are specified, cycle through them. If the current
+    value is outside the list, select its first value. For example,
+    `toggle cl_maxfps 30 120` selects 30 when `cl_maxfps` is 60.
 
 inc <cvar> [value]::
     If _value_ is omitted, add 1 to the value of _cvar_.

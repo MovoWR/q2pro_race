@@ -53,6 +53,7 @@ Quickly change cl_maxfps to match different run segments.
 
 * **Press-and-release binds (`+fps` / `-fps`)**: hold a key to drop FPS and release it to restore, for example `bind space "+fps 60 120"`.
 * **Console shortcuts (`f20` to `f120`)**: set `cl_maxfps` instantly, for example `f60`.
+* **FPS toggles (`toggle`)**: cycle through values with `bind mouse4 "toggle cl_maxfps 30 120"`. If the current FPS is outside the list, the next press selects its first value.
 
 ### Step Smoothing (`cl_step_smoothing_mode`)
 

@@ -42,7 +42,7 @@ jobs:
 
       - name: Build and run jump, HUD and video unit tests
         run: |
-          meson test -C builddir-strafe --suite jump-hud --suite video --print-errorlogs
+          meson test -C builddir-strafe --suite jump-hud --suite video --suite console --print-errorlogs
 
   windows:
     runs-on: windows-latest
@@ -97,7 +97,7 @@ jobs:
         run: meson compile -C builddir-${{ matrix.arch }}
 
       - name: Run jump, HUD and video unit tests
-        run: meson test -C builddir-${{ matrix.arch }} --suite jump-hud --suite video --print-errorlogs
+        run: meson test -C builddir-${{ matrix.arch }} --suite jump-hud --suite video --suite console --print-errorlogs
 
       - name: Collect artifacts
         run: |

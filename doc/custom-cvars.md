@@ -25,6 +25,10 @@ loading and command-line `+set` overrides. Explicitly configured or saved slots
 keep their values. Changing a default at runtime or through a late `+exec` does
 not reset existing slots.
 
+`toggle cl_maxfps 30 120` cycles between 30 and 120. If the current FPS is
+outside the list (for example, 60), the next toggle selects its first value,
+30. This recovery applies to all explicit `toggle` value lists.
+
 ## Strafe Helper HUD
 
 The angle bar follows the final command of local movement prediction, including
