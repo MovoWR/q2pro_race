@@ -384,9 +384,15 @@ con_notifylines::
     game.  Default value is 4.
 
 con_history::
-    Specifies how many lines to save into console history file before exiting
-    Q2PRO, to be reloaded on next startup. Maximum number of history lines is 128.
-    Default value is 128.
+    Specifies how many lines to save into `.conhistory` in the active game
+    directory, alongside `q2config.cfg` on Windows or `config.cfg` elsewhere.
+    History is saved before exiting Q2PRO
+    and before restarting the filesystem. Changing game directories loads that
+    game's history; restarting the same directory does not reload history.
+    If a game has no history file yet, the legacy `baseq2/.conhistory` is read
+    as a starting point. Subsequent saves use the active game directory.
+    History uses `homedir` when configured, otherwise `basedir`. Maximum number of
+    history lines is 128. Default value is 128; 0 disables loading and saving.
 
 con_scroll::
     Controls automatic scrolling of console text when some event occurs. This

@@ -510,7 +510,7 @@ void Prompt_Clear(commandPrompt_t *prompt)
     IF_Clear(&prompt->inputLine);
 }
 
-void Prompt_SaveHistory(const commandPrompt_t *prompt, const char *filename, int lines)
+void Prompt_SaveHistory(const commandPrompt_t *prompt, const char *filename, int lines, unsigned flags)
 {
     qhandle_t f;
     const char *s;
@@ -520,7 +520,7 @@ void Prompt_SaveHistory(const commandPrompt_t *prompt, const char *filename, int
         return;
     }
 
-    FS_OpenFile(filename, &f, FS_MODE_WRITE | FS_PATH_BASE);
+    FS_OpenFile(filename, &f, FS_MODE_WRITE | flags);
     if (!f) {
         return;
     }
@@ -539,13 +539,13 @@ void Prompt_SaveHistory(const commandPrompt_t *prompt, const char *filename, int
     FS_CloseFile(f);
 }
 
-void Prompt_LoadHistory(commandPrompt_t *prompt, const char *filename)
+void Prompt_LoadHistory(commandPrompt_t *prompt, const char *filename, unsigned flags)
 {
     char buffer[MAX_FIELD_TEXT];
     qhandle_t f;
     unsigned i;
 
-    FS_OpenFile(filename, &f, FS_MODE_READ | FS_TYPE_REAL | FS_PATH_BASE | FS_DIR_HOME);
+    FS_OpenFile(filename, &f, FS_MODE_READ | FS_TYPE_REAL | FS_DIR_HOME | flags);
     if (!f) {
         return;
     }

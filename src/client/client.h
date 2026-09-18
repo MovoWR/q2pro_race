@@ -1024,6 +1024,7 @@ void LOC_AddLocationsToScene(void);
 //
 void Con_Init(void);
 void Con_PostInit(void);
+void Con_SaveHistory(void);
 void Con_Shutdown(void);
 void Con_DrawConsole(void);
 void Con_RunConsole(void);

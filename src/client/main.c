@@ -2495,6 +2495,7 @@ Flush caches and restart the VFS.
 */
 void CL_RestartFilesystem(bool total)
 {
+    char old_gamedir[MAX_OSPATH];
     int cls_state;
 
     if (!cl_running->integer) {
@@ -2517,8 +2518,10 @@ void CL_RestartFilesystem(bool total)
     S_StopAllSounds();
     S_FreeAllSounds();
 
-    // write current config before changing game directory
+    // write current config and history before changing game directory
     CL_WriteConfig();
+    Con_SaveHistory();
+    Q_strlcpy(old_gamedir, fs_gamedir, sizeof(old_gamedir));
 
     if (cls.ref_initialized) {
         R_Shutdown(false);
@@ -2532,6 +2535,10 @@ void CL_RestartFilesystem(bool total)
         UI_Init();
     } else {
         FS_Restart(total);
+    }
+
+    if (strcmp(old_gamedir, fs_gamedir)) {
+        Con_PostInit();
     }
 
     if (cls_state == ca_disconnected) {

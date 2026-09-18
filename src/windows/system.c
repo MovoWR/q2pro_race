@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client.h"
 #include "common/cvar.h"
 #include "common/field.h"
+#include "common/files.h"
 #include "common/prompt.h"
 #include "shared/atomic.h"
 
@@ -491,14 +492,14 @@ void Sys_RunConsole(void)
 void Sys_LoadHistory(void)
 {
     if (gotConsole && sys_history && sys_history->integer > 0) {
-        Prompt_LoadHistory(&sys_con, SYS_HISTORYFILE_NAME);
+        Prompt_LoadHistory(&sys_con, SYS_HISTORYFILE_NAME, FS_PATH_BASE);
     }
 }
 
 void Sys_SaveHistory(void)
 {
     if (gotConsole && sys_history && sys_history->integer > 0) {
-        Prompt_SaveHistory(&sys_con, SYS_HISTORYFILE_NAME, sys_history->integer);
+        Prompt_SaveHistory(&sys_con, SYS_HISTORYFILE_NAME, sys_history->integer, FS_PATH_BASE);
     }
 }
 

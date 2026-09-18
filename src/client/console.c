@@ -497,8 +497,18 @@ void Con_Init(void)
 
 void Con_PostInit(void)
 {
+    Prompt_Clear(&con.prompt);
+
     if (con_history->integer > 0) {
-        Prompt_LoadHistory(&con.prompt, COM_HISTORYFILE_NAME);
+        // A mod without its own history inherits the legacy base history.
+        Prompt_LoadHistory(&con.prompt, COM_HISTORYFILE_NAME, FS_PATH_ANY);
+    }
+}
+
+void Con_SaveHistory(void)
+{
+    if (con_history->integer > 0) {
+        Prompt_SaveHistory(&con.prompt, COM_HISTORYFILE_NAME, con_history->integer, FS_PATH_GAME);
     }
 }
 
@@ -509,9 +519,7 @@ Con_Shutdown
 */
 void Con_Shutdown(void)
 {
-    if (con_history->integer > 0) {
-        Prompt_SaveHistory(&con.prompt, COM_HISTORYFILE_NAME, con_history->integer);
-    }
+    Con_SaveHistory();
     Prompt_Clear(&con.prompt);
 }
 

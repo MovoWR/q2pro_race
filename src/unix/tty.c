@@ -21,6 +21,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "common/common.h"
 #include "common/cvar.h"
 #include "common/field.h"
+#include "common/files.h"
 #include "common/net/net.h"
 #include "common/prompt.h"
 #include "system/system.h"
@@ -591,14 +592,14 @@ void tty_shutdown_input(void)
 void Sys_LoadHistory(void)
 {
     if (tty_enabled && sys_history && sys_history->integer > 0) {
-        Prompt_LoadHistory(&tty_prompt, SYS_HISTORYFILE_NAME);
+        Prompt_LoadHistory(&tty_prompt, SYS_HISTORYFILE_NAME, FS_PATH_BASE);
     }
 }
 
 void Sys_SaveHistory(void)
 {
     if (tty_enabled && sys_history && sys_history->integer > 0) {
-        Prompt_SaveHistory(&tty_prompt, SYS_HISTORYFILE_NAME, sys_history->integer);
+        Prompt_SaveHistory(&tty_prompt, SYS_HISTORYFILE_NAME, sys_history->integer, FS_PATH_BASE);
     }
 }
 

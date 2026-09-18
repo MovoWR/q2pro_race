@@ -393,6 +393,26 @@ strafe_efficiency_test_exe = executable(
 )
 test('strafe-efficiency', strafe_efficiency_test_exe, suite: 'jump-hud')
 
+console_history_test = executable(
+  'console_history_test',
+  [
+    'tests/console_history_test.c',
+    'src/common/prompt.c',
+    'src/common/field.c',
+    'src/common/error.c',
+    'src/common/utils.c',
+    'src/shared/shared.c',
+  ],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('console-history', console_history_test, suite: 'console')
+
 if get_option('client-ui')
   # Exercise the production mode parser, controller and menu with engine stubs.
   display_settings_test = executable(
