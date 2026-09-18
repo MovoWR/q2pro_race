@@ -107,15 +107,16 @@ macOS
 
 The macOS CI matrix follows the Clang/Homebrew/Meson release build approach in
 [the q2jump-pro workflow](https://github.com/q2jump-pro/q2jump-pro/blob/4b91f74ecd84bd4027ab9f8e6da982a9270fac66/.github/workflows/build.yml).
-It builds Apple Silicon (`arm64`) natively on `macos-latest`, and Intel
-(`x86_64`) on the same runner using Rosetta 2 and Intel Homebrew. These are
-separate binaries, not a universal application bundle.
+It builds Apple Silicon (`arm64`) natively on `macos-26`, and Intel (`x86_64`)
+natively on `macos-15-intel`. Each runner uses its preinstalled Homebrew. These
+are separate binaries, not a universal application bundle.
 
-Install Xcode Command Line Tools and Homebrew before a local build. Use the
-Homebrew installation for the target architecture: `/opt/homebrew` for Apple
-Silicon or `/usr/local` for Intel. On Apple Silicon, an Intel build also needs
-Rosetta 2 and an Intel Homebrew installation; run the commands below in an
-`arch -x86_64 /bin/bash` shell with `/usr/local/bin` first on `PATH`.
+Local builds need Xcode Command Line Tools and Homebrew for the machine's
+architecture: `/opt/homebrew` for Apple Silicon or `/usr/local` for Intel.
+The current Homebrew installer accepts only Apple Silicon, so Intel builds
+require an existing Homebrew installation, as provided by the Intel CI runner.
+Intel is [Homebrew Tier 3](https://docs.brew.sh/Support-Tiers): updated dependencies
+may need to build from source, and dependency installation must be verified in CI.
 
 ```sh
 brew update

@@ -181,14 +181,16 @@ jobs:
           path: artifacts
 
   macos:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
+            runner: macos-26
             brew-prefix: /opt/homebrew
           - arch: x86_64
+            runner: macos-15-intel
             brew-prefix: /usr/local
     steps:
       - uses: actions/checkout@v7
@@ -196,14 +198,6 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           submodules: recursive
-
-      - name: Set up Rosetta and Intel Homebrew
-        if: matrix.arch == 'x86_64'
-        env:
-          NONINTERACTIVE: 1
-        run: |
-          softwareupdate --install-rosetta --agree-to-license
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
       - name: Install dependencies
         shell: bash
@@ -248,8 +242,8 @@ jobs:
         run: |
           builddir="builddir-${{ matrix.arch }}"
           test -x "$builddir/q2pro_race"
-          lipo -verify_arch ${{ matrix.arch }} "$builddir/q2pro_race"
-          lipo -verify_arch ${{ matrix.arch }} "$builddir/game${{ matrix.arch }}.dylib"
+          lipo "$builddir/q2pro_race" -verify_arch ${{ matrix.arch }}
+          lipo "$builddir/game${{ matrix.arch }}.dylib" -verify_arch ${{ matrix.arch }}
           otool -L "$builddir/q2pro_race"
           mkdir -p artifacts q2pro_race/baseq2 q2pro_race/jump/pics q2pro_race/jump/players/female
           cp "$builddir/q2pro_race" q2pro_race/
