@@ -46,6 +46,14 @@ These sources are currently collected in `ui_src` in
 the efficiency calculation module's standalone test does not prove the
 complete overlay is independent of UI/editor code.
 
+## JumpMod keyboard shortcuts
+
+During active Jump gameplay, Ctrl+M sends `inven`, Ctrl+Up/Down send
+`invprev`/`invnext`, and Ctrl+Enter sends `invuse`. These built-in shortcuts need
+no config bindings. Chat, console, client menus, HUD editing, and demo playback
+keep their existing input handling. See the [client manual](../../doc/client.asciidoc)
+for modifier and key-release behavior.
+
 ## Tests
 
 From the repository root, after [toolchain setup](../../INSTALL.md):

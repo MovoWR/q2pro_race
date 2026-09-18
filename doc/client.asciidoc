@@ -10,6 +10,30 @@ descriptions of console variables and commands added to or modified by Q2PRO
 since the original Quake 2 release. Cvars and commands inherited from original
 Quake 2 are not described here (yet).
 
+JumpMod Keyboard Shortcuts
+-------------------------
+
+During active play with `game jump`, hold Ctrl and press one of these keys:
+
+[cols="1,1,2",options="header"]
+|=================
+| Shortcut | Command | Action
+| Ctrl+M | `inven` | Open or close the JumpMod menu
+| Ctrl+Up | `invprev` | Select the previous menu item
+| Ctrl+Down | `invnext` | Select the next menu item
+| Ctrl+Enter | `invuse` | Activate the selected menu item
+|=================
+
+These shortcuts are built into the client and need no config bindings. Each
+press sends one command; holding the key does not repeat it. The server decides
+what these commands do when its menu is closed.
+
+They apply only to game input, not chat, the console, client menus, HUD editing,
+or demo playback. Adding Alt or Shift disables the shortcut. Ordinary bindings
+for M, the arrows, and Enter still work without Ctrl; Ctrl's own binding remains
+active. During a shortcut, the other key's normal binding is suppressed until
+that key is released, even if Ctrl is released first.
+
 Variables
 ---------
 

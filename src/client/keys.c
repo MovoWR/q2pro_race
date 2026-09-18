@@ -38,6 +38,9 @@ static int      anykeydown;
 // bitmap for generating button up commands
 static byte     buttondown[256 / 8];
 
+// keys consumed by a JumpMod shortcut until they are released
+static byte     jumpmenudown[256 / 8];
+
 static bool     key_overstrike;
 
 typedef struct {
@@ -641,6 +644,49 @@ void Key_Init(void)
     Cmd_Register(c_keys);
 }
 
+static bool Key_JumpMenuEvent(unsigned key, bool down)
+{
+    const char *command;
+
+    if (Q_IsBitSet(jumpmenudown, key)) {
+        if (!down)
+            Q_ClearBit(jumpmenudown, key);
+        return true;
+    }
+
+    if (!down || keydown[key] != 1 || cls.key_dest != KEY_GAME ||
+        cls.state != ca_active || cls.demo.playback ||
+        !fs_game || Q_stricmp(fs_game->string, "jump"))
+        return false;
+
+    bool ctrl = Key_IsDown(K_CTRL) || Key_IsDown(K_LCTRL) || Key_IsDown(K_RCTRL);
+    bool alt = Key_IsDown(K_ALT) || Key_IsDown(K_LALT) || Key_IsDown(K_RALT);
+    bool shift = Key_IsDown(K_SHIFT) || Key_IsDown(K_LSHIFT) || Key_IsDown(K_RSHIFT);
+    if (!ctrl || alt || shift)
+        return false;
+
+    switch (key) {
+    case 'm':
+        command = "inven";
+        break;
+    case K_UPARROW:
+        command = "invprev";
+        break;
+    case K_DOWNARROW:
+        command = "invnext";
+        break;
+    case K_ENTER:
+        command = "invuse";
+        break;
+    default:
+        return false;
+    }
+
+    Q_SetBit(jumpmenudown, key);
+    CL_ClientCommand(command);
+    return true;
+}
+
 /*
 ===================
 Key_Event
@@ -671,6 +717,9 @@ void Key_Event(unsigned key, bool down, unsigned time)
     } else {
         keydown[key] = 0;
     }
+
+    if (Key_JumpMenuEvent(key, down))
+        return;
 
     // console key is hardcoded, so the user can never unbind it
     if (!Key_IsDown(K_SHIFT) && (key == '`' || key == '~')) {

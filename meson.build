@@ -409,6 +409,19 @@ fps_commands_test = executable(
 )
 test('fps-commands', fps_commands_test, suite: 'console')
 
+jump_menu_keys_test = executable(
+  'jump_menu_keys_test',
+  ['tests/jump_menu_keys_test.c', 'src/shared/shared.c'],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1', '-DUSE_UI=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('jump-menu-keys', jump_menu_keys_test, suite: 'console')
+
 laser_test = executable(
   'laser_test',
   'tests/laser_test.c',
