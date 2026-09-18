@@ -6,6 +6,7 @@
 
 client_state_t cl;
 client_static_t cls;
+unsigned com_framenum, com_localTime2;
 static jmp_buf error_jump;
 static error_type_t error_code;
 static char error_text[MAX_STRING_CHARS];

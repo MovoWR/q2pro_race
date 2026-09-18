@@ -419,6 +419,7 @@ zpacket_test = executable(
     'tests/zpacket_test.c',
     'src/common/msg.c',
     'src/common/sizebuf.c',
+    'src/common/utils.c',
     'src/shared/shared.c',
     'src/common/math.c',
   ],

@@ -10,6 +10,8 @@ const vid_driver_t *vid;
 unsigned com_eventTime;
 static cvar_t game_var;
 cvar_t *fs_game = &game_var;
+static cvar_t developer_var;
+cvar_t *developer = &developer_var;
 
 static char bindings_sent[4096], server_sent[1024];
 static int fullscreen_toggles, console_toggles, console_keys, message_keys;
