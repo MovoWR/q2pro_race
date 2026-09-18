@@ -18,6 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // cl_tent.c -- client side temporary entities
 
 #include "client.h"
+#include "laser.h"
 #include "common/mdfour.h"
 #include "src/jump/strafe_helper.h"
 
@@ -588,112 +589,6 @@ static void CL_AddExplosions(void)
     }
 }
 
-/*
-==============================================================
-
-LASER MANAGEMENT
-
-==============================================================
-*/
-
-#define MAX_LASERS  256
-
-typedef struct {
-    vec3_t      start;
-    vec3_t      end;
-    int         color;
-    color_t     rgba;
-    int         width;
-    int         lifetime, starttime;
-} laser_t;
-
-static laser_t  cl_lasers[MAX_LASERS];
-
-static void CL_ClearLasers(void)
-{
-    memset(cl_lasers, 0, sizeof(cl_lasers));
-}
-
-static laser_t *CL_AllocLaser(void)
-{
-    laser_t *l;
-    int i;
-
-    for (i = 0, l = cl_lasers; i < MAX_LASERS; i++, l++) {
-        if (cl.time - l->starttime >= l->lifetime) {
-            memset(l, 0, sizeof(*l));
-            l->starttime = cl.time;
-            return l;
-        }
-    }
-
-    return NULL;
-}
-
-float Cvar_GetCappedValue(cvar_t *cvar, float min, float max); // q2pro_race
-
-float Cvar_GetCappedValue(cvar_t *cvar, float min, float max) {
-    float value = cvar->value;
-    if (value < min) {
-        return min;
-    } else if (value > max) {
-        return max;
-    }
-    return value;
-} // q2pro_race
-
-static void CL_AddLasers(void)
-{
-    laser_t *l;
-    entity_t ent;
-    int i, time;
-
-    memset(&ent, 0, sizeof(ent));
-    ent.rgba.u32 = 0xFFFFFFFF;
-
-    for (i = 0, l = cl_lasers; i < MAX_LASERS; i++, l++) {
-        time = l->lifetime - (cl.time - l->starttime);
-        if (time <= 0) {
-            continue;
-        }
-        float alpha = cl_race_alpha->value;
-        if (alpha <= 0.0f) {
-            continue;
-        } else if (alpha > 1.0f) {
-            alpha = 1.0f;
-        }
-
-        ent.alpha = alpha * ((float)time / (float)l->lifetime);
-        memcpy(&ent.rgba, &l->rgba, sizeof(color_t));
-
-        ent.skinnum = l->color;
-        ent.flags = RF_TRANSLUCENT | RF_BEAM;
-        VectorCopy(l->start, ent.origin);
-        VectorCopy(l->end, ent.oldorigin);
-        ent.frame = l->width;
-        V_AddEntity(&ent);
-    }
-}
-
-static void CL_ParseLaser(unsigned colors) {
-    laser_t *l;
-    color_t parsedColor;
-
-    l = CL_AllocLaser();
-    if (!l)
-        return;
-
-    VectorCopy(te.pos1, l->start);
-    VectorCopy(te.pos2, l->end);
-    l->lifetime = Cvar_GetCappedValue(cl_race_life, 0.0f, 5000.0f);
-    l->width = Cvar_GetCappedValue(cl_race_width, 0.0f, 20.0f);
-
-    const char *colorStr = cl_race_color->string;
-    if (!shc_ParseColorCvar(colorStr, NULL, &parsedColor)) {
-        parsedColor.u32 = 0xFF0000FF;
-    }
-    l->rgba = parsedColor;
-}
 /*
 ==============================================================
 

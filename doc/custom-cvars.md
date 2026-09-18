@@ -288,6 +288,11 @@ time and resets its history when the speed source changes.
 
 ## Race Line and World Origin
 
+Race line settings apply to server-provided beams only while `game` is `jump`.
+Other games retain normal BFG beam lifetime, width, palette color and opacity.
+Rail cores retain their own color, width, lifetime and fading in every game.
+`gl_beamstyle` remains a global rendering option.
+
 | Cvar | Default | Description |
 | --- | --- | --- |
 | `race_alpha` | `0.5` | Race trail alpha. |

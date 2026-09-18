@@ -46,6 +46,7 @@ client_src = [
   'src/client/fps.c',
   'src/client/input.c',
   'src/client/keys.c',
+  'src/client/laser.c',
   'src/client/locs.c',
   'src/client/main.c',
   'src/client/newfx.c',
@@ -407,6 +408,17 @@ fps_commands_test = executable(
   install: false,
 )
 test('fps-commands', fps_commands_test, suite: 'console')
+
+laser_test = executable(
+  'laser_test',
+  'tests/laser_test.c',
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('laser-compatibility', laser_test, suite: 'jump-hud')
 
 console_history_test = executable(
   'console_history_test',

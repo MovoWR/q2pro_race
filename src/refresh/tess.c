@@ -383,9 +383,10 @@ void GL_DrawBeams(void)
         VectorCopy(ent->origin, segs[0]);
         VectorCopy(ent->oldorigin, segs[1]);
 
-
-        color.u32 = ent->rgba.u32;
-
+        if (ent->skinnum == -1)
+            color.u32 = ent->rgba.u32;
+        else
+            color.u32 = d_8to24table[ent->skinnum & 0xff];
         color.u8[3] *= ent->alpha;
 
         // Proximity Heatmap (Style 2 and 4)
