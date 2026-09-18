@@ -3,6 +3,10 @@
 #undef NDEBUG
 #include <assert.h>
 #include "cvar_clamp_stub.h"
+#include "sh_draw_group_stub.h"
+
+cvar_t *hud_ups_scale = &(cvar_t) { .value = 1 };
+cvar_t *hud_strafe_scale = &(cvar_t) { .value = 1 };
 
 client_state_t cl;
 client_static_t cls;
@@ -14,9 +18,13 @@ static struct {
 static int drawn_count;
 static bool test_gradient, saw_clipped_gradient;
 static int last_ups_x, last_ups_y;
+#if USE_UI
+static float ups_bounds_y, ups_bounds_height;
+#endif
 static bool efficiency_update_valid;
 static float efficiency_update_value;
 static unsigned efficiency_updates;
+static float efficiency_helper_y, efficiency_helper_height;
 
 static void CheckNear(float actual, float expected, float tolerance)
 {
@@ -100,6 +108,131 @@ static void CheckInterval(void)
     const float high = max(sh.angle_minimum, sh.angle_maximum);
     assert(sh.angle_optimal >= low - .00001f && sh.angle_optimal <= high + .00001f);
     assert(high - low <= M_PI + .00001f);
+}
+
+/* Rotate the swimming command with view yaw, then apply PM_Accelerate to XYZ.
+ * Comparing the resulting XY velocities avoids depending on the helper's formulas. */
+static double WaterGain(const vec3_t velocity, const vec3_t wishdir, double yaw,
+                        double target, double budget)
+{
+    const double wish[3] = {
+        wishdir[0] * cos(yaw) - wishdir[1] * sin(yaw),
+        wishdir[0] * sin(yaw) + wishdir[1] * cos(yaw),
+        wishdir[2]
+    };
+    const double projection = velocity[0] * wish[0] + velocity[1] * wish[1] + velocity[2] * wish[2];
+    const double acceleration = fmin(budget, fmax(target - projection, 0.0));
+    const double x = velocity[0] + acceleration * wish[0];
+    const double y = velocity[1] + acceleration * wish[1];
+    return x * x + y * y - (double)velocity[0] * velocity[0] - (double)velocity[1] * velocity[1];
+}
+
+static void CheckWaterSample(float pitch, float forwardmove, float sidemove, float upmove,
+                             float vertical_velocity, float watermult, float frametime)
+{
+    const float yaw = .73f;
+    const vec3_t forward = { cosf(pitch) * cosf(yaw), cosf(pitch) * sinf(yaw), -sinf(pitch) };
+    vec3_t wishdir = {
+        forwardmove * forward[0] + sidemove * sinf(yaw),
+        forwardmove * forward[1] - sidemove * cosf(yaw),
+        forwardmove * forward[2] + upmove
+    };
+    const float length = sqrtf(DotProduct(wishdir, wishdir));
+    for (int i = 0; i < 3; i++)
+        wishdir[i] /= length;
+    const float wishspeed = min(length, 300.0f) * watermult;
+    const float budget = 10.0f * frametime * wishspeed;
+    const float wish_yaw = atan2f(wishdir[1], wishdir[0]);
+    const float side = sidemove < 0 ? -1 : 1;
+    const vec3_t velocity = {
+        400 * cosf(wish_yaw + side * .7f),
+        400 * sinf(wish_yaw + side * .7f),
+        vertical_velocity
+    };
+    Setup(0);
+    StrafeHelper_BeginPrediction();
+    StrafeHelper_SetAccelerationValues(forward, velocity, wishdir, wishspeed, wishspeed, 10, frametime);
+    StrafeHelper_EndPrediction();
+
+    if (wishspeed - vertical_velocity * wishdir[2] <= 0) {
+        assert(!StrafeHelper_HasData());
+        for (int i = 0; i < 720; i++)
+            assert(WaterGain(velocity, wishdir, i * M_PI / 360, wishspeed, budget) <= .02);
+        return;
+    }
+
+    assert(StrafeHelper_HasData());
+    CheckInterval();
+    assert(sh_previous_side == side);
+    const double minimum = side * (sh.angle_minimum + yaw - wish_yaw);
+    const double maximum = side * (sh.angle_maximum + yaw - wish_yaw);
+    const double best = WaterGain(velocity, wishdir, sh.angle_current - sh.angle_optimal, wishspeed, budget);
+    assert(best > 0);
+    for (int i = 0; i <= 1440; i++) {
+        const double theta = i * M_PI / 1440;
+        /* Yaw adjustment moves the current heading to this candidate relative to the command. */
+        const double candidate = wish_yaw - yaw + side * theta;
+        const double gain = WaterGain(velocity, wishdir, sh.angle_current - candidate, wishspeed, budget);
+        assert(gain <= best + .1);
+        if (theta > minimum + .0001 && theta < maximum - .0001)
+            assert(gain > 0);
+        if (theta < minimum - .0001 || theta > maximum + .0001)
+            assert(gain <= .02);
+    }
+    if (minimum > .0001)
+        assert(fabs(WaterGain(velocity, wishdir, sh.angle_current - sh.angle_minimum, wishspeed, budget)) < .1);
+    if (maximum < M_PI - .0001)
+        assert(fabs(WaterGain(velocity, wishdir, sh.angle_current - sh.angle_maximum, wishspeed, budget)) < .1);
+}
+
+static void CheckWaterMath(void)
+{
+    const float pitches[] = { -89, -60, -25, 0, 25, 60, 89 };
+    const float vertical_velocities[] = { -450, -80, 80, 450 };
+    const float watermultipliers[] = { .5f, .7f };
+    const float frametimes[] = { .008f, .016f, .25f };
+    for (size_t p = 0; p < q_countof(pitches); p++) {
+        for (int forwardmove = -300; forwardmove <= 300; forwardmove += 300) {
+            for (int sidemove = -300; sidemove <= 300; sidemove += 600) {
+                for (int upmove = -200; upmove <= 200; upmove += 200) {
+                    for (size_t v = 0; v < q_countof(vertical_velocities); v++) {
+                        for (size_t m = 0; m < q_countof(watermultipliers); m++) {
+                            for (size_t t = 0; t < q_countof(frametimes); t++) {
+                                CheckWaterSample(pitches[p] * (float)M_PI / 180,
+                                                 forwardmove, sidemove, upmove,
+                                                 vertical_velocities[v], watermultipliers[m], frametimes[t]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* Idle sinking, up/down only, and exclusively vertical velocity have no yaw solution. */
+    const vec3_t forward = { 1, 0, 0 }, moving = { 400, 0, 80 }, vertical = { 0, 0, 400 };
+    const vec3_t side_wish = { 0, 1, 0 }, upward = { 0, 0, 1 }, downward = { 0, 0, -1 };
+    const float *wishes[] = { upward, downward };
+    for (size_t i = 0; i < q_countof(wishes); i++) {
+        Setup(0);
+        StrafeHelper_BeginPrediction();
+        StrafeHelper_SetAccelerationValues(forward, moving, wishes[i], 150, 150, 10, .008f);
+        StrafeHelper_EndPrediction();
+        assert(!StrafeHelper_HasData());
+    }
+    Setup(0);
+    StrafeHelper_BeginPrediction();
+    StrafeHelper_SetAccelerationValues(forward, vertical, side_wish, 150, 150, 10, .008f);
+    StrafeHelper_EndPrediction();
+    assert(!StrafeHelper_HasData());
+
+    /* An exactly exhausted horizontal target is invalid as well as a negative one. */
+    const vec3_t wish = { 0, .6f, .8f }, rising = { 400, 0, 250 };
+    Setup(0);
+    StrafeHelper_BeginPrediction();
+    StrafeHelper_SetAccelerationValues(forward, rising, wish, 200, 200, 10, .008f);
+    StrafeHelper_EndPrediction();
+    assert(!StrafeHelper_HasData());
 }
 
 static float SmoothRun(unsigned step, int count)
@@ -308,11 +441,79 @@ static void CheckUpsViewport(void)
     cl_strafehelperUpsColorMode = old_mode;
 }
 
+#if USE_UI
+static void CheckUpsTextBounds(void)
+{
+    const float scales[] = { .25f, .75f, 1, 1.5f, 3, 6 };
+    cvar_t scale = { 0 }, y = { .value = 17.5f };
+    cvar_t *old_scale = cl_strafehelperUpsScale, *old_y = cl_strafehelperUpsY;
+    cl_strafehelperUpsScale = &scale;
+    cl_strafehelperUpsY = &y;
+    for (size_t i = 0; i < q_countof(scales); i++) {
+        scale.value = scales[i];
+        SH_Ups_Draw(641, 481, .5f, 0);
+        const float top = last_ups_y * scales[i] / .5f;
+        const float bottom = (last_ups_y + CHAR_HEIGHT) * scales[i] / .5f;
+        CheckNear(ups_bounds_height, (ceilf(bottom) - floorf(top)) * .5f, .0001f);
+        CheckNear(ups_bounds_y, floorf(top) * .5f, .0001f);
+    }
+    cl_strafehelperUpsScale = old_scale;
+    cl_strafehelperUpsY = old_y;
+}
+#endif
+
+static void CheckVisualScaling(void)
+{
+    static cvar_t width = { .value = 2 }, style = { .string = "solid" };
+    const struct StrafeHelperParams params = {
+        .center = 1, .center_marker = 1, .scale = 1, .height = 12, .y = 20, .hud_scale = 1
+    };
+    cvar_t *old_center = cl_strafehelper_center_width;
+    cvar_t *old_optimal = cl_strafehelper_optimal_width;
+    cvar_t *old_style = cl_strafehelperBarStyle;
+    cl_strafehelper_center_width = cl_strafehelper_optimal_width = &width;
+    cl_strafehelperBarStyle = &style;
+    test_draw_scale = 1;
+    drawn_count = 0;
+    StrafeHelper_DrawPreview(&params, 640, 480, 0);
+    const vrect_t helper = test_group_bounds;
+    hud_strafe_scale->value = 2;
+    drawn_count = 0;
+    StrafeHelper_DrawPreview(&params, 640, 480, 0);
+    assert(test_group_bounds.height == helper.height * 2);
+    assert(abs(test_group_bounds.width - helper.width * 2) <= 2);
+    assert(test_group_bounds.y + test_group_bounds.height / 2 == 260);
+    CheckNear(efficiency_helper_y, 248, .0001f);
+    CheckNear(efficiency_helper_height, 24, .0001f);
+    assert(!test_group.active && !sh_drawing_preview);
+    hud_strafe_scale->value = 1;
+    cl_strafehelper_center_width = old_center;
+    cl_strafehelper_optimal_width = old_optimal;
+    cl_strafehelperBarStyle = old_style;
+
+    SH_Ups_Draw(640, 480, 1, 0);
+    const vrect_t ups = test_group_bounds;
+    hud_ups_scale->value = 1.5f;
+    SH_Ups_Draw(640, 480, 1, 0);
+    assert(test_group_bounds.height == ups.height * 1.5f);
+    assert(abs(test_group_bounds.width - ups.width * 1.5f) <= 2);
+    assert(test_group_bounds.y + test_group_bounds.height / 2 == ups.y + ups.height / 2);
+    hud_ups_scale->value = NAN;
+    SH_Ups_Draw(640, 480, 1, 0);
+    assert(test_group_bounds.width == ups.width);
+    hud_ups_scale->value = 1;
+}
+
 int main(void)
 {
+    CheckWaterMath();
     CheckEfficiencyBridge();
     CheckUps();
     CheckUpsViewport();
+    CheckVisualScaling();
+#if USE_UI
+    CheckUpsTextBounds();
+#endif
     for (int style = 0; style < 2; style++) {
         test_gradient = style != 0;
         for (int center = 0; center <= 1; center++) {
@@ -441,14 +642,22 @@ float Cvar_ClampValue(cvar_t *var, float low, float high) { return Test_ClampCva
 #if USE_UI
 bool HUD_EditorPreview(void) { return false; }
 bool HUD_EditorShow(int id) { return true; }
+float HUD_EditorValue(const cvar_t *var) { return var->value; }
 float HUD_EditorClamp(cvar_t *var, float low, float high) { return Cvar_ClampValue(var, low, high); }
-void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h) {}
+void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h)
+{
+    if (id == HUD_EDIT_UPS) {
+        ups_bounds_y = y;
+        ups_bounds_height = h;
+    }
+}
 #endif
-void R_SetScale(float scale) {}
+void R_SetScale(float scale) { test_draw_scale = scale > 0 ? scale : 1; }
 void R_SetColor(uint32_t color) {}
 void R_ClearColor(void) {}
 int SCR_DrawStringEx(int x, int y, int flags, size_t maxlen, const char *s, qhandle_t font)
 {
+    if (!Test_GroupText(x, y, flags, s)) return x;
     last_ups_x = x;
     last_ups_y = y;
     return x;
@@ -472,6 +681,7 @@ uint32_t shc_ParseColorString(const char *text, uint8_t *r, uint8_t *g, uint8_t 
 }
 void shc_drawFilledRectangle(float x, float y, float w, float h, enum shc_ElementId id)
 {
+    if (!Test_GroupRect(x, y, w, h)) return;
     assert(drawn_count < q_countof(drawn_rectangles));
     drawn_rectangles[drawn_count].x = x;
     drawn_rectangles[drawn_count].width = w;
@@ -493,8 +703,16 @@ void SH_Efficiency_Update(bool valid, float value)
     efficiency_update_valid = valid;
     efficiency_update_value = value;
 }
-void SH_Efficiency_Draw(float y, float h, float width, float scale, int font) {}
-void SH_Efficiency_DrawPreview(float y, float h, float width, float scale, int font) {}
+void SH_Efficiency_Draw(float y, float h, float width, float scale, int font)
+{
+    assert(!test_group.active);
+    efficiency_helper_y = y;
+    efficiency_helper_height = h;
+}
+void SH_Efficiency_DrawPreview(float y, float h, float width, float scale, int font)
+{
+    SH_Efficiency_Draw(y, h, width, scale, font);
+}
 cvar_t *cl_predict;
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_outline;

@@ -223,14 +223,21 @@ void    R_SetAltColor(uint32_t color);
 void    R_SetClipRect(const clipRect_t *clip);
 float   R_ClampScale(cvar_t *var);
 void    R_SetScale(float scale);
-/* One non-nesting 2D quad group. Begin replaces any active group; offsets and
- * returned bounds use physical pixels, independently of the current draw scale.
- * Hidden groups still measure translated, unclipped quads but emit none.
+/* Presentation-only 2D transform after group measurement. Reset with (0,0,1). */
+void    R_SetDrawTransform(float x, float y, float zoom);
+/* One non-nesting 2D quad group. Begin replaces any active group; offsets, pivots
+ * and returned bounds use physical pixels, independently of the current draw scale.
+ * Scaling is around the pivot before translation. Hidden groups still measure
+ * transformed, unclipped quads but emit none. Begin resets the scale to identity.
  * End clears the group and returns whether it measured bounds; a false return
  * leaves the optional bounds output untouched.
  */
 void    R_BeginDrawGroup(float x, float y, bool hidden);
+/* Invalid/nonpositive factors use 1; non-finite pivot coordinates use 0. */
+void    R_SetDrawGroupScale(float sx, float sy, float pivot_x, float pivot_y);
 bool    R_EndDrawGroup(vrect_t *bounds);
+/* Also returns bounds before group scale/translation; both exclude presentation. */
+bool    R_EndDrawGroupRaw(vrect_t *bounds, vrect_t *raw_bounds);
 void    R_DrawChar(int x, int y, int flags, int ch, qhandle_t font);
 int     R_DrawString(int x, int y, int flags, size_t maxChars,
                      const char *string, qhandle_t font);  // returns advanced x coord

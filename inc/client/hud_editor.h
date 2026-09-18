@@ -13,12 +13,16 @@ typedef enum {
 void HUD_EditorInit(void);
 void HUD_EditorShutdown(void);
 bool HUD_EditorActive(void);
+/* Physical viewport for the workbench scene; leaves the output alone when closed. */
+bool HUD_EditorViewport(vrect_t *viewport);
 bool HUD_EditorPreview(void);
 bool HUD_EditorSelected(int id);
 /* Focus affects preview drawing only; bounds remain available for alignment. */
 bool HUD_EditorShow(int id);
 int HUD_EditorNetworkMode(void);
+hud_preview_scenario_t HUD_EditorScenario(void);
 bool HUD_EditorKey(int key, bool down);
+bool HUD_EditorChar(int key);
 void HUD_EditorMouse(int x, int y);
 /* Draft values are read only during preview; normal drawing reads live cvars. */
 float HUD_EditorValue(const cvar_t *var);
@@ -27,10 +31,12 @@ float HUD_EditorClamp(cvar_t *var, float low, float high);
 void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h);
 #else
 #define HUD_EditorActive() false
+#define HUD_EditorViewport(viewport) false
 #define HUD_EditorPreview() false
 #define HUD_EditorSelected(id) false
 #define HUD_EditorShow(id) true
 #define HUD_EditorNetworkMode() 0
+#define HUD_EditorScenario() HUD_PREVIEW_LIVE
 #define HUD_EditorValue(var) ((var)->value)
 #define HUD_EditorClamp(var, low, high) Cvar_ClampValue(var, low, high)
 #define HUD_EditorBounds(id, x, y, w, h) ((void)0)

@@ -3,6 +3,9 @@
 #undef NDEBUG
 #include <assert.h>
 #include "cvar_clamp_stub.h"
+#include "sh_draw_group_stub.h"
+
+cvar_t *hud_network_scale = &(cvar_t) { .value = 1 };
 
 client_state_t cl;
 client_static_t cls;
@@ -125,7 +128,7 @@ static struct { int x, y, w, h, color; float alpha; } rectangles[10000];
 static int rectangle_count, text_count, preview_count, checks, failures;
 static char last_text[64];
 static float draw_alpha;
-static bool editor_preview;
+static bool editor_preview, editor_show = true;
 
 #define CHECK(expr) do { checks++; if (!(expr)) { \
     fprintf(stderr, "%s:%d: %s\n", __func__, __LINE__, #expr); failures++; \
@@ -134,7 +137,11 @@ static bool editor_preview;
 int Cvar_ClampInteger(cvar_t *var, int low, int high) { return Test_ClampCvarInteger(var, low, high); }
 float Cvar_ClampValue(cvar_t *var, float low, float high) { return Test_ClampCvarValue(var, low, high); }
 bool HUD_EditorPreview(void) { return editor_preview; }
-bool HUD_EditorShow(int id) { return true; }
+bool HUD_EditorShow(int id)
+{
+    return editor_show;
+}
+
 int HUD_EditorNetworkMode(void) { return 3; }
 float HUD_EditorValue(const cvar_t *var) { return var->value; }
 float HUD_EditorClamp(cvar_t *var, float low, float high)
@@ -143,16 +150,24 @@ float HUD_EditorClamp(cvar_t *var, float low, float high)
         return SH_ClampDrawValue(var->value, low, high);
     return Cvar_ClampValue(var, low, high);
 }
+
 void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h) {}
 void HUD_LayoutBegin(int id) {}
 void HUD_LayoutEnd(void) {}
 void R_SetAlpha(float alpha) { draw_alpha = alpha; }
 void UI_SetColor_Wrapper(uint32_t color) { draw_alpha = ((color >> 24) & 255) / 255.0f; }
 void UI_ClearColor_Wrapper(void) { draw_alpha = 1; }
-void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color) { preview_count++; }
-void R_DrawStretchPic(int x, int y, int w, int h, qhandle_t pic) {}
+void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color)
+{
+    if (Test_GroupRect(x, y, w, h)) preview_count++;
+}
+void R_DrawStretchPic(int x, int y, int w, int h, qhandle_t pic)
+{
+    Test_GroupRect(x, y, w, h);
+}
 void R_DrawFill8(int x, int y, int w, int h, int color)
 {
+    if (!Test_GroupRect(x, y, w, h)) return;
     assert(rectangle_count < q_countof(rectangles));
     rectangles[rectangle_count].x = x;
     rectangles[rectangle_count].y = y;
@@ -161,12 +176,15 @@ void R_DrawFill8(int x, int y, int w, int h, int color)
     rectangles[rectangle_count].color = color;
     rectangles[rectangle_count++].alpha = draw_alpha;
 }
+
 int SCR_DrawStringEx(int x, int y, int flags, size_t maxlen, const char *text, qhandle_t font)
 {
+    if (!Test_GroupText(x, y, flags, text)) return x;
     text_count++;
     snprintf(last_text, sizeof(last_text), "%s", text);
     return x;
 }
+
 size_t Q_strlcpy(char *dest, const char *src, size_t size)
 {
     size_t len = strlen(src);
@@ -177,6 +195,7 @@ size_t Q_strlcpy(char *dest, const char *src, size_t size)
     }
     return len;
 }
+
 size_t Q_scnprintf(char *dest, size_t size, const char *format, ...)
 {
     va_list args;
@@ -191,12 +210,14 @@ static void Set(cvar_t *var, float value)
     var->integer = (int)value;
     var->value = value;
 }
+
 static void ResetDrawing(void)
 {
     rectangle_count = text_count = preview_count = 0;
     last_text[0] = 0;
     draw_alpha = scr_alpha->value;
 }
+
 static void Setup(void)
 {
     SH_NetMeter_Clear();
@@ -206,6 +227,7 @@ static void Setup(void)
     for (size_t i = 0; i < q_countof(test_cvars); i++)
         memset(test_cvars[i], 0, sizeof(*test_cvars[i]));
     editor_preview = false;
+    editor_show = true;
     cls.netchan.protocol = PROTOCOL_VERSION_Q2PRO;
     cls.realtime = 1000;
     scr.hud_width = 640;
@@ -250,10 +272,12 @@ static void Setup(void)
     Set(sh_histogram_color_loss_c2s, COLOR_C2S);
     ResetDrawing();
 }
+
 static unsigned LatestFlags(void)
 {
     return netmeter.samples[(netmeter.head - 1) & NETMETER_MASK].flags;
 }
+
 static int ColorCount(int color)
 {
     int count = 0;
@@ -412,6 +436,7 @@ static void DrawHistogram(void)
     ResetDrawing();
     SCR_DrawNetMeterHistogram(1, cls.realtime);
 }
+
 static void CheckHistogram(void)
 {
     for (int fill = 0; fill <= 1; fill++) {
@@ -518,8 +543,93 @@ static void CheckViewportPreservesSettings(void)
     }
 }
 
+static void CheckEditorPing(void)
+{
+    Setup();
+    Set(sh_netalert, 0);
+    Set(sh_histogram_ping, 1);
+    SH_NetMeter_Sample(73);
+    unsigned head = netmeter.head, samples = netmeter.ping_samples;
+    editor_preview = true;
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(text_count == 1 && !strcmp(last_text, "42") && preview_count > 0);
+    CHECK(netmeter.head == head && netmeter.ping_samples == samples && netmeter.display_ping == 73);
+    Set(sh_histogram_ping, 0);
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(text_count == 0 && preview_count > 0);
+    Set(sh_histogram_ping, 1);
+    editor_show = false;
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(text_count == 0 && preview_count == 0);
+    editor_show = true;
+    editor_preview = false;
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(text_count == 1 && !strcmp(last_text, "73"));
+}
+
+static void CheckModeRange(void)
+{
+    const int modes[] = { -1, 0, 1, 2, 3, 4, INT_MAX };
+    for (size_t i = 0; i < q_countof(modes); i++) {
+        Setup();
+        Set(sh_netalert, 0);
+        sh_netmeter->integer = modes[i];
+        SH_NetMeter_Sample(30);
+        ResetDrawing();
+        SH_NetMeter_Draw();
+        CHECK(sh_netmeter->integer == Q_clip(modes[i], 0, 3));
+        CHECK((rectangle_count > 0) == (modes[i] > 0));
+    }
+}
+
+static void CheckVisualScaling(void)
+{
+    Setup();
+    editor_preview = true;
+    scr.hud_scale = test_draw_scale = 1;
+    Set(sh_histogram_x, -1);
+    Set(sh_histogram_y, -1);
+    hud_network_scale->value = 2;
+    SH_NetMeter_Draw();
+    CHECK(test_group_bounds.x == 440 && test_group_bounds.y == 450);
+    CHECK(test_group_bounds.width == 200 && test_group_bounds.height == 30);
+    Set(sh_histogram_width_mode, 2);
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(test_group_bounds.x == 0 && test_group_bounds.width == 640);
+    CHECK(test_group_bounds.height == 30);
+    CHECK(!test_group.active);
+    editor_show = false;
+    ResetDrawing();
+    SH_NetMeter_Draw();
+    CHECK(preview_count == 0 && text_count == 0);
+    CHECK(test_group_bounds.width == 640 && test_group_bounds.height == 30);
+
+    editor_show = true;
+    hud_network_scale->value = .5f;
+    Set(sh_lagometer_x, -1);
+    Set(sh_lagometer_y, -1);
+    ResetDrawing();
+    SCR_DrawNetMeterLagometer(1);
+    CHECK(test_group_bounds.x == 616 && test_group_bounds.y == 456);
+    CHECK(test_group_bounds.width == 24 && test_group_bounds.height == 24);
+    ResetDrawing();
+    SCR_DrawNetMeterNetgraph(1);
+    CHECK(test_group_bounds.width == 640 && test_group_bounds.height == 8);
+    hud_network_scale->value = 1;
+    editor_preview = false;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 1 || !strcmp(argv[1], "scaling")) CheckVisualScaling();
+    if (argc == 1 || !strcmp(argv[1], "modes")) CheckModeRange();
+    if (argc == 1 || !strcmp(argv[1], "preview"))
+        CheckEditorPing();
     if (argc == 1 || !strcmp(argv[1], "viewport")) CheckViewportPreservesSettings();
     if (argc == 1 || !strcmp(argv[1], "loss")) CheckLoss();
     if (argc == 1 || !strcmp(argv[1], "jitter")) CheckJitter();

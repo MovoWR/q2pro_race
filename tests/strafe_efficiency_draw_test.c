@@ -5,6 +5,9 @@
 #include <assert.h>
 #include <limits.h>
 #include "cvar_clamp_stub.h"
+#include "sh_draw_group_stub.h"
+
+cvar_t *hud_efficiency_scale = &(cvar_t) { .value = 1 };
 
 client_state_t cl;
 client_static_t cls;
@@ -39,7 +42,10 @@ static struct {
     int x, y, width, height;
     uint32_t color;
 } rectangles[64];
-static int rectangle_count, text_count;
+static int rectangle_count, text_count, last_text_y;
+#if USE_UI
+static float text_bounds_y, text_bounds_height;
+#endif
 static char last_text[8];
 static bool editor_preview;
 static const cvar_t *draft_var;
@@ -430,6 +436,59 @@ static void CheckPreviewPreservesInvalidSettings(void)
     cl_strafehelperEffTextScale = old_text_scale;
 }
 
+#if USE_UI
+static void CheckTextBounds(void)
+{
+    const float scales[] = { .25f, .75f, 1, 1.5f, 3, 6 };
+    cvar_t scale = { 0 };
+    cvar_t *old_scale = cl_strafehelperEffTextScale;
+    cl_strafehelperEffTextScale = &scale;
+    editor_preview = true;
+    for (size_t i = 0; i < q_countof(scales); i++) {
+        scale.value = scales[i];
+        SH_BeginVisualDraw(HUD_EDIT_EFFICIENCY, 1, 1, 320.5f, 51.5f, .5f);
+        SH_Efficiency_DrawText(320.5f, 51.5f, .5f, 0, .85f);
+        SH_EndVisualDraw(HUD_EDIT_EFFICIENCY, .5f);
+        const float top = last_text_y * scales[i] / .5f;
+        const float bottom = (last_text_y + CHAR_HEIGHT) * scales[i] / .5f;
+        assert(fabsf(text_bounds_height - (ceilf(bottom) - floorf(top)) * .5f) < .0001f);
+        assert(fabsf(text_bounds_y - floorf(top) * .5f) < .0001f);
+    }
+    editor_preview = false;
+    cl_strafehelperEffTextScale = old_scale;
+}
+#endif
+
+static void CheckVisualScaling(void)
+{
+    Reset(0);
+    test_draw_scale = 1;
+    SH_Efficiency_DrawPreview(100, 12, 640, 1, 0);
+    const vrect_t normal = test_group_bounds;
+    hud_efficiency_scale->value = 2;
+    ClearDrawing();
+    SH_Efficiency_DrawPreview(100, 12, 640, 1, 0);
+    assert(test_group_bounds.width == normal.width * 2);
+    assert(test_group_bounds.height == normal.height * 2);
+    assert(test_group_bounds.y == normal.y);
+    assert(test_group_bounds.x + test_group_bounds.width / 2 == 320);
+    assert(!test_group.active);
+#if USE_UI
+    hud_efficiency_scale->value = 1;
+    draft_var = hud_efficiency_scale;
+    draft_value = .5f;
+    editor_preview = true;
+    ClearDrawing();
+    SH_Efficiency_DrawPreview(100, 12, 640, 1, 0);
+    assert(test_group_bounds.width == normal.width / 2);
+    assert(test_group_bounds.height == normal.height / 2);
+    assert(hud_efficiency_scale->value == 1);
+    editor_preview = false;
+    draft_var = NULL;
+#endif
+    hud_efficiency_scale->value = 1;
+}
+
 int main(void)
 {
     CheckPreviewPreservesInvalidSettings();
@@ -441,8 +500,10 @@ int main(void)
     CheckPreview(false);
 #if USE_UI
     CheckPreview(true);
+    CheckTextBounds();
 #endif
     CheckPreviewWithoutLiveData();
+    CheckVisualScaling();
     puts("strafe-efficiency drawing, timing, and preview tests passed");
     return 0;
 }
@@ -459,10 +520,15 @@ float HUD_EditorClamp(cvar_t *var, float low, float high)
         return SH_ClampDrawValue(var == draft_var ? draft_value : var->value, low, high);
     return Cvar_ClampValue(var, low, high);
 }
-void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float width, float height) {}
+void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float width, float height)
+{
+    text_bounds_y = y;
+    text_bounds_height = height;
+}
 #endif
 void R_DrawFill32(int x, int y, int width, int height, uint32_t color)
 {
+    if (!Test_GroupRect(x, y, width, height)) return;
     assert(rectangle_count < q_countof(rectangles));
     rectangles[rectangle_count].x = x;
     rectangles[rectangle_count].y = y;
@@ -471,12 +537,14 @@ void R_DrawFill32(int x, int y, int width, int height, uint32_t color)
     rectangles[rectangle_count].color = color;
     rectangle_count++;
 }
-void R_SetScale(float scale) {}
+void R_SetScale(float scale) { test_draw_scale = scale > 0 ? scale : 1; }
 void R_SetColor(uint32_t color) {}
 void R_ClearColor(void) {}
 int SCR_DrawStringEx(int x, int y, int flags, size_t maxlen, const char *text, qhandle_t font)
 {
+    if (!Test_GroupText(x, y, flags, text)) return x;
     text_count++;
+    last_text_y = y;
     snprintf(last_text, sizeof(last_text), "%s", text);
     return x;
 }

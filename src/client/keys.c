@@ -317,6 +317,13 @@ const char *Key_KeynumToLabel(int keynum)
     return Key_KeynumToString(keynum);
 }
 
+const char *Key_BindingForKey(int keynum)
+{
+    if (keynum < 0 || keynum >= q_countof(keybindings) || !keybindings[keynum])
+        return "";
+    return keybindings[keynum];
+}
+
 /*
 ===================
 Key_SetBinding

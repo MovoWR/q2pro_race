@@ -54,6 +54,7 @@ client_src = [
   'src/client/predict.c',
   'src/client/refresh.c',
   'src/client/screen.c',
+  'src/client/bind_reminders.c',
   'src/client/hud_layout.c',
   'src/client/sound/main.c',
   'src/client/sound/mem.c',
@@ -523,6 +524,19 @@ draw_group_test = executable(
 )
 test('hud-draw-group', draw_group_test, suite: 'jump-hud')
 
+bind_reminders_test = executable(
+  'bind_reminders_test',
+  ['tests/bind_reminders_test.c', 'src/shared/shared.c'],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('bind-reminders', bind_reminders_test, suite: 'jump-hud')
+
 # UI fixtures include production controllers with boundary stubs.
 if get_option('client-ui')
   netmeter_test_exe = executable(
@@ -560,7 +574,7 @@ if get_option('client-ui')
 
   hud_editor_state_test_exe = executable(
     'hud_editor_state_test',
-    'tests/hud_editor_state_test.c',
+    ['tests/hud_editor_state_test.c', 'src/common/field.c'],
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
     dependencies: strafe_efficiency_test_deps + common_deps,

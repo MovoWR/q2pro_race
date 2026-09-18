@@ -579,18 +579,16 @@ void SH_Ups_Draw(const float hud_width, const float hud_height,
 
     const float x = Q_rint(draw_hud_width / 2.0f + x_offset);
     const float y = Q_rint((draw_hud_height - CHAR_HEIGHT) / 2.0f + y_offset);
-    HUD_EditorBounds(HUD_EDIT_UPS, (x - strlen(buffer) * CHAR_WIDTH * 0.5f) * text_scale,
-                     y * text_scale, strlen(buffer) * CHAR_WIDTH * text_scale + 1,
-                     CHAR_HEIGHT * text_scale + 1);
-    if (!HUD_EditorShow(HUD_EDIT_UPS)) {
-        return;
-    }
+    const float visual_scale = SH_VisualScale(hud_ups_scale);
+    SH_BeginVisualDraw(HUD_EDIT_UPS, visual_scale, visual_scale,
+                       x * text_scale, (y + CHAR_HEIGHT * 0.5f) * text_scale, hud_scale);
     R_SetColor(HUD_EditorPreview() ? U32_WHITE : SH_Ups_ColorForSpeed(speed));
     R_SetScale(draw_scale);
     SCR_DrawStringEx(x, y,
                      flags, MAX_STRING_CHARS, buffer, font_pic);
     R_SetScale(hud_scale);
     R_ClearColor();
+    SH_EndVisualDraw(HUD_EDIT_UPS, hud_scale);
 }
 
 static SH_BarStyle SH_GetBarStyle(void) {
@@ -760,15 +758,13 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     const float accel_end = center_x + accel_width * 0.5f;
     const float optimal_offset = CLAMP(36.0f * scale, 12.0f, accel_width * 0.35f);
     const float optimal_x = center_x + optimal_offset;
-    HUD_EditorBounds(HUD_EDIT_STRAFE, accel_start, upper_y, accel_width, params->height);
-
-    SH_Efficiency_DrawPreview(upper_y, params->height, hud_width,
+    const float visual_scale = SH_VisualScale(hud_strafe_scale);
+    const float center_y = upper_y + params->height * 0.5f;
+    SH_Efficiency_DrawPreview(center_y - params->height * visual_scale * 0.5f,
+                              params->height * visual_scale, hud_width,
                               params->hud_scale, font_pic);
-
-    if (!HUD_EditorShow(HUD_EDIT_STRAFE)) {
-        sh_drawing_preview = false;
-        return;
-    }
+    SH_BeginVisualDraw(HUD_EDIT_STRAFE, visual_scale, visual_scale,
+                       center_x, center_y, params->hud_scale);
 
     drawAccelerationZone(accel_start, accel_end, accel_start, accel_end,
                          upper_y, params->height, optimal_x, optimal_width);
@@ -799,6 +795,7 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
             shc_ElementId_CenterMarker);
     }
 
+    SH_EndVisualDraw(HUD_EDIT_STRAFE, params->hud_scale);
     sh_drawing_preview = false;
 }
 
@@ -810,8 +807,11 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
 
     const float upper_y = (hud_height - params->height) / 2.0f + params->y;
 
+    const float visual_scale = SH_VisualScale(hud_strafe_scale);
+    const float center_y = upper_y + params->height * 0.5f;
     if (cl.frame.ps.pmove.pm_type == PM_NORMAL) {
-        SH_Efficiency_Draw(upper_y, params->height, hud_width,
+        SH_Efficiency_Draw(center_y - params->height * visual_scale * 0.5f,
+                           params->height * visual_scale, hud_width,
                            params->hud_scale, font_pic);
     }
 
@@ -819,6 +819,8 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
         return;
     }
 
+    SH_BeginVisualDraw(HUD_EDIT_STRAFE, visual_scale, visual_scale,
+                       hud_width * 0.5f, center_y, params->hud_scale);
     float angle_x, angle_width;
     const float center_width = CLAMP(cl_strafehelper_center_width->value, 0.1f, 5.0f);
     const float optimal_width = CLAMP(cl_strafehelper_optimal_width->value, 0.1f, 5.0f);
@@ -871,4 +873,5 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
         drawAngleMarker(current_angle, center_width, upper_y + params->height / 2.0f, params->height / 2.0f,
                         params, hud_width, shc_ElementId_CenterMarker, false);
     }
+    SH_EndVisualDraw(HUD_EDIT_STRAFE, params->hud_scale);
 }

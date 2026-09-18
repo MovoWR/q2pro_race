@@ -213,7 +213,7 @@ typedef struct {
     menuCommon_t generic;
     inputField_t field;
     cvar_t *cvar;
-    int width;
+    int width, length;
     bool colorPreview;
     bool colorPickerOnly;
 } menuField_t;

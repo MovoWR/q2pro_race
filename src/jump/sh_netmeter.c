@@ -1,5 +1,6 @@
 #include <src/client/client.h>
 #include "sh_netmeter.h"
+#include "strafe_helper.h"
 #include "sh_draw_math.h"
 #include "client/hud_editor.h"
 #include "client/hud_layout.h"
@@ -434,8 +435,6 @@ static void SCR_DrawNetMeterNotice(int bar_y, int bar_h)
 static bool SH_NetMeterEditorPreview(int x, int y, int width, int height)
 {
     if (!HUD_EditorPreview()) return false;
-    HUD_EditorBounds(HUD_EDIT_NETWORK, x, y, width, height);
-    if (!HUD_EditorShow(HUD_EDIT_NETWORK)) return true;
     R_DrawFill32(x, y, width, height, MakeColor(20, 28, 35, 220));
     for (int i = 0; i < width; i++) {
         int h = max(1, height * (30 + (i * 13 % 45)) / 100);
@@ -455,23 +454,15 @@ static void SCR_DrawNetMeterLagometer(float global_alpha)
     draw_w = 48;
     draw_h = 48;
 
-    if (x < 0) {
-        draw_x = scr.hud_width + x - draw_w + 1;
-    } else {
-        draw_x = x;
+    const float visual_scale = SH_VisualScale(hud_network_scale);
+    draw_x = SH_VisualEdgeOrigin(x, draw_w, scr.hud_width, visual_scale);
+    draw_y = SH_VisualEdgeOrigin(y, draw_h, scr.hud_height, visual_scale);
+    SH_BeginVisualDraw(HUD_EDIT_NETWORK, visual_scale, visual_scale,
+                       draw_x, draw_y, scr.hud_scale);
+    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) {
+        SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+        return;
     }
-    draw_x = Q_clip(draw_x, 0, scr.hud_width - draw_w);
-
-    if (y == -1) {
-        draw_y = scr.hud_height - draw_h + 1;
-    } else if (y < 0) {
-        draw_y = scr.hud_height + y - draw_h + 1;
-    } else {
-        draw_y = y;
-    }
-    draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
-
-    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) return;
 
     int min_val = sh_netmeter_min_ms->integer;
     int max_val = sh_netmeter_max_ms->integer;
@@ -526,7 +517,8 @@ static void SCR_DrawNetMeterLagometer(float global_alpha)
         }
     }
 
-    SCR_DrawNetMeterNotice(draw_y, draw_h);
+    SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+    SCR_DrawNetMeterNotice(draw_y, (int)ceilf(draw_h * visual_scale));
     R_SetAlpha(global_alpha);
 }
 
@@ -541,14 +533,13 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
                                    1, scr.hud_height);
     y = (int)HUD_EditorValue(sh_netgraph_y);
 
-    if (y < 0) {
-        draw_y = scr.hud_height + y - draw_h + 1;
-    } else {
-        draw_y = y;
+    const float visual_scale = SH_VisualScale(hud_network_scale);
+    draw_y = SH_VisualEdgeOrigin(y, draw_h, scr.hud_height, visual_scale);
+    SH_BeginVisualDraw(HUD_EDIT_NETWORK, 1, visual_scale, 0, draw_y, scr.hud_scale);
+    if (SH_NetMeterEditorPreview(0, draw_y, w, draw_h)) {
+        SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+        return;
     }
-    draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
-
-    if (SH_NetMeterEditorPreview(0, draw_y, w, draw_h)) return;
 
     int min_val = sh_netmeter_min_ms->integer;
     int max_val = sh_netmeter_max_ms->integer;
@@ -601,7 +592,8 @@ static void SCR_DrawNetMeterNetgraph(float global_alpha)
         R_DrawFill8(w - 1 - a, draw_y + draw_h - h, 1, h, c);
     }
 
-    SCR_DrawNetMeterNotice(draw_y, draw_h);
+    SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+    SCR_DrawNetMeterNotice(draw_y, (int)ceilf(draw_h * visual_scale));
     R_SetAlpha(global_alpha);
 }
 
@@ -641,22 +633,21 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
     x = (int)HUD_EditorValue(sh_histogram_x);
     y = (int)HUD_EditorValue(sh_histogram_y);
 
-    if (x < 0) {
-        draw_x = scr.hud_width + x - draw_w + 1;
-    } else {
-        draw_x = x;
+    const float visual_scale = SH_VisualScale(hud_network_scale);
+    const float width_scale = (int)HUD_EditorValue(sh_histogram_width_mode) == 2
+                              ? 1.0f : visual_scale;
+    draw_x = SH_VisualEdgeOrigin(x, draw_w, scr.hud_width, width_scale);
+    draw_y = SH_VisualEdgeOrigin(y, draw_h, scr.hud_height, visual_scale);
+    SH_BeginVisualDraw(HUD_EDIT_NETWORK, width_scale, visual_scale,
+                       draw_x, draw_y, scr.hud_scale);
+    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) {
+        if (sh_histogram_ping && sh_histogram_ping->integer) {
+            R_SetAlpha(global_alpha);
+            SCR_DrawString(draw_x, draw_y, UI_LEFT, "42");
+        }
+        SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+        return;
     }
-    draw_x = Q_clip(draw_x, 0, scr.hud_width - draw_w);
-
-    if (y == -1) {
-        draw_y = scr.hud_height - draw_h + 1;
-    } else if (y < 0) {
-        draw_y = scr.hud_height + y - draw_h + 1;
-    } else {
-        draw_y = y;
-    }
-    draw_y = Q_clip(draw_y, 0, scr.hud_height - draw_h);
-    if (SH_NetMeterEditorPreview(draw_x, draw_y, draw_w, draw_h)) return;
 
     history = Cvar_ClampInteger(sh_histogram_history, 500, 120000);
 
@@ -770,7 +761,8 @@ static void SCR_DrawNetMeterHistogram(float global_alpha, unsigned now)
         SCR_DrawString(draw_x, draw_y, UI_LEFT, ping_str);
     }
 
-    SCR_DrawNetMeterNotice(draw_y, draw_h);
+    SH_EndVisualDraw(HUD_EDIT_NETWORK, scr.hud_scale);
+    SCR_DrawNetMeterNotice(draw_y, (int)ceilf(draw_h * visual_scale));
     R_SetAlpha(global_alpha);
 }
 
@@ -787,7 +779,7 @@ void SH_NetMeter_Draw(void)
         is_test = true;
     }
 
-    mode = HUD_EditorPreview() ? HUD_EditorNetworkMode() : Cvar_ClampInteger(sh_netmeter, 0, 4);
+    mode = HUD_EditorPreview() ? HUD_EditorNetworkMode() : Cvar_ClampInteger(sh_netmeter, 0, 3);
     if (!HUD_EditorPreview() && (!cls.netchan.protocol || cls.demo.playback)) {
         if (is_test && sh_netalert->integer) {
             SCR_DrawNetMeterNotice(0, 0);

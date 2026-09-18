@@ -15,6 +15,11 @@
 // Strafe helper cvars
 // ========================================================================
 
+cvar_t *hud_ups_scale;
+cvar_t *hud_strafe_scale;
+cvar_t *hud_efficiency_scale;
+cvar_t *hud_network_scale;
+
 cvar_t *cl_drawStrafeHelper;
 cvar_t *cl_strafeHelperCenter;
 cvar_t *cl_strafeHelperCenterMarker;
@@ -148,14 +153,20 @@ cvar_t *fps_default_release;
 
 void SH_Init(void)
 {
+    // Visual multipliers are independent of each widget's native geometry.
+    hud_ups_scale = Cvar_Get("hud_ups_scale", "1", CVAR_ARCHIVE);
+    hud_strafe_scale = Cvar_Get("hud_strafe_scale", "1", CVAR_ARCHIVE);
+    hud_efficiency_scale = Cvar_Get("hud_efficiency_scale", "1", CVAR_ARCHIVE);
+    hud_network_scale = Cvar_Get("hud_network_scale", "1", CVAR_ARCHIVE);
+
     // Strafe helper
     cl_drawStrafeHelper = Cvar_Get("sh_draw", "1", CVAR_ARCHIVE);
-    cl_strafehelperEfficiency = Cvar_Get("sh_efficiency", "0", CVAR_ARCHIVE);
-    cl_strafehelperEffStyle = Cvar_Get("sh_efficiency_style", "bar", CVAR_ARCHIVE);
+    cl_strafehelperEfficiency = Cvar_Get("sh_efficiency", "1", CVAR_ARCHIVE);
+    cl_strafehelperEffStyle = Cvar_Get("sh_efficiency_style", "text", CVAR_ARCHIVE);
     cl_strafehelperEffWidth = Cvar_Get("sh_efficiency_width", "80", CVAR_ARCHIVE);
     cl_strafehelperEffHeight = Cvar_Get("sh_efficiency_height", "4", CVAR_ARCHIVE);
     cl_strafehelperEffX = Cvar_Get("sh_efficiency_x", "0", CVAR_ARCHIVE);
-    cl_strafehelperEffY = Cvar_Get("sh_efficiency_y", "3", CVAR_ARCHIVE);
+    cl_strafehelperEffY = Cvar_Get("sh_efficiency_y", "0", CVAR_ARCHIVE);
     cl_strafehelperEffBorder = Cvar_Get("sh_efficiency_border", "1", CVAR_ARCHIVE);
     cl_strafehelperEffMarker = Cvar_Get("sh_efficiency_marker", "0.9", CVAR_ARCHIVE);
     cl_strafehelperEffColorMode = Cvar_Get("sh_efficiency_color_mode", "dynamic", CVAR_ARCHIVE);
@@ -173,11 +184,11 @@ void SH_Init(void)
     cl_strafeHelperCenterMarker = Cvar_Get("sh_centermarker", "1", CVAR_ARCHIVE);
     cl_strafeHelperHeight = Cvar_Get("sh_height", "15", CVAR_ARCHIVE);
     cl_strafeHelperScale = Cvar_Get("sh_scale", "1.500000", CVAR_ARCHIVE);
-    cl_strafeHelperY = Cvar_Get("sh_y", "100", CVAR_ARCHIVE);
+    cl_strafeHelperY = Cvar_Get("sh_y", "0", CVAR_ARCHIVE);
     cl_strafehelperUps = Cvar_Get("sh_ups", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsScale = Cvar_Get("sh_ups_scale", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsX = Cvar_Get("sh_ups_x", "0", CVAR_ARCHIVE);
-    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "-5", CVAR_ARCHIVE);
+    cl_strafehelperUpsY = Cvar_Get("sh_ups_y", "-15", CVAR_ARCHIVE);
     cl_strafehelperUpsShadow = Cvar_Get("sh_ups_shadow", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsHideZero = Cvar_Get("sh_ups_hide_zero", "1", CVAR_ARCHIVE);
     cl_strafehelperUpsColorMode = Cvar_Get("sh_ups_color_mode", "dynamic", CVAR_ARCHIVE);

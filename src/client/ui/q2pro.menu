@@ -134,7 +134,7 @@ begin options
     title "Options"
 
     action --status "Customize your player name and appearance." "player setup" pushmenu players
-    action --status "Configure jump-specific HUD and assist tools." "jump setup" pushmenu jump
+    action --status "Configure jump-specific HUD and assist tools." "Jump Settings" pushmenu jump
     action --status "Adjust mouse sensitivity and input settings." "input setup" pushmenu input
     action --status "Bind movement and game actions to keys." "key bindings" pushmenu keys
     action --status "Graphics, resolution, and quality settings." "video setup" pushmenu video
@@ -233,7 +233,7 @@ begin screen
     range --show-value --status "Fraction of the screen height the console occupies." "console height" con_height 0.1 1.0
     blank
     action --status "Adjust aiming cursor appearance." --align "crosshair setup..." pushmenu crosshair
-    action --status "Configure jump-specific assist tools." --align "jump HUD setup..." pushmenu jump
+    action --status "Configure jump-specific assist tools." --align "Jump Settings" pushmenu jump
 end
 
 begin menusetup
@@ -313,25 +313,118 @@ end
 
 begin jump
     title "Jump Setup"
+    focus --menu-width
 
     style --live
+    action --status "Configure the strafe helper, efficiency, speedometer, race line and bind reminders." "HUD & Visuals" pushmenu jumphud
+    action --status "Set movement, JumpMod action and FPS bindings." "Controls & FPS" pushmenu jumpcontrols
+    action --status "Configure network indicators, warnings and advanced settings." "Network & Advanced" pushmenu jumpnetsetup
     blank
-    action --status "Arrange jump overlays with the mouse." "edit HUD layout" hud_edit
-    action --status "Configure the visual strafe-assist bar." "strafe helper" pushmenu strafehelper
-    action --status "Show your current speed (Units Per Second)." "UPS display" pushmenu jumpups
-    action --status "Draw a trailing line behind your movement." "race line" pushmenu raceline
-    action --status "Configure subtle network history indicator." "network bar" pushmenu jumpnetwork
-    action --status "Configure on-screen network warning alerts." "network alerts" pushmenu jumpnetalerts
-    action --status "Bind keys for movement and race HUD actions." "jump key bindings" pushmenu jumpkeys
-    action --status "Bind keys for mod-specific actions." "mod bindings" pushmenu jumpmodbinds
-    action --status "Bind keys for quick FPS switching." "fps bindings" pushmenu jumpfpsbinds
-    action --status "Record and play back movement replays." "replay recording" pushmenu replayrecording
+    action --status "Arrange jump overlays with the mouse." "Edit HUD Layout" hud_edit --show-if game jump
+end
+
+begin jumphud
+    title "HUD & Visuals"
+    focus --menu-width
+
+    action --status "Configure the visual strafe-assist bar." "Strafe Helper" pushmenu strafehelper
+    action --status "Customize the airborne acceleration-efficiency display." "Efficiency Display" pushmenu shefficiency
+    action --status "Configure your movement speed display." "Speedometer" pushmenu jumpups
+    action --status "Style race lines sent by Jump servers." "Race Line" pushmenu raceline
+    action --status "Choose which key bindings to show on the HUD." "Bind Reminders" pushmenu bindreminders
+end
+
+begin jumpcontrols
+    title "Controls & FPS"
+    focus --menu-width
+
+    action --status "Bind keys for movement and menu navigation." "Movement & Menu Bindings" pushmenu jumpkeys
+    action --status "Bind keys for JumpMod actions." "Jump Action Bindings" pushmenu jumpmodbinds
+    action --status "Bind FPS preset keys and hold/release FPS keys." "FPS Controls" pushmenu jumpfpssetup
+end
+
+begin bindreminders
+    title "Bind Reminders"
+    focus --menu-width
+
+    style --live
+    toggle --show-value --status "Show a dim list of your selected keys and actions." "enabled" scr_bindreminders_visible
+    toggle --show-value --status "Automatically list loaded cl_maxfps binds, FPS shortcuts and aliases." "detect FPS binds" scr_bindreminders_fps
+    range --show-value --status "Reminder opacity, multiplied by overall HUD opacity." "opacity" scr_bindreminders_alpha 0 1 0.05
+    action --status "Move, hide or show the Bind reminders element." "edit HUD layout" hud_edit --show-if game jump
     blank
-    action --status "Technical settings and debug commands." "advanced/debug" pushmenu jumpdebug
+    action --status "Show reminders for menu, respawn, store and observer." "extended reminders" pushmenu bindremindersextended
+    action --status "Choose extra reminders or override a detected FPS caption." "extra reminders 1-4" pushmenu bindreminders1
+    action --status "Add more reminders for actions such as store and recall." "extra reminders 5-8" pushmenu bindreminders2
+    blank
+    action --status "Assign keys for instant FPS changes." "FPS Preset Bindings" pushmenu jumpfpsbinds
+    action --status "Assign keys for store, recall and reset." "Jump Action Bindings" pushmenu jumpmodbinds
+end
+
+begin bindremindersextended
+    title "Extended Reminders"
+    focus --menu-width
+
+    style --live
+    toggle --show-value --status "Show keys bound to inven (the JumpMod menu)." "JumpMod menu" scr_bindreminders_menu
+    toggle --show-value --status "Show keys bound to kill." "respawn" scr_bindreminders_respawn
+    toggle --show-value --status "Show keys bound to store, including custom Store reminders." "store" scr_bindreminders_store
+    toggle --show-value --status "Show keys bound to observer." "observer" scr_bindreminders_observer
+end
+
+begin bindreminders1
+    title "Bind Reminders 1-4"
+    focus --menu-width
+
+    style --live
+    static "Commands must match the whole binding."
+    static "An empty command hides that row."
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 1" scr_bindreminders_command_1
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 1" scr_bindreminders_label_1
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 2" scr_bindreminders_command_2
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 2" scr_bindreminders_label_2
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 3" scr_bindreminders_command_3
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 3" scr_bindreminders_label_3
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 4" scr_bindreminders_command_4
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 4" scr_bindreminders_label_4
+end
+
+begin bindreminders2
+    title "Bind Reminders 5-8"
+    focus --menu-width
+
+    style --live
+    static "Commands must match the whole binding."
+    static "An empty command hides that row."
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 5" scr_bindreminders_command_5
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 5" scr_bindreminders_label_5
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 6" scr_bindreminders_command_6
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 6" scr_bindreminders_label_6
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 7" scr_bindreminders_command_7
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 7" scr_bindreminders_label_7
+    blank
+    field --width 32 --length 255 --status "Exact bound command, such as f60, store or +fps 30 120." "command 8" scr_bindreminders_command_8
+    field --width 32 --length 127 --status "Action caption; leave empty to show the command." "caption 8" scr_bindreminders_label_8
+end
+
+begin jumpfpssetup
+    title "FPS Controls"
+    focus --menu-width
+
+    action --status "Bind keys to instant FPS presets (f20, f31, f60, f120...)." "FPS Preset Bindings" pushmenu jumpfpsbinds
+    action --status "Bind keys that lower FPS while held, restore when released." "Hold / Release FPS Bindings" pushmenu jumpholdfps
 end
 
 begin jumpfpsbinds
-    title "FPS Bindings"
+    title "FPS Preset Bindings"
+    focus --menu-width
 
     bind --status "Bind key to set cl_maxfps to 20." "FPS 20" f20
     bind --status "Bind key to set cl_maxfps to 22." "FPS 22" f22
@@ -347,8 +440,31 @@ begin jumpfpsbinds
     bind --status "Bind key to set cl_maxfps to 120." "FPS 120" f120
 end
 
+begin jumpholdfps
+    title "Hold / Release FPS Bindings"
+    focus --menu-width
+    style --live
+
+    blank
+    bindselect2 "1" "+fps_hold 1" fps_hold_1 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_1 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "2" "+fps_hold 2" fps_hold_2 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_2 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "3" "+fps_hold 3" fps_hold_3 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_3 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "4" "+fps_hold 4" fps_hold_4 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_4 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "5" "+fps_hold 5" fps_hold_5 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_5 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "6" "+fps_hold 6" fps_hold_6 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_6 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "7" "+fps_hold 7" fps_hold_7 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_7 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "8" "+fps_hold 8" fps_hold_8 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_8 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "9" "+fps_hold 9" fps_hold_9 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_9 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "10" "+fps_hold 10" fps_hold_10 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_10 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "11" "+fps_hold 11" fps_hold_11 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_11 20 22 25 26 30 31 32 33 60 66 90 100 120
+    bindselect2 "12" "+fps_hold 12" fps_hold_12 20 22 25 26 30 31 32 33 60 66 90 100 120 : fps_release_12 20 22 25 26 30 31 32 33 60 66 90 100 120
+    blank
+    action --status "Open FPS Controls." --align "FPS Controls" pushmenu jumpfpssetup
+end
+
 begin jumpmodbinds
-    title "Mod Bindings"
+    title "Jump Action Bindings"
+    focus --menu-width
 
     static "[Movement / Storage]"
     bind --status "Saves current position and velocity." "store" store
@@ -377,7 +493,8 @@ begin jumpmodbinds
 end
 
 begin jumpkeys
-    title "Jump Key Bindings"
+    title "Movement & Menu Bindings"
+    focus --menu-width
 
     bind --status "The primary jump action (+moveup)." "jump" +moveup
     bind --status "Double-jump script (+dj)." "double jump" +dj
@@ -386,7 +503,12 @@ begin jumpkeys
     bind --status "Move player backward (+back)." "backpedal" +back
     bind --status "Side-step to the left (+moveleft)." "strafe left" +moveleft
     bind --status "Side-step to the right (+moveright)." "strafe right" +moveright
-    bind --status "Return to the Jump Setup menu." "jump setup menu" "pushmenu jump"
+    bind --status "Open Jump Settings." "Jump Settings menu" "pushmenu jump"
+    blank
+    bind --status "Open q2jump menu." "Menu" inven
+    bind --status "Activate the currently selected item." "Select" invuse
+    bind --status "Highlight previous." "prev item" invprev
+    bind --status "Highlight next." "next item" invnext
     blank
     bind --status "Toggle the scoreboard (score)." "scoreboard" score
     bind --status "Toggle the race timer (time)." "timer" time
@@ -398,56 +520,57 @@ end
 
 begin strafehelper
     title "Strafe Helper"
+    focus --menu-width
 
     style --live
     toggle --show-value --status "Global switch for the strafe helper HUD element." "enabled" sh_draw
-    toggle --show-value --status "Show an airborne acceleration-efficiency display below the helper." "efficiency" sh_efficiency --show-if sh_draw !0
-    action --status "Customize the efficiency display." --align "   efficiency options..." pushmenu shefficiency --show-if sh_efficiency !0
-    toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker --show-if sh_draw !0
-    range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1 --show-if sh_draw !0
-    range --show-value --status "Vertical offset from screen center; negative values move upward." "Y position" sh_y -320 320 5 --show-if sh_draw !0
-    range --show-value --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1 --show-if sh_draw !0
-    range --show-value --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05 --show-if sh_draw !0
-    strings --show-value --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal --show-if sh_draw !0
-    range --show-value --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1 --show-if sh_draw !0
-    pairs --show-value --status "Easing curve used by strafe helper smoothing." "   smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5 --show-if sh_draw !0
-    range --show-value --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1 --show-if sh_draw !0
-    range --show-value --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1 --show-if sh_draw !0
-    toggle --show-value --status "Draw the optimal angle marker as an outline." "optimal outline" sh_optimal_outline --show-if sh_draw !0
-    field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating --show-if sh_draw !0
-    field --picker --status "Color when moving at perfect angle." "optimal color" sh_color_optimal --show-if sh_draw !0
-    field --picker --status "Color of the center neutral marker." "center marker color" sh_color_centermarker --show-if sh_draw !0
-    blank --show-if sh_draw !0
-    action --status "Choose from a set of pre-defined color schemes." --align "apply color preset..." pushmenu shpresets --show-if sh_draw !0
+    toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker
+    range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1
+    range --show-value --status "Vertical offset from screen center; negative values move upward." "Y position" sh_y -320 320 5
+    range --show-value --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1
+    range --show-value --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
+    strings --show-value --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
+    range --show-value --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1
+    pairs --show-value --status "Easing curve used by strafe helper smoothing." "   smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5
+    range --show-value --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
+    range --show-value --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
+    toggle --show-value --status "Draw the optimal angle marker as an outline." "optimal outline" sh_optimal_outline
+    field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating
+    field --picker --status "Color when moving at perfect angle." "optimal color" sh_color_optimal
+    field --picker --status "Color of the center neutral marker." "center marker color" sh_color_centermarker
+    blank
+    action --status "Choose from a set of pre-defined color schemes." --align "Color Presets" pushmenu shpresets
 end
 
 begin shefficiency
     title "Efficiency Display"
+    focus --menu-width
 
     style --live
     toggle --show-value --status "Show the airborne acceleration-efficiency display." "enabled" sh_efficiency
-    strings --show-value --status "Show a bar, a percentage readout, both, or neither (tint only)." "style" sh_efficiency_style bar text both none --show-if sh_efficiency !0
-    strings --show-value --status "Tint strafe helper elements by current efficiency." "helper tint" sh_efficiency_tint off optimal zone both --show-if sh_efficiency !0
-    range --show-value --status "How strongly the tint overrides the helper colors." "   tint strength" sh_efficiency_tint_strength 0 1 0.05 --show-if sh_efficiency !0
-    range --show-value --status "Width of the efficiency bar in pixels." "width" sh_efficiency_width 8 4000 1 --show-if sh_efficiency !0
-    range --show-value --status "Height of the efficiency bar in pixels." "height" sh_efficiency_height 1 64 1 --show-if sh_efficiency !0
-    range --show-value --status "Horizontal offset from screen center." "X offset" sh_efficiency_x -4000 4000 5 --show-if sh_efficiency !0
-    range --show-value --status "Gap below the helper; negative values place it above." "Y offset" sh_efficiency_y -400 400 1 --show-if sh_efficiency !0
-    toggle --show-value --status "Draw a 1 pixel outline around the bar." "border" sh_efficiency_border --show-if sh_efficiency !0
-    range --show-value --status "Threshold marker position on the bar; 0 hides it." "marker" sh_efficiency_marker 0 1 0.05 --show-if sh_efficiency !0
-    range --show-value --status "Smooth the displayed value; 0 disables it." "smoothing" sh_efficiency_smoothing 0 10 0.1 --show-if sh_efficiency !0
-    range --show-value --status "Keep the last value on screen this long after data stops." "hold ms" sh_efficiency_hold_ms 0 2000 25 --show-if sh_efficiency !0
-    range --show-value --status "Scale of the percentage text." "text scale" sh_efficiency_text_scale 0.25 8 0.25 --show-if sh_efficiency !0
-    strings --show-value --status "Color by efficiency value, or use one fixed color." "color mode" sh_efficiency_color_mode dynamic static --show-if sh_efficiency !0
-    field --picker --status "Color near 100% efficiency; also the static color." "good color" sh_efficiency_color_good --show-if sh_efficiency !0
-    field --picker --status "Color at the gradient midpoint." "mid color" sh_efficiency_color_mid --show-if sh_efficiency !0
-    field --picker --status "Color near 0% efficiency." "bad color" sh_efficiency_color_bad --show-if sh_efficiency !0
-    field --picker --status "Background color of the bar track." "background color" sh_efficiency_color_bg --show-if sh_efficiency !0
-    range --show-value --status "Efficiency value where the mid color sits." "gradient midpoint" sh_efficiency_color_midpoint 0.05 0.95 0.05 --show-if sh_efficiency !0
+    strings --show-value --status "Show a bar, a percentage readout, both, or neither (tint only)." "style" sh_efficiency_style bar text both none
+    strings --show-value --status "Tint strafe helper elements by current efficiency." "helper tint" sh_efficiency_tint off optimal zone both
+    range --show-value --status "How strongly the tint overrides the helper colors." "   tint strength" sh_efficiency_tint_strength 0 1 0.05
+    range --show-value --status "Width of the efficiency bar in pixels." "width" sh_efficiency_width 8 4000 1
+    range --show-value --status "Height of the efficiency bar in pixels." "height" sh_efficiency_height 1 64 1
+    range --show-value --status "Horizontal offset from screen center." "X offset" sh_efficiency_x -4000 4000 5
+    range --show-value --status "Gap below the helper; negative values place it above." "Y offset" sh_efficiency_y -400 400 1
+    toggle --show-value --status "Draw a 1 pixel outline around the bar." "border" sh_efficiency_border
+    range --show-value --status "Threshold marker position on the bar; 0 hides it." "marker" sh_efficiency_marker 0 1 0.05
+    range --show-value --status "Smooth the displayed value; 0 disables it." "smoothing" sh_efficiency_smoothing 0 10 0.1
+    range --show-value --status "Keep the last value on screen this long after data stops." "hold ms" sh_efficiency_hold_ms 0 2000 25
+    range --show-value --status "Scale of the percentage text." "text scale" sh_efficiency_text_scale 0.25 8 0.25
+    strings --show-value --status "Color by efficiency value, or use one fixed color." "color mode" sh_efficiency_color_mode dynamic static
+    field --picker --status "Color near 100% efficiency; also the static color." "good color" sh_efficiency_color_good
+    field --picker --status "Color at the gradient midpoint." "mid color" sh_efficiency_color_mid
+    field --picker --status "Color near 0% efficiency." "bad color" sh_efficiency_color_bad
+    field --picker --status "Background color of the bar track." "background color" sh_efficiency_color_bg
+    range --show-value --status "Efficiency value where the mid color sits." "gradient midpoint" sh_efficiency_color_midpoint 0.05 0.95 0.05
 end
 
 begin shpresets
-    title "Strafe Helper Presets"
+    title "Color Presets"
+    focus --menu-width
 
     action --status "Apply a randomized color scheme." --align "random" "sh hud preset random"
     action --status "Original grey and blue theme." --align "vanilla" "sh hud preset vanilla"
@@ -497,24 +620,26 @@ begin shpresets
 end
 
 begin jumpups
-    title "UPS Display"
+    title "Speedometer"
+    focus --menu-width
 
     style --live
     toggle --show-value --status "Show current movement speed (Units Per Second)." "enabled" sh_ups
-    range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 8 0.25 --show-if sh_ups !0
-    range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -4000 4000 5 --show-if sh_ups !0
-    toggle --show-value --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow --show-if sh_ups !0
-    toggle --show-value --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero --show-if sh_ups !0
-    toggle --show-value --status "Include vertical velocity component in calculations." "3D speed" sh_ups_3d --show-if sh_ups !0
-    strings --show-value --status "How speed changes affect text color." "color mode" sh_ups_color_mode dynamic static threshold rainbow gradient strafing --show-if sh_ups !0
-    strings --show-value --status "Display speed as raw number or with label." "format" sh_ups_format plain suffix prefix --show-if sh_ups !0
-    field --picker --status "Color used when gaining speed." "gain color" sh_ups_color_gain --show-if sh_ups !0
-    field --picker --status "Color used when losing speed." "loss color" sh_ups_color_loss --show-if sh_ups !0
-    field --picker --status "Color used when at constant speed." "neutral color" sh_ups_color_neutral --show-if sh_ups !0
+    range --show-value --status "Scale factor for the speed digits." "scale" sh_ups_scale 0.25 8 0.25
+    range --show-value --status "Vertical offset from screen center." "Y position" sh_ups_y -4000 4000 5
+    toggle --show-value --status "Draw a drop-shadow behind the speed digits." "shadow" sh_ups_shadow
+    toggle --show-value --status "Hide the display when speed is zero." "hide zero" sh_ups_hide_zero
+    toggle --show-value --status "Include vertical velocity component in calculations." "3D speed" sh_ups_3d
+    strings --show-value --status "How speed changes affect text color." "color mode" sh_ups_color_mode dynamic static threshold rainbow gradient strafing
+    strings --show-value --status "Display speed as raw number or with label." "format" sh_ups_format plain suffix prefix
+    field --picker --status "Color used when gaining speed." "gain color" sh_ups_color_gain
+    field --picker --status "Color used when losing speed." "loss color" sh_ups_color_loss
+    field --picker --status "Color used when at constant speed." "neutral color" sh_ups_color_neutral
 end
 
 begin raceline
     title "Race Line"
+    focus --menu-width
 
     style --live
     range --show-value --status "Thickness of the movement trail line." "width" race_width 0 20 1
@@ -523,8 +648,22 @@ begin raceline
     field --picker --status "Color of the movement trail line." "line color" race_color
 end
 
+begin jumpnetsetup
+    title "Network & Advanced"
+    focus --menu-width
+
+    action --status "Configure the network history indicator." "Network Bar" pushmenu jumpnetwork
+    action --status "Configure on-screen network warning alerts." "Network Alerts" pushmenu jumpnetalerts
+    action --status "Configure latency and loss warning thresholds." "Warning Thresholds" pushmenu jumpnetthresholds
+    blank
+    action --status "Technical settings and debug commands." "Advanced / Debug" pushmenu jumpdebug
+    blank
+    action --status "Restore all network bar, alert and warning threshold settings to defaults." "Reset All Network Settings" ui_reset_netmeter_settings
+end
+
 begin jumpnetwork
-    title "Jump Network"
+    title "Network Bar"
+    focus --menu-width
 
     style --live
     static "[Run Feedback]"
@@ -578,38 +717,32 @@ begin jumpnetwork
     range --show-value --status "Ping jitter color palette index." "jitter color" sh_histogram_color_jitter 0 255 1 --show-if sh_netmeter 3
     range --show-value --status "Incoming (Server-to-Client) packet loss color palette index." "S2C loss color" sh_histogram_color_loss_s2c 0 255 1 --show-if sh_netmeter 3
     range --show-value --status "Outgoing (Client-to-Server) packet loss color palette index." "C2S loss color" sh_histogram_color_loss_c2s 0 255 1 --show-if sh_netmeter 3
-    blank --show-if sh_netmeter 3
-    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
-    blank
-    action --status "Configure latency and loss warning thresholds." "threshold settings" pushmenu jumpnetthresholds
 end
 
 begin jumpnetalerts
     title "Network Alerts"
+    focus --menu-width
 
     style --live
     static "[Notice Feedback]"
     toggle --show-value --status "Short warning text for incidents likely to affect a run." "incident notice" sh_netalert
-    blank --show-if sh_netalert !0
-    static "[Notice Layout]" --show-if sh_netalert !0
-    range --show-value --status "Incident notice horizontal offset." "notice X" sh_netalert_x -640 640 1 --show-if sh_netalert !0
-    range --show-value --status "Incident notice vertical offset; negative values align from the bottom edge." "notice Y" sh_netalert_y -480 480 1 --show-if sh_netalert !0
-    range --show-value --status "Alert text color code (1=red, 2=green, 3=yellow, 4=blue, 5=cyan, 6=magenta, 7=severity-based, 8=orange, 9=purple)." "notice color" sh_netalert_color 1 9 1 --show-if sh_netalert !0
-    range --show-value --status "How long incident text stays visible, in milliseconds." "notice ms" sh_netalert_duration_ms 250 5000 250 --show-if sh_netalert !0
-    range --show-value --status "Opacity of incident notice text." "notice alpha" sh_netalert_alpha 0 1 0.05 --show-if sh_netalert !0
-    blank --show-if sh_netalert !0
-    static "[Notice Types]" --show-if sh_netalert !0
-    toggle --show-value --status "Show notice for dropped packets." "loss notice" sh_netalert_loss --show-if sh_netalert !0
-    toggle --show-value --status "Show notice for repeated ping wobble." "jitter notice" sh_netalert_jitter --show-if sh_netalert !0
-    toggle --show-value --status "Show notice for sudden ping jumps." "spike notice" sh_netalert_spike --show-if sh_netalert !0
-    blank --show-if sh_netalert !0
-    action --status "Configure latency and loss warning thresholds." "threshold settings" pushmenu jumpnetthresholds --show-if sh_netalert !0
-    blank --show-if sh_netalert !0
-    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
+    blank
+    static "[Notice Layout]"
+    range --show-value --status "Incident notice horizontal offset." "notice X" sh_netalert_x -640 640 1
+    range --show-value --status "Incident notice vertical offset; negative values align from the bottom edge." "notice Y" sh_netalert_y -480 480 1
+    range --show-value --status "Alert text color code (1=red, 2=green, 3=yellow, 4=blue, 5=cyan, 6=magenta, 7=severity-based, 8=orange, 9=purple)." "notice color" sh_netalert_color 1 9 1
+    range --show-value --status "How long incident text stays visible, in milliseconds." "notice ms" sh_netalert_duration_ms 250 5000 250
+    range --show-value --status "Opacity of incident notice text." "notice alpha" sh_netalert_alpha 0 1 0.05
+    blank
+    static "[Notice Types]"
+    toggle --show-value --status "Show notice for dropped packets." "loss notice" sh_netalert_loss
+    toggle --show-value --status "Show notice for repeated ping wobble." "jitter notice" sh_netalert_jitter
+    toggle --show-value --status "Show notice for sudden ping jumps." "spike notice" sh_netalert_spike
 end
 
 begin jumpnetthresholds
-    title "Network Thresholds"
+    title "Warning Thresholds"
+    focus --menu-width
 
     style --live
     static "[Latency Thresholds]"
@@ -617,21 +750,11 @@ begin jumpnetthresholds
     range --show-value --status "Minimum sudden ping jump before a spike warning." "spike ms" sh_netwarn_spike_ms 0 300 5 --show-if sh_netwarn_ping_adaptive 0
     range --show-value --status "Adaptive spike threshold as percent of your rolling ping baseline." "spike pct" sh_netwarn_spike_pct 0 100 5 --show-if sh_netwarn_ping_adaptive 1
     range --show-value --status "Repeated ping wobble threshold before jitter warning." "jitter ms" sh_netwarn_jitter_ms 0 150 5
-    blank
-    action --status "Restore network bar, alert, and threshold settings to defaults." --align "reset network defaults" ui_reset_netmeter_settings
-end
-
-begin replayrecording
-    title "Replay Recording"
-
-    style --live
-    action --status "Start recording a new movement replay." "start recording" "sh record"
-    action --status "Stop the current recording session." "stop recording" "sh stop"
-    action --status "Play back a saved movement replay." "play replay" "sh play"
 end
 
 begin jumpdebug
-    title "Jump Debug"
+    title "Advanced / Debug"
+    focus --menu-width
 
     style --live
     pairs --status "Diagnostic overlay for movement physics." "NerdStats" sh_nerdstats off 0 left 1 right 2
@@ -665,29 +788,74 @@ end
 
 begin game
     title "In-Game Menu"
+    focus --menu-width
 
-    action --status "Configure HUD and jump tools." "jump setup" pushmenu jump
+    action --status "Join a team or use server voting actions." "Join Game" pushmenu game_server
     blank
-    action --status "Find active jump and race servers." "browse jump servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
-    action --status "Quick access to your saved servers." "browse address book" pushmenu servers "favorites://" "file:///servers.lst" "broadcast://"
-    action --status "Browse all active Quake 2 servers." "browse q2servers.com" pushmenu servers "+http://q2servers.com/?raw=2"
+    action --status "Quickly adjust common gameplay and visual settings." "Quick Settings" pushmenu video_quick
+    action --status "Bind movement, JumpMod menu, team and practice actions." "Quick Binds" pushmenu bindings_quick
     blank
-    action --status "Quickly tweak brightness, modulation, and texture intensity." "quick video settings..." pushmenu video_quick
+    action --status "Configure jump HUD elements, FPS bindings and network indicators." "HUD & Jump Settings" pushmenu jump
+    action --status "Open all client, input, video and sound options." "All Settings" pushmenu options
     blank
-    action --status "Engine and gameplay configuration." "options" pushmenu options
+    action --status "Find active jump and race servers." "Find Jump Servers" pushmenu servers "@jump +http://q2servers.com/?raw=2&mod=jump"
     blank
-    action --status "Leave the current server." "disconnect" disconnect
-    action --status "Exit the game." "quit" quit
+    action --status "Leave the current server." "Disconnect" disconnect
+    action --status "Exit the game." "Quit Game" quit
+end
+
+begin bindings_quick
+    title "Quick Bindings"
+    focus --menu-width
+
+    bind --status "The primary jump action (+moveup)." "jump" +moveup
+    bind --status "Double-jump script (+dj)." "double jump" +dj
+    bind --status "Move downward or crouch (+movedown)." "crouch" +movedown
+    bind --status "Move player forward (+forward)." "forward" +forward
+    bind --status "Move player backward (+back)." "back" +back
+    bind --status "Side-step to the left (+moveleft)." "left" +moveleft
+    bind --status "Side-step to the right (+moveright)." "right" +moveright
+    blank
+    bind --status "Show leaderboard." "scoreboard" score
+    bind --status "Open q2jump menu." "Menu" inven
+    bind --status "Activate the currently selected item." "Select" invuse
+    bind --status "Select previous." "prev item" invprev
+    bind --status "Select next." "next item" invnext
+    blank
+    bind --status "Joins the Easy difficulty team." "join easy" "team easy"
+    bind --status "Joins the Hard difficulty team." "join hard" "team hard"
+    bind --status "Respawn." "kill" kill
+    bind --status "Saves current position and velocity." "store" store
+end
+
+begin game_server
+    title "=== Server Actions ==="
+    action --status "Join the hard team." "Join Team Hard" team hard
+    action --status "Join the easy team." "Join Team Easy" team easy
+    blank
+    action --status "Vote YES on the current call." "Vote YES" yes
+    action --status "Vote NO on the current call." "Vote NO" no
+    action --status "Call vote for extra map time." "Vote More Time" votetime 5
+    action --status "Call vote for a random map." "Vote Random Map" mapvote random
 end
 
 begin video_quick
-    title "Quick Video"
+    title "Quick Settings"
+    focus --menu-width
 
     style --live
+    toggle --status "Draw a marker at map coordinate 0 0 0." "world origin" cl_drawworldorigin
+    toggle --status "Suppress jump voice sounds from all players." "mute player jump sounds" s_mute_player_jump_sounds
+
     range --show-value --status "Texture lightmap multiplier (higher values make world textures brighter)." "world modulation" gl_modulate 1 4
     range --show-value --status "Adjust the brightness of static lighting." "lightmap brightness" gl_brightness 0 0.3
     range --show-value --status "Boost the overall brightness of textures." "texture intensity" intensity 1 3 0.1
     range --show-value --status "Scale opaque lava brightness without changing other textures (shader renderer only)." "lava brightness" gl_lava_intensity 0.1 3 0.1 --show-if gl_shaders !0
+    blank
+    toggle --status "Clear background when outside map." "fix artifacts" gl_clear
+    toggle --status "Fullbright." "fullbright" r_fullbright
+    toggle --defer --status "Override default .wal textures." "Override textures" r_override_textures
+    action_select --show-value --status "Change sky." "sky" sky black blue bluesky unit1_ strogg_moon_ space1 the_moon_ hub_ u6_
 end
 
 begin addressbook

@@ -19,6 +19,10 @@ typedef struct {
 } hud_setting_t;
 
 static const hud_setting_t native_settings[] = {
+    { "hud_ups_scale", HUD_EDIT_UPS, HUD_SCALE_MIN, HUD_SCALE_MAX },
+    { "hud_strafe_scale", HUD_EDIT_STRAFE, HUD_SCALE_MIN, HUD_SCALE_MAX },
+    { "hud_efficiency_scale", HUD_EDIT_EFFICIENCY, HUD_SCALE_MIN, HUD_SCALE_MAX },
+    { "hud_network_scale", HUD_EDIT_NETWORK, HUD_SCALE_MIN, HUD_SCALE_MAX },
     { "sh_ups", HUD_EDIT_UPS, 0, 1 },
     { "sh_ups_x", HUD_EDIT_UPS, SH_UPS_X_MIN, SH_UPS_X_MAX },
     { "sh_ups_y", HUD_EDIT_UPS, SH_UPS_Y_MIN, SH_UPS_Y_MAX },
@@ -45,7 +49,7 @@ static const hud_setting_t native_settings[] = {
     { "sh_histogram_height", HUD_EDIT_NETWORK, 1, 4000 },
 };
 enum { HUD_NATIVE_SETTINGS = q_countof(native_settings) };
-static hud_setting_t settings[HUD_NATIVE_SETTINGS + HUD_LAYOUT_MAX * 3];
+static hud_setting_t settings[HUD_NATIVE_SETTINGS + HUD_LAYOUT_MAX * 4];
 static int setting_count;
 
 static const struct {
@@ -65,7 +69,6 @@ typedef enum {
     HUD_BUTTON_RESET_SELECTED,
     HUD_BUTTON_SNAP,
     HUD_BUTTON_VISIBLE,
-    HUD_BUTTON_HIDE_TOOLS,
     HUD_BUTTON_PREVIOUS,
     HUD_BUTTON_NEXT,
     HUD_BUTTON_MOVE_LEFT,
@@ -83,8 +86,16 @@ typedef enum {
     HUD_BUTTON_ALIGN_TOP,
     HUD_BUTTON_ALIGN_VCENTER,
     HUD_BUTTON_ALIGN_BOTTOM,
-    HUD_BUTTON_ARRANGE_SECTION,
-    HUD_BUTTON_RESET_SECTION,
+    HUD_BUTTON_GHOSTS,
+    HUD_BUTTON_STEP,
+    HUD_BUTTON_REFERENCE,
+    HUD_BUTTON_CHANGES,
+    HUD_BUTTON_KEYS,
+    HUD_BUTTON_SCENARIO_LIVE, HUD_BUTTON_SCENARIO_RUNNING, HUD_BUTTON_SCENARIO_SPECTATING,
+    HUD_BUTTON_SCENARIO_VOTING, HUD_BUTTON_SCENARIO_SCOREBOARD, HUD_BUTTON_SCENARIO_NETWORK,
+    HUD_BUTTON_FIT, HUD_BUTTON_100, HUD_BUTTON_SELECTION, HUD_BUTTON_ZOOM_OUT, HUD_BUTTON_ZOOM_IN,
+    HUD_BUTTON_INFO,
+    HUD_BUTTON_EDITOR_VISIBLE,
     HUD_BUTTON_COUNT
 } hud_button_t;
 
@@ -95,22 +106,22 @@ typedef enum {
     HUD_CATEGORY_COUNT
 } hud_category_t;
 
-typedef enum {
-    HUD_SECTION_NONE,
-    HUD_SECTION_ARRANGE,
-    HUD_SECTION_RESET
-} hud_tools_section_t;
+enum { HUD_GROUP_COUNT = 6 };
+typedef enum { HUD_EDITOR_AUTO, HUD_EDITOR_SHOWN, HUD_EDITOR_HIDDEN } hud_editor_visibility_t;
+typedef enum { HUD_FIELD_NONE, HUD_FIELD_FILTER, HUD_FIELD_X, HUD_FIELD_Y, HUD_FIELD_SCALE, HUD_FIELD_COUNT } hud_field_t;
+static const char *const group_names[] = {
+    "Speed and strafing", "Run and map", "Player state", "Messages", "Network", "Diagnostics"
+};
 
 static struct {
     menuFrameWork_t menu;
-    bool open, preview, dragging, resizing, snap, hide_tools, dragging_tools, focus;
+    bool open, preview, dragging, resizing, snap, hide_tools, focus;
     bool locked[HUD_EDIT_COUNT], original_locks[HUD_EDIT_COUNT];
     cvar_t *lock_vars[HUD_EDIT_COUNT];
     int history_pos, history_count;
     float guide_x, guide_y;
     int selected, network_mode, servercount, list_first, page_rows;
     hud_category_t category;
-    hud_tools_section_t tools_section;
     float width, height, scale, mouse_x, mouse_y, grab_x, grab_y;
     float start_width, start_height, start_scale, start_x, start_y;
     float drag_values[q_countof(settings)];
@@ -118,9 +129,29 @@ static struct {
     vrect_t drag_bounds;
     vrect_t bounds[HUD_EDIT_COUNT], rows[HUD_EDIT_COUNT];
     vrect_t buttons[HUD_BUTTON_COUNT], categories[HUD_CATEGORY_COUNT];
-    vrect_t tools, tools_title;
-    float tools_grab_x, tools_grab_y;
     active_t active;
+    bool ghosts, keys_open, changes_open, align_reference, field_bad, replace_field;
+    bool collapsed[HUD_GROUP_COUNT];
+    /* Per-element preview choices never enter saved settings or undo history. */
+    hud_editor_visibility_t editor_visibility[HUD_EDIT_COUNT];
+    int reference, step, change_first, held_button;
+    bool skip_char;
+    /* Setting index + 1 for each element's HUD enable cvar; 0 until first use. */
+    int enable_setting[HUD_EDIT_COUNT];
+    bool held_changed;
+    unsigned hold_time;
+    hud_field_t field;
+    inputField_t input, filter;
+    vrect_t rail, dock, stage, overlay, fields[HUD_FIELD_COUNT], groups[HUD_GROUP_COUNT];
+    vrect_t toggles[HUD_EDIT_COUNT], preview_toggles[HUD_EDIT_COUNT];
+    vrect_t change_rows[HUD_EDIT_COUNT], reverts[HUD_EDIT_COUNT];
+    /* View state is deliberately excluded from draft settings and undo history. */
+    hud_preview_scenario_t scenario;
+    bool info_expanded, panning;
+    int pan_button;
+    float preview_zoom, manual_zoom, view_x, view_y, center_x, center_y;
+    float pan_start_x, pan_start_y, pan_center_x, pan_center_y;
+    qhandle_t backdrop;
 } editor;
 
 #define HUD_HISTORY_STATES 65
@@ -180,15 +211,48 @@ static void HUD_EndDrag(void)
     editor.guide_x = editor.guide_y = NAN;
 }
 
-static bool HUD_Locked(int id)
+/* Another element's lock protects geometry this element moves or shares. */
+static bool HUD_LockedByOther(int id)
 {
     /* Changing the helper geometry also moves its attached efficiency display. */
-    return editor.locked[id] || (id == HUD_EDIT_STRAFE && editor.locked[HUD_EDIT_EFFICIENCY]);
+    return (id == HUD_EDIT_STRAFE && editor.locked[HUD_EDIT_EFFICIENCY]) ||
+           (id == HUD_EDIT_NETWORK &&
+            ((editor.network_mode == 1 && editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_NETICON]) ||
+             (editor.network_mode == 2 && editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_DEBUGGRAPH])));
+}
+
+static bool HUD_Locked(int id)
+{
+    return editor.locked[id] || HUD_LockedByOther(id);
+}
+
+static const char *HUD_Name(int id);
+static bool HUD_Enabled(int id);
+
+static bool HUD_ContextAvailable(int layout)
+{
+    return editor.scenario == HUD_PREVIEW_LIVE ? HUD_LayoutPreviewAvailable(layout) :
+        HUD_LayoutScenarioIncludes(layout, editor.scenario);
 }
 
 static bool HUD_CanvasItem(int id)
 {
-    return !editor.focus || id == editor.selected;
+    if (editor.editor_visibility[id] == HUD_EDITOR_HIDDEN || (editor.focus && id != editor.selected))
+        return false;
+    if (editor.editor_visibility[id] == HUD_EDITOR_SHOWN)
+        return true;
+    if (id >= HUD_EDIT_LAYOUT_FIRST && id != editor.selected &&
+        !HUD_ContextAvailable(id - HUD_EDIT_LAYOUT_FIRST))
+        return false;
+    return editor.ghosts || id == editor.selected || HUD_Enabled(id);
+}
+
+static void HUD_SetEditorVisible(int id, bool visible)
+{
+    HUD_EndDrag();
+    editor.panning = false;
+    editor.held_button = -1;
+    editor.editor_visibility[id] = visible ? HUD_EDITOR_SHOWN : HUD_EDITOR_HIDDEN;
 }
 
 bool HUD_EditorShow(int id)
@@ -215,17 +279,78 @@ static hud_category_t HUD_Category(int id)
         ? HUD_CATEGORY_SERVER : HUD_CATEGORY_CLIENT;
 }
 
+static int HUD_Group(int id)
+{
+    if (id < HUD_EDIT_LAYOUT_FIRST)
+        return id == HUD_EDIT_NETWORK ? 4 : 0;
+    switch (id - HUD_EDIT_LAYOUT_FIRST) {
+    case HL_SPEED:
+        return 0;
+    case HL_TIMER:
+    case HL_TIMELEFT:
+    case HL_ADDEDTIME:
+    case HL_MAP:
+    case HL_PREVMAP1:
+    case HL_PREVMAP2:
+    case HL_PREVMAP3:
+    case HL_MAPCOUNT:
+    case HL_STATUS1:
+    case HL_STATUS2:
+    case HL_STATUS3:
+    case HL_STATUS4:
+        return 1;
+    case HL_HEALTH:
+    case HL_ITEM:
+    case HL_INPUTS:
+    case HL_TARGET:
+    case HL_BIND_REMINDERS:
+        return 2;
+    case HL_CHAT:
+    case HL_MESSAGE:
+    case HL_CENTER:
+    case HL_NOTIFY:
+    case HL_VOTE:
+    case HL_SCOREBOARD:
+        return 3;
+    case HL_NETALERT:
+    case HL_NETICON:
+    case HL_TURTLE:
+    case HL_SERVER_FPS:
+    case HL_RENDER_FPS:
+    case HL_MOVE_FPS:
+    case HL_DEBUGGRAPH:
+        return 4;
+    default:
+        return 5;
+    }
+}
+
+static bool HUD_Matches(int id)
+{
+    if (!HUD_Editable(id) || (editor.category != HUD_CATEGORY_ALL && HUD_Category(id) != editor.category))
+        return false;
+    if (!editor.filter.text[0])
+        return true;
+    const char *key =
+        id < HUD_EDIT_LAYOUT_FIRST ? native_widgets[id].key : HUD_LayoutItem(id - HUD_EDIT_LAYOUT_FIRST)->key;
+    return Q_stristr(HUD_Name(id), editor.filter.text) || Q_stristr(key, editor.filter.text);
+}
+
 static bool HUD_ListItem(int id)
 {
-    return HUD_Editable(id) && (editor.category == HUD_CATEGORY_ALL || HUD_Category(id) == editor.category);
+    return HUD_Matches(id) && (!editor.collapsed[HUD_Group(id)] || editor.filter.text[0]);
 }
 /* Rows are compact; selection and renderer bounds retain their stable HUD IDs. */
 static int HUD_Row(int id)
 {
     int row = 0;
-    for (int i = 0; i < id; i++)
-        if (HUD_ListItem(i))
-            row++;
+    for (int group = 0; group < HUD_GROUP_COUNT; group++)
+        for (int i = 0; i < HUD_Limit(); i++) {
+            if (i == id && HUD_Group(i) == group)
+                return row;
+            if (HUD_Group(i) == group && HUD_ListItem(i))
+                row++;
+        }
     return row;
 }
 
@@ -236,44 +361,103 @@ static int HUD_Count(void)
 
 static int HUD_Entry(int row)
 {
-    for (int i = 0; i < HUD_Limit(); i++)
-        if (HUD_ListItem(i) && row-- == 0)
-            return i;
-    return HUD_EDIT_UPS;
+    for (int group = 0; group < HUD_GROUP_COUNT; group++)
+        for (int i = 0; i < HUD_Limit(); i++)
+            if (HUD_Group(i) == group && HUD_ListItem(i) && row-- == 0)
+                return i;
+    return editor.selected;
+}
+
+static void HUD_Select(int id)
+{
+    if (id != editor.selected)
+        editor.reference = editor.selected;
+    editor.selected = id;
+    editor.field = HUD_FIELD_NONE;
+    editor.collapsed[HUD_Group(id)] = false;
+}
+
+/* Row geometry is stale once list contents change; it returns on the next draw. */
+static void HUD_InvalidateList(void)
+{
+    editor.list_first = 0;
+    memset(editor.rows, 0, sizeof(editor.rows));
+    memset(editor.toggles, 0, sizeof(editor.toggles));
+    memset(editor.preview_toggles, 0, sizeof(editor.preview_toggles));
+}
+
+/* Make an element's row visible without changing which element is selected. */
+static void HUD_Reveal(int id)
+{
+    if (HUD_ListItem(id))
+        return;
+    editor.collapsed[HUD_Group(id)] = false;
+    if (!HUD_ListItem(id)) {
+        editor.category = HUD_CATEGORY_ALL;
+        IF_Clear(&editor.filter);
+    }
+    HUD_InvalidateList();
 }
 
 static void HUD_SetCategory(hud_category_t category)
 {
     HUD_EndDrag();
     editor.category = category;
-    if (!HUD_Count())
-        editor.category = HUD_CATEGORY_ALL;
-    if (!HUD_ListItem(editor.selected))
-        editor.selected = HUD_Entry(0);
-    editor.list_first = 0;
-    editor.dragging = false;
-    memset(editor.rows, 0, sizeof(editor.rows));
+    if (HUD_Count() && !HUD_ListItem(editor.selected))
+        HUD_Select(HUD_Entry(0));
+    HUD_InvalidateList();
 }
 
 static void HUD_SelectStep(int step)
 {
     HUD_EndDrag();
-    editor.selected = HUD_Entry(Q_clip(HUD_Row(editor.selected) + step, 0, HUD_Count() - 1));
-    editor.dragging = false;
+    int count = HUD_Count();
+    if (!count)
+        return;
+    int row = HUD_ListItem(editor.selected) ? HUD_Row(editor.selected) : (step < 0 ? count : -1);
+    HUD_Select(HUD_Entry(Q_clip(row + step, 0, count - 1)));
+}
+
+static float HUD_Value(const char *name);
+
+/* Input can change a draft several times before the next preview supplies bounds. */
+static void HUD_UpdateValue(hud_setting_t *setting, float value)
+{
+    int id = setting->owner - HUD_EDIT_LAYOUT_FIRST;
+    const hud_layout_item_t *item = id >= 0 ? HUD_LayoutItem(id) : NULL;
+    vrect_t *r = &editor.bounds[setting->owner];
+    if (item && r->width && value != setting->value) {
+        if (!strcmp(setting->name, item->x->name)) {
+            r->x += Q_rint(value - setting->value);
+        } else if (!strcmp(setting->name, item->y->name)) {
+            r->y += Q_rint(value - setting->value);
+        } else if (!strcmp(setting->name, item->scale->name) && setting->value > 0) {
+            float px, py, ratio = value / setting->value;
+            float x = HUD_Value(item->x->name), y = HUD_Value(item->y->name);
+            HUD_LayoutScaleAnchor(id, &px, &py);
+            if (id != HL_DEBUGGRAPH) {
+                r->x = Q_rint(px + (r->x - px - x) * ratio + x);
+                r->width = max(1, Q_rint(r->width * ratio));
+            }
+            r->y = Q_rint(py + (r->y - py - y) * ratio + y);
+            r->height = max(1, Q_rint(r->height * ratio));
+        }
+    }
+    setting->value = value;
 }
 
 static void HUD_HistoryRestore(int slot, int selected)
 {
     for (size_t i = 0; i < setting_count; i++) {
-        settings[i].value = history[slot].values[i];
+        HUD_UpdateValue(&settings[i], history[slot].values[i]);
         settings[i].changed = history[slot].changed[i];
     }
     memcpy(editor.locked, history[slot].locked, sizeof(editor.locked));
     editor.network_mode = history[slot].network_mode;
     editor.history_pos = slot;
     editor.selected = selected;
-    if (!HUD_ListItem(selected))
-        HUD_SetCategory(HUD_CATEGORY_ALL);
+    /* Keep the undone element selected even if a filter or collapsed group hid it. */
+    HUD_Reveal(selected);
     editor.guide_x = editor.guide_y = NAN;
 }
 
@@ -303,8 +487,7 @@ static const char *HUD_Enable(int id)
 
 static bool HUD_CanResize(void)
 {
-    return !HUD_Locked(editor.selected) && editor.selected < HUD_EDIT_LAYOUT_FIRST &&
-           (editor.selected != HUD_EDIT_NETWORK || editor.network_mode != 1);
+    return HUD_Editable(editor.selected) && !HUD_Locked(editor.selected);
 }
 
 bool HUD_EditorSelected(int id)
@@ -325,10 +508,30 @@ static float HUD_Value(const char *name)
     return HUD_Setting(name)->value;
 }
 
+/* Resolved once per open session; the settings table is fixed while editing. */
+static bool HUD_Enabled(int id)
+{
+    if (!editor.enable_setting[id])
+        editor.enable_setting[id] = (int)(HUD_Setting(HUD_Enable(id)) - settings) + 1;
+    return settings[editor.enable_setting[id] - 1].value != 0;
+}
+
+/* Resets/reverts also touch modes other than the currently displayed one. */
+static bool HUD_SharedSettingLocked(const char *name)
+{
+    if (!strcmp(name, "sh_lagometer_x") || !strcmp(name, "sh_lagometer_y"))
+        return editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_NETICON];
+    if (!strcmp(name, "sh_netgraph_height"))
+        return editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_DEBUGGRAPH];
+    return false;
+}
+
 static void HUD_Set(const char *name, float value)
 {
+    if (HUD_SharedSettingLocked(name))
+        return;
     hud_setting_t *s = HUD_Setting(name);
-    s->value = HudEdit_Clamp(value, s->low, s->high);
+    HUD_UpdateValue(s, HudEdit_Clamp(value, s->low, s->high));
     s->changed = s->value != s->original;
 }
 
@@ -340,6 +543,11 @@ bool HUD_EditorActive(void)
 bool HUD_EditorPreview(void)
 {
     return editor.preview;
+}
+
+hud_preview_scenario_t HUD_EditorScenario(void)
+{
+    return editor.scenario;
 }
 
 int HUD_EditorNetworkMode(void)
@@ -382,7 +590,7 @@ void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h)
 
 static void HUD_Pop(menuFrameWork_t *menu)
 {
-    editor.open = editor.preview = editor.dragging = false;
+    editor.open = editor.preview = editor.dragging = editor.panning = false;
 }
 
 static void HUD_Size(menuFrameWork_t *menu)
@@ -448,12 +656,14 @@ static void HUD_Move(float dx, float dy, bool snap)
     float x = r.x + dx, y = r.y + dy;
     if (snap) {
         hud_edit_snap_axis_t sx, sy;
-        HudEdit_SnapAxisInit(&sx, x, r.width, editor.width, 6 * editor.scale);
-        HudEdit_SnapAxisInit(&sy, y, r.height, editor.height, 6 * editor.scale);
+        /* Six screen pixels at the current preview zoom, expressed in HUD units. */
+        float tolerance = 6 * editor.scale / max(editor.preview_zoom, .01f);
+        HudEdit_SnapAxisInit(&sx, x, r.width, editor.width, tolerance);
+        HudEdit_SnapAxisInit(&sy, y, r.height, editor.height, tolerance);
         for (int i = 0; i < HUD_Limit(); i++) {
             const vrect_t *other = &editor.bounds[i];
-            if (i == editor.selected || !HUD_Editable(i) || !other->width ||
-                !HUD_Value(HUD_Enable(i))) continue;
+            if (i == editor.selected || !HUD_Editable(i) || !other->width || !HUD_CanvasItem(i))
+                continue;
             /* Do not snap an attached widget to geometry that moves with it. */
             if (editor.selected == HUD_EDIT_STRAFE && i == HUD_EDIT_EFFICIENCY)
                 continue;
@@ -475,8 +685,9 @@ static void HUD_Move(float dx, float dy, bool snap)
     dy = y - r.y;
     if (editor.selected >= HUD_EDIT_LAYOUT_FIRST) {
         const hud_layout_item_t *item = HUD_LayoutItem(editor.selected - HUD_EDIT_LAYOUT_FIRST);
-        HUD_Set(item->x->name, HUD_Value(item->x->name) + dx);
-        HUD_Set(item->y->name, HUD_Value(item->y->name) + dy);
+        float old_x = HUD_Value(item->x->name), old_y = HUD_Value(item->y->name);
+        HUD_Set(item->x->name, old_x + dx);
+        HUD_Set(item->y->name, old_y + dy);
         return;
     }
     switch (editor.selected) {
@@ -488,7 +699,8 @@ static void HUD_Move(float dx, float dy, bool snap)
         HUD_Set("sh_y", HUD_Value("sh_y") + dy);
         break;
     case HUD_EDIT_EFFICIENCY: {
-        float h = HUD_Value("sh_efficiency_height"), hh = HUD_Value("sh_height");
+        float h = HUD_Value("sh_efficiency_height") * HUD_Value("hud_efficiency_scale");
+        float hh = HUD_Value("sh_height") * HUD_Value("hud_strafe_scale");
         float helper_top = (editor.height - hh) * 0.5f + HUD_Value("sh_y");
         float offset = HUD_Value("sh_efficiency_y");
         float top = offset >= 0 ? helper_top + hh + offset : helper_top + offset - h;
@@ -515,12 +727,46 @@ static bool HUD_EfficiencyTextOnly(void)
     return style && (!Q_stricmp(style, "text") || !strcmp(style, "2"));
 }
 
+static const char *HUD_ScaleSetting(void)
+{
+    static const char *const native_scales[] = {
+        "hud_ups_scale", "hud_strafe_scale", "hud_efficiency_scale", "hud_network_scale"
+    };
+    return editor.selected < HUD_EDIT_LAYOUT_FIRST ? native_scales[editor.selected] :
+        HUD_LayoutItem(editor.selected - HUD_EDIT_LAYOUT_FIRST)->scale->name;
+}
+
+/* Keep a grouped item's chosen corner fixed while changing its visual size.
+ * Full-width graphs grow upward from their bottom edge. Native overlays retain
+ * their own center/edge anchors and their existing dimension controls. */
+static void HUD_SetVisualScale(float value)
+{
+    if (HUD_Locked(editor.selected))
+        return;
+    const char *name = HUD_ScaleSetting();
+    float previous = HUD_Value(name);
+    vrect_t r = editor.bounds[editor.selected];
+    HUD_Set(name, value);
+    if (editor.selected < HUD_EDIT_LAYOUT_FIRST || previous <= 0)
+        return;
+    int id = editor.selected - HUD_EDIT_LAYOUT_FIRST;
+    const hud_layout_item_t *item = HUD_LayoutItem(id);
+    if (!r.width)
+        return;
+    float px, py, ratio = HUD_Value(name) / previous;
+    HUD_LayoutScaleAnchor(id, &px, &py);
+    float x = HUD_Value(item->x->name), y = HUD_Value(item->y->name);
+    if (id != HL_DEBUGGRAPH)
+        HUD_Set(item->x->name, x + (r.x - px - x) * (1 - ratio));
+    HUD_Set(item->y->name, y + (r.y + (id == HL_DEBUGGRAPH ? r.height : 0) - py - y) * (1 - ratio));
+}
+
 static void HUD_StartResize(void)
 {
     vrect_t r = editor.bounds[editor.selected];
     editor.start_width = r.width;
     editor.start_height = r.height;
-    editor.start_scale = 1;
+    editor.start_scale = HUD_Value(HUD_ScaleSetting());
     switch (editor.selected) {
     case HUD_EDIT_UPS:
         editor.start_scale = HUD_Value("sh_ups_scale");
@@ -537,6 +783,14 @@ static void HUD_StartResize(void)
             editor.start_height = HUD_Value("sh_efficiency_height");
         }
         break;
+    case HUD_EDIT_NETWORK: {
+        float visual = HUD_Value("hud_network_scale");
+        if (editor.network_mode != 1) {
+            editor.start_width /= visual;
+            editor.start_height /= visual;
+        }
+        break;
+    }
     default:
         break;
     }
@@ -544,8 +798,16 @@ static void HUD_StartResize(void)
 
 static void HUD_Resize(float dx, float dy)
 {
-    if (HUD_Locked(editor.selected))
+    if (!HUD_CanResize())
         return;
+    if (editor.selected >= HUD_EDIT_LAYOUT_FIRST ||
+        (editor.selected == HUD_EDIT_NETWORK && editor.network_mode == 1)) {
+        float w = editor.start_width, h = editor.start_height;
+        bool full_width = editor.selected == HUD_EDIT_LAYOUT_FIRST + HL_DEBUGGRAPH;
+        float delta = full_width ? dy / fmaxf(1, h) : (w * dx + h * dy) / fmaxf(1, w * w + h * h);
+        HUD_SetVisualScale(editor.start_scale * fmaxf(0.1f, 1 + delta));
+        return;
+    }
     switch (editor.selected) {
     case HUD_EDIT_UPS:
         HUD_Set("sh_ups_scale", editor.start_scale * fmaxf(0.1f,
@@ -554,27 +816,35 @@ static void HUD_Resize(float dx, float dy)
     case HUD_EDIT_STRAFE:
         HUD_Set("sh_scale", editor.start_scale * fmaxf(0.1f,
                 (editor.start_width + 2 * dx) / fmaxf(1, editor.start_width)));
-        HUD_Set("sh_height", editor.start_height + dy);
+        if (dy != 0)
+            HUD_Set("sh_height", editor.start_height + dy / HUD_Value("hud_strafe_scale"));
         break;
     case HUD_EDIT_EFFICIENCY:
         if (HUD_EfficiencyTextOnly()) {
             HUD_Set("sh_efficiency_text_scale", editor.start_scale * fmaxf(0.1f,
                     (editor.start_width + dx) / fmaxf(1, editor.start_width)));
         } else {
-            HUD_Set("sh_efficiency_width", fminf(editor.width, editor.start_width + 2 * dx));
-            HUD_Set("sh_efficiency_height", editor.start_height + dy);
-        }
-        break;
-    case HUD_EDIT_NETWORK:
-        if (editor.network_mode == 2)
-            HUD_Set("sh_netgraph_height", fminf(editor.height, editor.start_height + dy));
-        else if (editor.network_mode == 3) {
+            float visual = HUD_Value("hud_efficiency_scale");
             if (dx != 0)
-                HUD_Set("sh_histogram_width_mode", 0);
-            HUD_Set("sh_histogram_width", fmaxf(10, fminf(editor.width, editor.start_width + dx)));
-            HUD_Set("sh_histogram_height", fminf(editor.height, editor.start_height + dy));
+                HUD_Set("sh_efficiency_width", fminf(editor.width, editor.start_width + 2 * dx / visual));
+            if (dy != 0)
+                HUD_Set("sh_efficiency_height", editor.start_height + dy / visual);
         }
         break;
+    case HUD_EDIT_NETWORK: {
+        float visual = HUD_Value("hud_network_scale");
+        if (editor.network_mode == 2 && dy != 0)
+            HUD_Set("sh_netgraph_height", fminf(editor.height, editor.start_height + dy / visual));
+        else if (editor.network_mode == 3) {
+            if (dx != 0) {
+                HUD_Set("sh_histogram_width_mode", 0);
+                HUD_Set("sh_histogram_width", fmaxf(10, fminf(editor.width, editor.start_width + dx / visual)));
+            }
+            if (dy != 0)
+                HUD_Set("sh_histogram_height", fminf(editor.height, editor.start_height + dy / visual));
+        }
+        break;
+    }
     default:
         break;
     }
@@ -584,30 +854,47 @@ static void HUD_Align(hud_button_t button)
 {
     vrect_t r = editor.bounds[editor.selected];
     float dx = 0, dy = 0;
+    vrect_t base = { 0, 0, (int)editor.width, (int)editor.height };
+    if (editor.align_reference && editor.reference >= 0 && editor.reference < HUD_Limit() &&
+        editor.reference != editor.selected && editor.bounds[editor.reference].width > 0)
+        base = editor.bounds[editor.reference];
 
     switch (button) {
     case HUD_BUTTON_ALIGN_LEFT:
-        dx = -r.x;
+        dx = base.x - r.x;
         break;
     case HUD_BUTTON_ALIGN_HCENTER:
-        dx = (editor.width - r.width) * 0.5f - r.x;
+        dx = base.x + (base.width - r.width) * 0.5f - r.x;
         break;
     case HUD_BUTTON_ALIGN_RIGHT:
-        dx = editor.width - r.width - r.x;
+        dx = base.x + base.width - r.width - r.x;
         break;
     case HUD_BUTTON_ALIGN_TOP:
-        dy = -r.y;
+        dy = base.y - r.y;
         break;
     case HUD_BUTTON_ALIGN_VCENTER:
-        dy = (editor.height - r.height) * 0.5f - r.y;
+        dy = base.y + (base.height - r.height) * 0.5f - r.y;
         break;
     case HUD_BUTTON_ALIGN_BOTTOM:
-        dy = editor.height - r.height - r.y;
+        dy = base.y + base.height - r.height - r.y;
         break;
     default:
         return;
     }
     HUD_Move(dx, dy, false);
+}
+
+/* Pad and arrow movement use the selected step; Shift multiplies it by ten. */
+static float HUD_PadStep(void)
+{
+    return max(1, editor.step) * (Key_IsDown(K_SHIFT) ? 10 : 1);
+}
+
+static void HUD_PadDelta(int button, float *dx, float *dy)
+{
+    float step = HUD_PadStep();
+    *dx = button == HUD_BUTTON_MOVE_LEFT ? -step : button == HUD_BUTTON_MOVE_RIGHT ? step : 0;
+    *dy = button == HUD_BUTTON_MOVE_UP ? -step : button == HUD_BUTTON_MOVE_DOWN ? step : 0;
 }
 
 static void HUD_Nudge(float dx, float dy, bool resize)
@@ -621,19 +908,90 @@ static void HUD_Nudge(float dx, float dy, bool resize)
     }
     HUD_HistoryCommit();
 }
-/* Invalidate geometry before a section change can receive another click. */
+/* Invalidate geometry before a view change can receive another click. */
 static void HUD_ClearToolsHits(void)
 {
     memset(editor.buttons, 0, sizeof(editor.buttons));
     memset(editor.rows, 0, sizeof(editor.rows));
     memset(editor.categories, 0, sizeof(editor.categories));
-    editor.tools_title = (vrect_t) { 0 };
+    memset(editor.fields, 0, sizeof(editor.fields));
+    memset(editor.groups, 0, sizeof(editor.groups));
+    memset(editor.toggles, 0, sizeof(editor.toggles));
+    memset(editor.preview_toggles, 0, sizeof(editor.preview_toggles));
+    memset(editor.change_rows, 0, sizeof(editor.change_rows));
+    memset(editor.reverts, 0, sizeof(editor.reverts));
+    editor.overlay = (vrect_t) { 0 };
 }
+
+/* One pass over the draft; the workbench needs every element's flag each frame. */
+static void HUD_DirtyFlags(bool dirty[HUD_EDIT_COUNT])
+{
+    for (int id = 0; id < HUD_EDIT_COUNT; id++)
+        dirty[id] = editor.locked[id] != editor.original_locks[id];
+    for (int i = 0; i < setting_count; i++)
+        dirty[settings[i].owner] |= settings[i].changed;
+}
+
+static void HUD_Revert(int id)
+{
+    HUD_HistoryBegin();
+    /* Reverting restores the element's own lock, never another element's protection. */
+    bool protected_values = HUD_LockedByOther(id);
+    for (int i = 0; i < setting_count; i++)
+        if (settings[i].owner == id && !protected_values && !HUD_SharedSettingLocked(settings[i].name)) {
+            hud_setting_t *s = &settings[i];
+            HUD_UpdateValue(s, s->low == HUD_SCALE_MIN && s->high == HUD_SCALE_MAX && !isfinite(s->original) ?
+                            1 : HudEdit_Clamp(s->original, s->low, s->high));
+            settings[i].changed = false;
+        }
+    editor.locked[id] = editor.original_locks[id];
+    HUD_HistoryCommit();
+}
+
+static void HUD_WorkbenchLayout(void);
+static void HUD_ViewCommand(hud_button_t button);
 
 static void HUD_Command(hud_button_t button)
 {
     HUD_EndDrag();
+    editor.panning = false;
+    editor.held_button = -1;
+    if (button >= HUD_BUTTON_SCENARIO_LIVE && button <= HUD_BUTTON_SCENARIO_NETWORK) {
+        editor.scenario = (hud_preview_scenario_t)(button - HUD_BUTTON_SCENARIO_LIVE);
+        return;
+    }
+    if (button >= HUD_BUTTON_FIT && button <= HUD_BUTTON_ZOOM_IN) {
+        HUD_ViewCommand(button);
+        return;
+    }
     switch (button) {
+    case HUD_BUTTON_INFO:
+        editor.info_expanded = !editor.info_expanded;
+        HUD_ClearToolsHits();
+        HUD_WorkbenchLayout();
+        return;
+    case HUD_BUTTON_EDITOR_VISIBLE:
+        HUD_SetEditorVisible(editor.selected, !HUD_CanvasItem(editor.selected));
+        return;
+    case HUD_BUTTON_GHOSTS:
+        editor.ghosts = !editor.ghosts;
+        return;
+    case HUD_BUTTON_STEP:
+        editor.step = editor.step == 1 ? 5 : editor.step == 5 ? 10 : 1;
+        return;
+    case HUD_BUTTON_REFERENCE:
+        editor.align_reference = !editor.align_reference;
+        return;
+    case HUD_BUTTON_CHANGES:
+        editor.changes_open = !editor.changes_open;
+        editor.keys_open = false;
+        HUD_ClearToolsHits();
+        return;
+    case HUD_BUTTON_KEYS:
+        editor.keys_open = !editor.keys_open;
+        editor.changes_open = false;
+        HUD_ClearToolsHits();
+        return;
     case HUD_BUTTON_APPLY:
         HUD_Apply();
         return;
@@ -642,9 +1000,6 @@ static void HUD_Command(hud_button_t button)
         return;
     case HUD_BUTTON_SNAP:
         editor.snap = !editor.snap;
-        return;
-    case HUD_BUTTON_HIDE_TOOLS:
-        editor.hide_tools = true;
         return;
     case HUD_BUTTON_PREVIOUS:
         HUD_SelectStep(-1);
@@ -660,16 +1015,6 @@ static void HUD_Command(hud_button_t button)
         return;
     case HUD_BUTTON_FOCUS:
         editor.focus = !editor.focus;
-        return;
-    case HUD_BUTTON_ARRANGE_SECTION:
-        editor.tools_section = editor.tools_section == HUD_SECTION_ARRANGE
-            ? HUD_SECTION_NONE : HUD_SECTION_ARRANGE;
-        HUD_ClearToolsHits();
-        return;
-    case HUD_BUTTON_RESET_SECTION:
-        editor.tools_section = editor.tools_section == HUD_SECTION_RESET
-            ? HUD_SECTION_NONE : HUD_SECTION_RESET;
-        HUD_ClearToolsHits();
         return;
     default:
         break;
@@ -701,9 +1046,8 @@ static void HUD_Command(hud_button_t button)
     case HUD_BUTTON_MOVE_RIGHT:
     case HUD_BUTTON_MOVE_UP:
     case HUD_BUTTON_MOVE_DOWN: {
-        float step = Key_IsDown(K_SHIFT) ? 10 : 1;
-        float dx = button == HUD_BUTTON_MOVE_LEFT ? -step : button == HUD_BUTTON_MOVE_RIGHT ? step : 0;
-        float dy = button == HUD_BUTTON_MOVE_UP ? -step : button == HUD_BUTTON_MOVE_DOWN ? step : 0;
+        float dx, dy;
+        HUD_PadDelta(button, &dx, &dy);
         HUD_Move(dx, dy, false);
         break;
     }
@@ -719,12 +1063,12 @@ static bool HUD_Hit(const vrect_t *r, float x, float y)
            x < r->x + r->width && y < r->y + r->height;
 }
 
-/* Keep normal menu text size; shrink only when the toolbox cannot fit. */
+/* Fit the command bar at small resolutions and respect the menu UI scale. */
 static float HUD_ToolsZoom(void)
 {
     if (uis.width <= 0 || uis.height <= 0)
         return 1;
-    return min(1.0f, min(uis.width / 312.0f, uis.height / 270.0f));
+    return min(1.4f, min(uis.width / 1000.0f, uis.height / 562.5f));
 }
 
 static float HUD_ToolsMouse(int axis)
@@ -732,32 +1076,125 @@ static float HUD_ToolsMouse(int axis)
     return uis.mouseCoords[axis] / HUD_ToolsZoom();
 }
 
-static void HUD_ClampTools(void)
+static void HUD_WorkbenchLayout(void)
 {
-    editor.tools.x = Q_clip(editor.tools.x, 0, max(0, (int)(uis.width / HUD_ToolsZoom()) - editor.tools.width));
-    editor.tools.y = Q_clip(editor.tools.y, 0, max(0, (int)(uis.height / HUD_ToolsZoom()) - editor.tools.height));
+    float z = HUD_ToolsZoom(), ui_scale = uis.scale > 0 ? uis.scale : 1;
+    int width = uis.width / z, height = uis.height / z;
+    int rail = 280, dock = 94 + (editor.info_expanded ? 64 : 22);
+    editor.rail = (vrect_t) { 0, 0, rail, height - dock };
+    editor.dock = (vrect_t) { 0, height - dock, width, dock };
+    if (width <= 0 || height <= 0) {
+        editor.stage = (vrect_t) { 0 };
+        editor.preview_zoom = 1;
+        editor.view_x = editor.view_y = 0;
+        return;
+    }
+    int top = editor.hide_tools ? 0 : 30;
+    float fit = editor.hide_tools ? 1 :
+        min((width - rail) / (float)width, (height - dock - top) / (float)height);
+    editor.stage = (vrect_t) { Q_rint(width * (1 - fit) * z / ui_scale), Q_rint(top * z / ui_scale),
+        Q_rint(width * fit * z / ui_scale), Q_rint(height * fit * z / ui_scale) };
+    editor.preview_zoom = editor.manual_zoom > 0 ? editor.manual_zoom : fit;
+    if (!editor.manual_zoom) {
+        editor.center_x = uis.width * editor.scale / ui_scale / 2;
+        editor.center_y = uis.height * editor.scale / ui_scale / 2;
+    } else if (editor.width > 0 && editor.height > 0) {
+        /* Zoom and pan share this clamp, so a later pan cannot jump. */
+        editor.center_x = Q_clipf(editor.center_x, 0, editor.width);
+        editor.center_y = Q_clipf(editor.center_y, 0, editor.height);
+    }
+    editor.view_x = editor.stage.x + editor.stage.width / 2.0f - editor.center_x * editor.preview_zoom / editor.scale;
+    editor.view_y = editor.stage.y + editor.stage.height / 2.0f - editor.center_y * editor.preview_zoom / editor.scale;
+}
+
+/* Anchor a zoom at a physical pointer position; toolbar controls use the center. */
+static void HUD_ZoomAt(float zoom, float x, float y)
+{
+    HUD_WorkbenchLayout();
+    float point_x = (x - editor.view_x) * editor.scale / editor.preview_zoom;
+    float point_y = (y - editor.view_y) * editor.scale / editor.preview_zoom;
+    editor.manual_zoom = Q_clipf(zoom, .25f, 4.0f);
+    editor.center_x = point_x + (editor.stage.x + editor.stage.width / 2.0f - x) * editor.scale / editor.manual_zoom;
+    editor.center_y = point_y + (editor.stage.y + editor.stage.height / 2.0f - y) * editor.scale / editor.manual_zoom;
+    HUD_WorkbenchLayout();
+}
+
+static void HUD_ViewCommand(hud_button_t button)
+{
+    HUD_WorkbenchLayout();
+    if (button == HUD_BUTTON_FIT) {
+        editor.manual_zoom = 0;
+    } else if (button == HUD_BUTTON_SELECTION) {
+        vrect_t r = editor.bounds[editor.selected];
+        if (r.width <= 0 || r.height <= 0)
+            return;
+        editor.manual_zoom = Q_clipf(min(editor.stage.width * editor.scale / (r.width + 32),
+            editor.stage.height * editor.scale / (r.height + 32)), .25f, 4.0f);
+        editor.center_x = r.x + r.width / 2.0f;
+        editor.center_y = r.y + r.height / 2.0f;
+    } else {
+        float zoom = button == HUD_BUTTON_100 ? 1 : editor.preview_zoom * (button == HUD_BUTTON_ZOOM_IN ? 1.25f : .8f);
+        HUD_ZoomAt(zoom, editor.stage.x + editor.stage.width / 2.0f, editor.stage.y + editor.stage.height / 2.0f);
+    }
+    HUD_WorkbenchLayout();
+}
+
+static bool HUD_PointerInStage(void)
+{
+    if (uis.scale <= 0)
+        return false;
+    return HUD_Hit(&editor.stage, uis.mouseCoords[0] / uis.scale, uis.mouseCoords[1] / uis.scale);
+}
+
+static void HUD_StartPan(int button)
+{
+    if (!HUD_PointerInStage() || cls.active != ACT_ACTIVATED)
+        return;
+    HUD_EndDrag();
+    editor.held_button = -1;
+    editor.panning = true;
+    editor.pan_button = button;
+    editor.manual_zoom = editor.preview_zoom;
+    editor.pan_center_x = editor.center_x;
+    editor.pan_center_y = editor.center_y;
+    editor.pan_start_x = uis.mouseCoords[0] / uis.scale;
+    editor.pan_start_y = uis.mouseCoords[1] / uis.scale;
+}
+
+bool HUD_EditorViewport(vrect_t *viewport)
+{
+    if (!HUD_EditorActive())
+        return false;
+    HUD_WorkbenchLayout();
+    *viewport = editor.stage;
+    return true;
 }
 
 static bool HUD_ToolsVisible(void)
 {
-    return !editor.hide_tools && !editor.dragging;
+    return !editor.hide_tools;
 }
 
 void HUD_EditorMouse(int x, int y)
 {
     if (!HUD_EditorActive())
         return;
-    editor.mouse_x = x * editor.scale;
-    editor.mouse_y = y * editor.scale;
+    HUD_WorkbenchLayout();
+    if (editor.panning) {
+        if (!Key_IsDown(editor.pan_button) || cls.active != ACT_ACTIVATED ||
+            (editor.pan_button == K_MOUSE1 && !Key_IsDown(K_SPACE))) {
+            editor.panning = false;
+        } else {
+            editor.center_x = editor.pan_center_x - (x - editor.pan_start_x) * editor.scale / editor.preview_zoom;
+            editor.center_y = editor.pan_center_y - (y - editor.pan_start_y) * editor.scale / editor.preview_zoom;
+            HUD_WorkbenchLayout();
+        }
+    }
+    editor.mouse_x = (x - editor.view_x) * editor.scale / editor.preview_zoom;
+    editor.mouse_y = (y - editor.view_y) * editor.scale / editor.preview_zoom;
     if (!Key_IsDown(K_MOUSE1) || cls.active != ACT_ACTIVATED) {
         HUD_EndDrag();
-        editor.dragging_tools = false;
-    }
-    if (editor.dragging_tools) {
-        editor.tools.x = Q_rint(x * uis.scale / HUD_ToolsZoom() - editor.tools_grab_x);
-        editor.tools.y = Q_rint(y * uis.scale / HUD_ToolsZoom() - editor.tools_grab_y);
-        HUD_ClampTools();
-        return;
+        editor.held_button = -1;
     }
     if (!editor.dragging)
         return;
@@ -776,7 +1213,121 @@ void HUD_EditorMouse(int x, int y)
                  editor.mouse_y - editor.grab_y - r.y,
                  editor.snap && !Key_IsDown(K_ALT));
     }
-    editor.bounds[editor.selected] = previous_bounds;
+    if (editor.selected < HUD_EDIT_LAYOUT_FIRST)
+        editor.bounds[editor.selected] = previous_bounds;
+}
+
+static bool HUD_FieldEnabled(hud_field_t field)
+{
+    if (field == HUD_FIELD_FILTER)
+        return true;
+    if (HUD_Locked(editor.selected))
+        return false;
+    if (field == HUD_FIELD_SCALE)
+        return HUD_ScaleSetting() != NULL;
+    if (field == HUD_FIELD_X &&
+        (editor.selected == HUD_EDIT_STRAFE || (editor.selected == HUD_EDIT_NETWORK && editor.network_mode == 2)))
+        return false;
+    return editor.bounds[editor.selected].width > 0;
+}
+
+static void HUD_FocusField(hud_field_t field)
+{
+    if (!HUD_FieldEnabled(field))
+        return;
+    HUD_EndDrag();
+    editor.held_button = -1;
+    editor.field = field;
+    editor.field_bad = false;
+    editor.replace_field = field != HUD_FIELD_FILTER;
+    IF_Init(&editor.input, 8, 24);
+    if (field == HUD_FIELD_X || field == HUD_FIELD_Y)
+        IF_Replace(&editor.input, va("%d", field == HUD_FIELD_X ? editor.bounds[editor.selected].x
+                                                                : editor.bounds[editor.selected].y));
+    else if (field == HUD_FIELD_SCALE)
+        IF_Replace(&editor.input, va("%.2f", HUD_Value(HUD_ScaleSetting())));
+}
+
+static bool HUD_CommitField(void)
+{
+    if (editor.field <= HUD_FIELD_FILTER) {
+        editor.field = HUD_FIELD_NONE;
+        return true;
+    }
+    char *end;
+    float value = strtof(editor.input.text, &end);
+    bool parsed = end != editor.input.text;
+    while (*end == ' ')
+        end++;
+    if (!parsed || *end || !isfinite(value)) {
+        editor.field_bad = true;
+        return false;
+    }
+    HUD_HistoryBegin();
+    if (HUD_FieldEnabled(editor.field)) {
+        if (editor.field == HUD_FIELD_SCALE)
+            HUD_SetVisualScale(value);
+        else {
+            vrect_t r = editor.bounds[editor.selected];
+            /* Clamp before rounding so arbitrary input never reaches an int cast. */
+            value = Q_rint(HudEdit_Clamp(value, 0, editor.field == HUD_FIELD_X ? editor.width : editor.height));
+            HUD_Move(editor.field == HUD_FIELD_X ? value - r.x : 0,
+                     editor.field == HUD_FIELD_Y ? value - r.y : 0, false);
+        }
+    }
+    HUD_HistoryCommit();
+    editor.field = HUD_FIELD_NONE;
+    editor.field_bad = false;
+    return true;
+}
+
+bool HUD_EditorChar(int key)
+{
+    if (!HUD_EditorActive())
+        return false;
+    /* Keys are positional but chars follow the keyboard layout, so the char
+     * after a field shortcut need not equal its key (QWERTZ 'y' types 'z'). */
+    if (editor.skip_char) {
+        editor.skip_char = false;
+        return true;
+    }
+    if (editor.field == HUD_FIELD_NONE)
+        return true;
+    inputField_t *field = editor.field == HUD_FIELD_FILTER ? &editor.filter : &editor.input;
+    if (editor.replace_field && key >= 32 && key < 127) {
+        IF_Clear(field);
+        editor.replace_field = false;
+    }
+    if (IF_CharEvent(field, key)) {
+        editor.field_bad = false;
+        if (editor.field == HUD_FIELD_FILTER)
+            HUD_InvalidateList();
+    }
+    return true;
+}
+
+/* Follow HUD_Draw's preview order; StrafeHelper_DrawPreview draws efficiency first.
+ * selected_hit: the pointer is over the selected element or its resize corner. */
+static int HUD_CanvasHit(float x, float y, bool selected_hit)
+{
+    static const int native_order[HUD_EDIT_LAYOUT_FIRST] = {
+        HUD_EDIT_EFFICIENCY, HUD_EDIT_STRAFE, HUD_EDIT_UPS, HUD_EDIT_NETWORK
+    };
+    int top_unlocked = -1, top_locked = -1;
+    for (int order = 0; order < HUD_Limit(); order++) {
+        int i = order < HUD_EDIT_LAYOUT_FIRST ? native_order[order] : order;
+        if (!HUD_Editable(i) || !HUD_CanvasItem(i) || !HUD_Hit(&editor.bounds[i], x, y))
+            continue;
+        if (HUD_Locked(i))
+            top_locked = i;
+        else
+            top_unlocked = i;
+    }
+    if (selected_hit && !HUD_Locked(editor.selected))
+        return editor.selected;
+    if (top_unlocked >= 0)
+        return top_unlocked;
+    return selected_hit ? editor.selected : top_locked;
 }
 
 bool HUD_EditorKey(int key, bool down)
@@ -784,14 +1335,87 @@ bool HUD_EditorKey(int key, bool down)
     if (!HUD_EditorActive())
         return false;
     if (!down) {
+        editor.skip_char = false;
+        if (key == editor.pan_button || key == K_SPACE)
+            editor.panning = false;
         if (key == K_MOUSE1) {
             HUD_EndDrag();
-            editor.dragging_tools = false;
+            editor.held_button = -1;
         }
         return true;
     }
-    if (key != K_MOUSE1)
+    if (key != editor.pan_button && key != K_SPACE)
+        editor.panning = false;
+    if (key != K_MOUSE1) {
         HUD_EndDrag();
+        editor.held_button = -1;
+    }
+    if (editor.field != HUD_FIELD_NONE && key != K_MOUSE1) {
+        inputField_t *field = editor.field == HUD_FIELD_FILTER ? &editor.filter : &editor.input;
+        if (key == K_ESCAPE) {
+            editor.field = HUD_FIELD_NONE;
+            editor.field_bad = false;
+            return true;
+        }
+        if (key == K_ENTER) {
+            if (editor.field == HUD_FIELD_FILTER) {
+                if (HUD_Count() && !HUD_ListItem(editor.selected))
+                    HUD_Select(HUD_Entry(0));
+                editor.field = HUD_FIELD_NONE;
+            } else
+                HUD_CommitField();
+            return true;
+        }
+        if (editor.field == HUD_FIELD_FILTER && (key == K_DOWNARROW || key == K_UPARROW)) {
+            HUD_SelectStep(key == K_DOWNARROW ? 1 : -1);
+            editor.field = HUD_FIELD_FILTER;
+            return true;
+        }
+        if (key == K_TAB) {
+            HUD_CommitField();
+            return true;
+        }
+        if (Key_IsDown(K_CTRL) && key == 'a') {
+            editor.replace_field = true;
+            return true;
+        }
+        if (editor.replace_field && (key == K_BACKSPACE || key == K_DEL)) {
+            IF_Clear(field);
+            editor.replace_field = false;
+        } else if (IF_KeyEvent(field, key)) {
+            editor.replace_field = false;
+        }
+        editor.field_bad = false;
+        if (editor.field == HUD_FIELD_FILTER)
+            HUD_InvalidateList();
+        return true;
+    }
+    if (key == K_ESCAPE) {
+        if (editor.keys_open || editor.changes_open) {
+            editor.keys_open = editor.changes_open = false;
+            HUD_ClearToolsHits();
+        } else
+            UI_PopMenu();
+        return true;
+    }
+    if (editor.keys_open) {
+        if (key == K_MOUSE1 || key == '?' || (key == '/' && Key_IsDown(K_SHIFT))) {
+            editor.keys_open = false;
+            HUD_ClearToolsHits();
+        }
+        return true;
+    }
+    if (!editor.changes_open && editor.field == HUD_FIELD_NONE) {
+        if (key == K_MOUSE3 || (key == K_MOUSE1 && Key_IsDown(K_SPACE))) {
+            HUD_StartPan(key);
+            return true;
+        }
+        if (Key_IsDown(K_CTRL) && (key == K_MWHEELUP || key == K_MWHEELDOWN) && HUD_PointerInStage()) {
+            HUD_ZoomAt(editor.preview_zoom * (key == K_MWHEELUP ? 1.25f : .8f),
+                uis.mouseCoords[0] / uis.scale, uis.mouseCoords[1] / uis.scale);
+            return true;
+        }
+    }
     if (Key_IsDown(K_CTRL) && key == 'z') {
         if (Key_IsDown(K_SHIFT))
             HUD_Redo();
@@ -803,95 +1427,161 @@ bool HUD_EditorKey(int key, bool down)
         HUD_Redo();
         return true;
     }
-    if (key == K_ESCAPE) {
-        UI_PopMenu();
-        return true;
-    }
     if (key == K_ENTER) {
         HUD_Apply();
         return true;
     }
     if (key == K_TAB) {
-        editor.selected = HUD_Entry((HUD_Row(editor.selected) + (Key_IsDown(K_SHIFT) ? HUD_Count() - 1 : 1)) % HUD_Count());
-        editor.dragging = false;
+        int count = HUD_Count();
+        if (count) {
+            /* From an unlisted selection, Tab starts at the first row and Shift+Tab at the last. */
+            int row = HUD_ListItem(editor.selected) ? HUD_Row(editor.selected) : Key_IsDown(K_SHIFT) ? 0 : -1;
+            HUD_Select(HUD_Entry((row + (Key_IsDown(K_SHIFT) ? count - 1 : 1) + count) % count));
+        }
     } else if (key == K_MWHEELDOWN || key == K_MWHEELUP || key == K_PGDN || key == K_PGUP) {
         int step = (key == K_PGDN || key == K_PGUP) ? max(1, editor.page_rows) : 1;
         if (key == K_MWHEELUP || key == K_PGUP)
             step = -step;
-        HUD_SelectStep(step);
-    } else if (key >= '1' && key <= '3') {
+        if (editor.changes_open && HUD_Hit(&editor.overlay, HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
+            editor.change_first = max(0, editor.change_first + step);
+        else
+            HUD_SelectStep(step);
+    } else if (key >= '1' && key <= '3')
         HUD_SetCategory((hud_category_t)(key - '1'));
+    else if (key == '?' || (key == '/' && Key_IsDown(K_SHIFT)))
+        HUD_Command(HUD_BUTTON_KEYS);
+    else if (key == '/' || key == 'x' || key == 'y' || key == 's') {
+        HUD_FocusField(key == '/' ? HUD_FIELD_FILTER : key == 'x' ? HUD_FIELD_X : key == 'y' ? HUD_FIELD_Y : HUD_FIELD_SCALE);
+        editor.skip_char = true;
     } else if (key == 'r')
         HUD_Command(Key_IsDown(K_SHIFT) ? HUD_BUTTON_RESET_ALL : HUD_BUTTON_RESET_SELECTED);
-    else if (key == 's')
-        editor.snap = !editor.snap;
+    else if (key == 'n')
+        HUD_Command(HUD_BUTTON_SNAP);
+    else if (key == 'g')
+        HUD_Command(HUD_BUTTON_GHOSTS);
+    else if (key == 'p')
+        HUD_Command(HUD_BUTTON_CHANGES);
+    else if (key == 'e')
+        HUD_Command(HUD_BUTTON_EDITOR_VISIBLE);
     else if (key == 'v')
         HUD_Command(HUD_BUTTON_VISIBLE);
     else if (key == 'l')
         HUD_Command(HUD_BUTTON_LOCK);
     else if (key == 'f')
         HUD_Command(HUD_BUTTON_FOCUS);
-    else if (key == 'a')
-        HUD_Command(HUD_BUTTON_ARRANGE_SECTION);
-    else if (key == 'd')
-        HUD_Command(HUD_BUTTON_RESET_SECTION);
     else if (key == 'h') {
         editor.hide_tools = !editor.hide_tools;
-        editor.dragging_tools = false;
+        HUD_ClearToolsHits();
+        HUD_WorkbenchLayout();
     } else if (key == K_LEFTARROW || key == K_RIGHTARROW || key == K_UPARROW || key == K_DOWNARROW) {
-        float step = Key_IsDown(K_SHIFT) ? 10 : 1;
-        float dx = key == K_LEFTARROW ? -step : key == K_RIGHTARROW ? step : 0;
-        float dy = key == K_UPARROW ? -step : key == K_DOWNARROW ? step : 0;
-        HUD_Nudge(dx, dy, Key_IsDown(K_CTRL));
+        float step = HUD_PadStep();
+        HUD_Nudge(key == K_LEFTARROW ? -step : key == K_RIGHTARROW ? step : 0,
+                  key == K_UPARROW ? -step : key == K_DOWNARROW ? step : 0, Key_IsDown(K_CTRL));
     } else if (key == K_MOUSE1) {
         HUD_EndDrag();
-        editor.dragging_tools = false;
+        editor.held_button = -1;
         float ux = HUD_ToolsMouse(0), uy = HUD_ToolsMouse(1);
-        for (int i = 0; !editor.hide_tools && i < HUD_CATEGORY_COUNT; i++) {
-            if (!HUD_Hit(&editor.categories[i], ux, uy))
-                continue;
-            HUD_SetCategory((hud_category_t)i);
-            return true;
-        }
-        for (int i = 0; !editor.hide_tools && i < q_countof(editor.buttons); i++) {
-            if (!HUD_Hit(&editor.buttons[i], ux, uy))
-                continue;
-            HUD_Command((hud_button_t)i);
-            return true;
-        }
-        for (int i = 0; !editor.hide_tools && i < HUD_Limit(); i++)
-            if (HUD_ListItem(i) && HUD_Hit(&editor.rows[i], ux, uy)) {
-                editor.selected = i;
+        if (!editor.hide_tools) {
+            if (HUD_Hit(&editor.buttons[HUD_BUTTON_CANCEL], ux, uy)) {
+                HUD_Command(HUD_BUTTON_CANCEL);
                 return true;
             }
-        if (!editor.hide_tools && HUD_Hit(&editor.tools_title, ux, uy)) {
-            editor.dragging_tools = true;
-            editor.tools_grab_x = ux - editor.tools.x;
-            editor.tools_grab_y = uy - editor.tools.y;
-            return true;
+            for (int i = HUD_FIELD_FILTER; i < HUD_FIELD_COUNT; i++)
+                if (HUD_Hit(&editor.fields[i], ux, uy)) {
+                    if (editor.field != i && HUD_CommitField())
+                        HUD_FocusField((hud_field_t)i);
+                    return true;
+                }
+            if (!HUD_CommitField())
+                return true;
+            if (editor.changes_open && HUD_Hit(&editor.overlay, ux, uy)) {
+                for (int i = 0; i < HUD_Limit(); i++) {
+                    if (HUD_Hit(&editor.reverts[i], ux, uy)) {
+                        HUD_Revert(i);
+                        HUD_ClearToolsHits();
+                        return true;
+                    }
+                    if (HUD_Hit(&editor.change_rows[i], ux, uy)) {
+                        HUD_Select(i);
+                        HUD_Reveal(i);
+                        return true;
+                    }
+                }
+                return true;
+            }
+            for (int i = 0; i < HUD_CATEGORY_COUNT; i++)
+                if (HUD_Hit(&editor.categories[i], ux, uy)) {
+                    HUD_SetCategory((hud_category_t)i);
+                    return true;
+                }
+            for (int i = 0; i < HUD_BUTTON_COUNT; i++) {
+                if (!HUD_Hit(&editor.buttons[i], ux, uy))
+                    continue;
+                float before[q_countof(settings)];
+                for (int j = 0; j < setting_count; j++)
+                    before[j] = settings[j].value;
+                HUD_Command((hud_button_t)i);
+                if (i >= HUD_BUTTON_MOVE_LEFT && i <= HUD_BUTTON_MOVE_DOWN) {
+                    editor.held_changed = false;
+                    for (int j = 0; j < setting_count; j++)
+                        editor.held_changed |= before[j] != settings[j].value;
+                    editor.held_button = i;
+                    editor.hold_time = com_localTime + 260;
+                }
+                return true;
+            }
+            for (int i = 0; i < HUD_GROUP_COUNT; i++)
+                if (HUD_Hit(&editor.groups[i], ux, uy)) {
+                    editor.collapsed[i] = !editor.collapsed[i];
+                    editor.list_first = 0;
+                    HUD_ClearToolsHits();
+                    return true;
+                }
+            for (int i = 0; i < HUD_Limit(); i++) {
+                if (!HUD_ListItem(i))
+                    continue;
+                if (HUD_Hit(&editor.preview_toggles[i], ux, uy)) {
+                    bool visible = !HUD_CanvasItem(i);
+                    HUD_Select(i);
+                    HUD_SetEditorVisible(i, visible);
+                    return true;
+                }
+                if (HUD_Hit(&editor.toggles[i], ux, uy)) {
+                    HUD_Select(i);
+                    HUD_Command(HUD_BUTTON_VISIBLE);
+                    return true;
+                }
+                if (HUD_Hit(&editor.rows[i], ux, uy)) {
+                    HUD_Select(i);
+                    return true;
+                }
+            }
+            if (HUD_Hit(&editor.rail, ux, uy) || HUD_Hit(&editor.dock, ux, uy))
+                return true;
         }
-        /* Toolbox padding must not start dragging a HUD element underneath it. */
-        if (!editor.hide_tools && HUD_Hit(&editor.tools, ux, uy))
+        if (editor.stage.width > 0) {
+            if (!HUD_PointerInStage())
+                return true;
+            editor.mouse_x = (uis.mouseCoords[0] / uis.scale - editor.view_x) * editor.scale / editor.preview_zoom;
+            editor.mouse_y = (uis.mouseCoords[1] / uis.scale - editor.view_y) * editor.scale / editor.preview_zoom;
+        }
+        if (editor.mouse_x < 0 || editor.mouse_y < 0 || editor.mouse_x >= editor.width ||
+            editor.mouse_y >= editor.height)
             return true;
-        /* Selected widget wins overlaps; Tab/list can select anything covered. */
-        int hit = -1;
-        for (int i = 0; i < HUD_Limit(); i++)
-            if (HUD_Editable(i) && HUD_CanvasItem(i) && !HUD_Locked(i) && HUD_Hit(&editor.bounds[i], editor.mouse_x, editor.mouse_y))
-                hit = i;
         vrect_t r = editor.bounds[editor.selected];
-        int handle = max(4, Q_rint(8 * editor.scale));
+        int handle = max(4, Q_rint(8 * editor.scale / editor.preview_zoom));
         vrect_t corner = { r.x + r.width - handle, r.y + r.height - handle, handle * 2, handle * 2 };
-        editor.resizing = HUD_Hit(&corner, editor.mouse_x, editor.mouse_y) &&
-                          HUD_CanResize();
-        if (!HUD_Locked(editor.selected) &&
-            (HUD_Hit(&r, editor.mouse_x, editor.mouse_y) || editor.resizing))
-            hit = editor.selected;
+        bool selected_shown = HUD_CanvasItem(editor.selected);
+        editor.resizing = selected_shown && HUD_Hit(&corner, editor.mouse_x, editor.mouse_y) && HUD_CanResize();
+        int hit = HUD_CanvasHit(editor.mouse_x, editor.mouse_y,
+                                selected_shown && (HUD_Hit(&r, editor.mouse_x, editor.mouse_y) || editor.resizing));
         if (hit < 0)
             return true;
-        editor.selected = hit;
+        HUD_Select(hit);
+        HUD_Reveal(hit);
+        if (HUD_Locked(hit))
+            return true;
         r = editor.bounds[hit];
-        if (!HUD_ListItem(hit))
-            HUD_SetCategory(HUD_CATEGORY_ALL);
         HUD_HistoryBegin();
         editor.dragging = true;
         editor.grab_x = editor.mouse_x - r.x;
@@ -899,7 +1589,7 @@ bool HUD_EditorKey(int key, bool down)
         editor.start_x = editor.mouse_x;
         editor.start_y = editor.mouse_y;
         editor.drag_bounds = r;
-        for (size_t i = 0; i < setting_count; i++) {
+        for (int i = 0; i < setting_count; i++) {
             editor.drag_values[i] = settings[i].value;
             editor.drag_changed[i] = settings[i].changed;
         }
@@ -932,6 +1622,520 @@ static void HUD_Button(vrect_t *rect, int x, int y, int width, const char *label
     UI_DrawString(x + width / 2, y + 5, UI_CENTER, label);
 }
 
+static void HUD_WorkbenchField(hud_field_t field, int x, int y, int width)
+{
+    vrect_t *rect = &editor.fields[field];
+    *rect = (vrect_t) { x, y, width, 20 };
+    bool active = editor.field == field, enabled = HUD_FieldEnabled(field);
+    R_DrawFill32(x, y, width, 20, MakeColor(14, 22, 29, 255));
+    HUD_Outline(rect, active ? (editor.field_bad ? MakeColor(179, 104, 95, 255) : MakeColor(115, 218, 214, 255)) : MakeColor(45, 63, 76, 255));
+    R_SetColor(enabled ? MakeColor(226, 237, 250, 255) : MakeColor(111, 130, 148, 255));
+    if (field == HUD_FIELD_FILTER) {
+        if (active || editor.filter.text[0])
+            IF_Draw(&editor.filter, x + 5, y + 6, active ? UI_DRAWCURSOR : 0, uis.fontHandle);
+        else
+            UI_DrawString(x + 5, y + 6, UI_LEFT, "/ filter elements");
+    } else if (active) {
+        editor.input.visibleChars = max(1, (width - 8) / CHAR_WIDTH);
+        IF_Draw(&editor.input, x + 4, y + 6, UI_DRAWCURSOR, uis.fontHandle);
+    }
+    else
+        UI_DrawString(x + 4, y + 6, UI_LEFT, !enabled ? "--" : field == HUD_FIELD_SCALE ?
+            va("%.2f", HUD_Value(HUD_ScaleSetting())) :
+            va("%d", field == HUD_FIELD_X ? editor.bounds[editor.selected].x : editor.bounds[editor.selected].y));
+    R_ClearColor();
+}
+
+typedef struct {
+    const char *contents, *appears;
+} hud_info_t;
+
+static const hud_info_t native_info[HUD_EDIT_LAYOUT_FIRST] = {
+    [HUD_EDIT_UPS] = { "Local speed in units per second.", "When the local speed display has player movement data." },
+    [HUD_EDIT_STRAFE] = { "Strafe guidance bar, zones and aim markers.", "While the helper is enabled and movement data is available." },
+    [HUD_EDIT_EFFICIENCY] = { "Efficiency percentage, bar and marker; positioned relative to the strafe helper.", "When the helper and efficiency display are enabled and a measured value is available." },
+    [HUD_EDIT_NETWORK] = { "Lagometer, netgraph or histogram; the histogram can also show ping text.", "During a network connection; live sampling is unavailable during demo playback." },
+};
+static const hud_info_t layout_info[HL_BUILTIN_COUNT] = {
+    [HL_HEALTH] = { "Health value and Health label move together.", "When the Grish server supplies a nonzero health field." },
+    [HL_ITEM] = { "The selected weapon/item icon supplied by the server.", "When the Grish server supplies an item icon." },
+    [HL_SPEED] = { "Server speed number and Speed label; independent of local UPS.", "When the Grish server supplies speed." },
+    [HL_TARGET] = { "The player name supplied for identification or chase display.", "When the server supplies a target player name." },
+    [HL_TIMER] = { "Run time: seconds, decimal point, tenths and Time label.", "While the recognized Grish status bar is active." },
+    [HL_INPUTS] = { "Server-provided movement/action icons; all keys move as one group.", "When the server reports the corresponding inputs." },
+    [HL_SERVER_FPS] = { "Reported player or replay FPS and label; this is not measured local rendering FPS.", "When the server supplies reported FPS." },
+    [HL_VOTE] = { "Four server voting lines move together.", "During a server vote." },
+    [HL_MAPCOUNT] = { "Available map count and Maps label.", "When the server supplies the map count." },
+    [HL_STATUS1] = { "Server team/mode text, such as Easy, Hard or Observer.", "While the server supplies this status line." },
+    [HL_STATUS2] = { "First dynamic run-info line. Its exact meaning is controlled by the Grish server.", "During the server's race, replay, checkpoint or lap states." },
+    [HL_STATUS3] = { "Second dynamic run-info line. Its exact meaning is controlled by the Grish server.", "During the server's race, replay, checkpoint or lap states." },
+    [HL_STATUS4] = { "Third dynamic run-info line. Its exact meaning is controlled by the Grish server.", "During the server's race, replay, checkpoint or lap states." },
+    [HL_MAP] = { "Current map name supplied by the server.", "While the recognized Grish status bar is active." },
+    [HL_PREVMAP1] = { "Most recent previous map name.", "When the server includes its map history." },
+    [HL_PREVMAP2] = { "Second previous map name.", "When the server includes its map history." },
+    [HL_PREVMAP3] = { "Third previous map name.", "When the server includes its map history." },
+    [HL_ADDEDTIME] = { "Positive or negative adjustment to map time.", "When the server supplies a map-time adjustment." },
+    [HL_TIMELEFT] = { "Remaining map time and Time label.", "While the recognized Grish status bar is active." },
+    [HL_CHAT] = { "Chat-history lines and their fade behavior.", "After chat messages arrive, with chat history enabled in client settings." },
+    [HL_CENTER] = { "Center-printed messages such as checkpoint announcements.", "While a center message is active and has not timed out." },
+    [HL_NOTIFY] = { "Recent console notification lines.", "While notifications are active; client menus temporarily hide them." },
+    [HL_MESSAGE] = { "Chat input prompt, typed text and cursor.", "While typing a chat message outside client menus." },
+    [HL_NETALERT] = { "Packet-loss, jitter and ping-spike alerts; independent of graph mode.", "During a network incident, with alerts enabled in client settings." },
+    [HL_NETICON] = { "Legacy ping graph and blinking connection icon share one 48 x 48 area.", "With the legacy ping graph enabled, or while a connection backlog warning is active." },
+    [HL_TURTLE] = { "Frame, prediction, packet-drop and suppression warnings.", "When the client detects a frame/prediction problem and warnings are enabled." },
+    [HL_INVENTORY] = { "Inventory panel, item counts, hotkeys and selection cursor.", "When the server opens the inventory panel." },
+    [HL_SCOREBOARD] = { "Grish scoreboard/server menu: its rows, labels and icons move together.", "When scores or a server menu are open." },
+    [HL_DEBUGGRAPH] = { "Classic network, timing or debug graph; all modes share this group.", "When a classic graph is enabled in client settings." },
+    [HL_RENDER_FPS] = { "Measured local rendering frames per second.", "During active gameplay with this layout element enabled." },
+    [HL_MOVE_FPS] = { "Measured local movement updates per second.", "During active gameplay with this layout element enabled." },
+    [HL_BIND_REMINDERS] = { "Selected key bindings and their action labels move together.", "During active gameplay when enabled and at least one selected key has a binding." },
+};
+
+static const hud_info_t *HUD_Info(int id)
+{
+    static const hud_info_t custom = { "Custom text drawn from its named client macro or setting.",
+        "When the registered custom text object produces output." };
+    static const hud_info_t excluded = { "This element is outside the editor scope.", "Not editable here." };
+    if (id < HUD_EDIT_LAYOUT_FIRST)
+        return &native_info[id];
+    int layout = id - HUD_EDIT_LAYOUT_FIRST;
+    if (layout >= HL_BUILTIN_COUNT)
+        return &custom;
+    return layout_info[layout].contents ? &layout_info[layout] : &excluded;
+}
+
+/* Read draft feature settings where available; other feature gates remain live. */
+static float HUD_Option(const char *name, float fallback)
+{
+    hud_setting_t *s = HUD_Setting(name);
+    if (s)
+        return s->value;
+    cvar_t *var = Cvar_FindVar(name);
+    return var && isfinite(var->value) ? var->value : fallback;
+}
+
+typedef enum { HUD_STATUS_DISABLED, HUD_STATUS_WAITING, HUD_STATUS_VISIBLE, HUD_STATUS_PREVIEW } hud_status_t;
+
+static hud_status_t HUD_Status(int id, const char **reason)
+{
+    if (!HUD_Enabled(id)) {
+        *reason = "Disabled in HUD. Use Enable in HUD to restore it; editor visibility is separate.";
+        return HUD_STATUS_DISABLED;
+    }
+    if (HUD_Option("scr_draw2d", 2) <= 0) {
+        *reason = "The client HUD is turned off in client settings.";
+        return HUD_STATUS_DISABLED;
+    }
+    int layout = id - HUD_EDIT_LAYOUT_FIRST;
+    const char *gate = NULL;
+    if (id == HUD_EDIT_EFFICIENCY)
+        gate = "sh_draw";
+    else if (layout == HL_CHAT)
+        gate = "scr_chathud";
+    else if (layout == HL_NETALERT)
+        gate = "sh_netalert";
+    else if (layout == HL_TURTLE)
+        gate = "scr_showturtle";
+    if (gate && !HUD_Option(gate, 1)) {
+        *reason = id == HUD_EDIT_EFFICIENCY ? "Enable the strafe helper to display its attached efficiency element." :
+                  layout == HL_CHAT ? "Chat history is turned off in client settings." :
+                  layout == HL_NETALERT ? "Network alerts are turned off in client settings." :
+                  "Frame/prediction warnings are turned off in client settings.";
+        return HUD_STATUS_DISABLED;
+    }
+    if (layout == HL_DEBUGGRAPH && !HUD_Option("scr_netgraph", 0) && !HUD_Option("scr_timegraph", 0) &&
+        !HUD_Option("scr_debuggraph", 0)) {
+        *reason = "Enable a classic network, time or debug graph in client settings.";
+        return HUD_STATUS_DISABLED;
+    }
+    if (layout >= 0 && layout < HL_SERVER_COUNT && HUD_Option("scr_draw2d", 2) <= 1) {
+        *reason = "Server status-bar drawing is turned off in client settings.";
+        return HUD_STATUS_DISABLED;
+    }
+    if (editor.scenario != HUD_PREVIEW_LIVE) {
+        bool included = id < HUD_EDIT_LAYOUT_FIRST || HUD_ContextAvailable(layout);
+        *reason = included ? "Scenario sample only. Live HUD data and saved settings are unchanged." :
+            "Outside this scenario. Use Show in Editor to arrange a sample.";
+        return included ? HUD_STATUS_PREVIEW : HUD_STATUS_WAITING;
+    }
+    if (cls.state != ca_active) {
+        *reason = "Load a map for live HUD data. The canvas uses sample content.";
+        return HUD_STATUS_WAITING;
+    }
+    if (id < HUD_EDIT_LAYOUT_FIRST) {
+        if (id == HUD_EDIT_NETWORK && (!cls.netchan.protocol || cls.demo.playback)) {
+            *reason = "Live network samples require a connection and are unavailable in demos.";
+            return HUD_STATUS_WAITING;
+        }
+        *reason = "Sample values are shown while editing; live measurements resume when the editor closes.";
+        return HUD_STATUS_PREVIEW;
+    }
+    if (HUD_LayoutCaptured(layout)) {
+        *reason = "The live group is active. The canvas uses representative sample content.";
+        return HUD_STATUS_VISIBLE;
+    }
+    *reason = layout == HL_NOTIFY || layout == HL_MESSAGE ? "Client menus hide this live group. Use Show in Editor to arrange a sample." :
+              layout == HL_NETALERT ? "Live alerts resume after leaving the editor. Use Show in Editor to arrange a sample." :
+              "No live output this frame. See Appears above; use Show in Editor to arrange a sample.";
+    return HUD_STATUS_WAITING;
+}
+
+static const char *HUD_StatusLabel(hud_status_t status)
+{
+    static const char *const labels[] = { "Disabled", "Waiting for event", "Visible", "Preview only" };
+    return labels[status];
+}
+
+static uint32_t HUD_StatusColor(hud_status_t status)
+{
+    static const uint32_t colors[] = { MakeColor(131, 148, 166, 255), MakeColor(231, 188, 102, 255),
+        MakeColor(154, 215, 210, 255), MakeColor(158, 190, 229, 255) };
+    return colors[status];
+}
+
+static const char *HUD_EditDescription(int id)
+{
+    if (editor.locked[id])
+        return "Locked. Press L to unlock this element.";
+    if (id == HUD_EDIT_STRAFE && editor.locked[HUD_EDIT_EFFICIENCY])
+        return "Placement is protected by locked Strafe efficiency. Unlock that element first.";
+    if (id == HUD_EDIT_NETWORK && editor.network_mode == 1 && editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_NETICON])
+        return "Shared position is protected by locked Ping graph / connection icon. Unlock that element first.";
+    if (id == HUD_EDIT_NETWORK && editor.network_mode == 2 && editor.locked[HUD_EDIT_LAYOUT_FIRST + HL_DEBUGGRAPH])
+        return "Shared height is protected by locked Classic network / debug graph. Unlock that element first.";
+    switch (id) {
+    case HUD_EDIT_UPS:
+        return "X / Y position and visual scale. Resize adjusts text size. HUD enable/disable and lock.";
+    case HUD_EDIT_STRAFE:
+        return "Y position and visual scale; resize adjusts angle scale / bar height. The helper stays centered.";
+    case HUD_EDIT_EFFICIENCY:
+        return HUD_EfficiencyTextOnly()
+                   ? "Position relative to helper and visual scale; resize adjusts text size. HUD enable/disable and lock."
+                   : "Position relative to helper and visual scale; resize adjusts bar width / height. HUD enable/disable and lock.";
+    case HUD_EDIT_NETWORK:
+        return editor.network_mode == 1
+                   ? "X / Y position and visual scale. Position is shared with the legacy ping graph; scale is independent."
+               : editor.network_mode == 2
+                   ? "Y position and height scale; width stays full screen. Native height is shared with the classic graph."
+                   : "X / Y position and visual scale. Resize adjusts width / height and selects custom-width mode.";
+    default:
+        return id == HUD_EDIT_LAYOUT_FIRST + HL_DEBUGGRAPH ?
+            "X / Y position and height scale; width stays full screen. HUD enable/disable and lock." :
+            "X / Y position and visual scale. Resize scales all contents together. HUD enable/disable and lock.";
+    }
+}
+
+static void HUD_DrawInfo(int width, int y)
+{
+    const hud_info_t *info = HUD_Info(editor.selected);
+    const char *reason;
+    hud_status_t status = HUD_Status(editor.selected, &reason);
+    char state[512];
+    Q_snprintf(state, sizeof(state), "Editor: %s | HUD: %s | %s: %s", HUD_CanvasItem(editor.selected) ? "Shown" : "Hidden",
+        HUD_Enabled(editor.selected) ? "Enabled" : "Disabled", HUD_StatusLabel(status), reason);
+    R_DrawFill32(0, y, width, editor.info_expanded ? 64 : 22, MakeColor(18, 27, 35, 255));
+    R_DrawFill32(0, y, width, 1, MakeColor(42, 59, 70, 255));
+    int chars = max(1, (width - 100) / CHAR_WIDTH);
+    R_ClearColor();
+    HUD_Button(&editor.buttons[HUD_BUTTON_INFO], width - 80, y + 2, 74, editor.info_expanded ? "Less info" : "More info", editor.info_expanded);
+    if (!editor.info_expanded) {
+        R_SetColor(HUD_StatusColor(status));
+        UI_DrawString(12, y + 7, UI_LEFT, va("%.*s", chars, state));
+        R_ClearColor();
+        return;
+    }
+    UI_DrawString(12, y + 7, UI_LEFT, va("%.*s", chars, va("About: %s", info->contents)));
+    UI_DrawString(12, y + 21, UI_LEFT, va("%.*s", chars, va("Appears: %s", info->appears)));
+    R_SetColor(HUD_StatusColor(status));
+    UI_DrawString(12, y + 35, UI_LEFT, va("%.*s", chars, state));
+    R_ClearColor();
+    UI_DrawString(12, y + 49, UI_LEFT, va("%.*s", chars, va("Edit: %s", HUD_EditDescription(editor.selected))));
+}
+
+static void HUD_WorkbenchDraw(void)
+{
+    float zoom = HUD_ToolsZoom();
+    int width = uis.width / zoom, height = uis.height / zoom;
+    int tx = 0, bottom = editor.dock.y, rail = editor.rail.width;
+    HUD_ClearToolsHits();
+    R_SetScale(uis.scale / zoom);
+    R_ClearColor();
+    int stage_bottom = Q_rint((editor.stage.y + editor.stage.height) * uis.scale / zoom);
+    int stage_left = Q_rint(editor.stage.x * uis.scale / zoom);
+    if (stage_left > rail)
+        R_DrawFill32(rail, 0, stage_left - rail, bottom, MakeColor(5, 7, 10, 255));
+    if (stage_bottom < bottom)
+        R_DrawFill32(rail, stage_bottom, width - rail, bottom - stage_bottom, MakeColor(5, 7, 10, 255));
+    R_DrawFill32(0, 0, rail, bottom, MakeColor(12, 18, 24, 248));
+    R_DrawFill32(0, bottom, width, height - bottom, MakeColor(12, 18, 24, 252));
+    R_DrawFill32(rail - 1, 0, 1, bottom, MakeColor(42, 59, 70, 255));
+    R_DrawFill32(0, bottom, width, 1, MakeColor(60, 81, 95, 255));
+    R_DrawFill32(0, 0, rail, 20, MakeColor(27, 40, 51, 255));
+    R_DrawFill32(0, 0, 2, 20, MakeColor(115, 218, 214, 255));
+    UI_DrawString(8, 6, UI_LEFT, "ELEMENTS");
+    bool dirty_flags[HUD_EDIT_COUNT];
+    HUD_DirtyFlags(dirty_flags);
+    int matches = 0, enabled = 0, dirty = 0;
+    for (int id = 0; id < HUD_Limit(); id++) {
+        if (!HUD_Editable(id))
+            continue;
+        dirty += dirty_flags[id];
+        if (!HUD_Matches(id))
+            continue;
+        matches++;
+        enabled += HUD_Enabled(id);
+    }
+    UI_DrawString(rail - 8, 6, UI_RIGHT, va("%d listed / %d enabled", matches, enabled));
+    HUD_WorkbenchField(HUD_FIELD_FILTER, 6, 26, rail - 12);
+    static const char *const categories[] = { "All", "Client", "Server" };
+    int category_width = (rail - 12) / HUD_CATEGORY_COUNT;
+    for (int i = 0; i < HUD_CATEGORY_COUNT; i++)
+        HUD_Button(&editor.categories[i], 6 + i * category_width, 52, category_width - 4, categories[i], editor.category == i);
+    UI_DrawString(8, 79, UI_LEFT, "Element");
+    UI_DrawString(rail - 94, 79, UI_CENTER, "Editor");
+    UI_DrawString(rail - 38, 79, UI_CENTER, "HUD");
+
+    int rows[HUD_EDIT_COUNT + HUD_GROUP_COUNT], row_count = 0, selected_slot = -1;
+    for (int group = 0; group < HUD_GROUP_COUNT; group++) {
+        int count = 0;
+        for (int id = 0; id < HUD_Limit(); id++)
+            count += HUD_Group(id) == group && HUD_Matches(id);
+        if (!count)
+            continue;
+        rows[row_count++] = -group - 1;
+        if (editor.collapsed[group] && !editor.filter.text[0])
+            continue;
+        for (int id = 0; id < HUD_Limit(); id++)
+            if (HUD_Group(id) == group && HUD_ListItem(id)) {
+                if (id == editor.selected)
+                    selected_slot = row_count;
+                rows[row_count++] = id;
+            }
+    }
+    int slots = max(1, (bottom - 92 - 76) / 20);
+    if (selected_slot >= 0)
+        editor.list_first = Q_clip(editor.list_first, max(0, selected_slot - slots + 1), selected_slot);
+    editor.list_first = Q_clip(editor.list_first, 0, max(0, row_count - slots));
+    editor.page_rows = max(1, slots - HUD_GROUP_COUNT);
+    for (int line = 0; line < slots && line + editor.list_first < row_count; line++) {
+        int id = rows[line + editor.list_first], y = 92 + line * 20;
+        if (id < 0) {
+            int group = -id - 1;
+            editor.groups[group] = (vrect_t) { 4, y, rail - 8, 20 };
+            R_SetColor(MakeColor(143, 160, 180, 255));
+            UI_DrawString(8, y + 4, UI_LEFT, va("%c %s", editor.collapsed[group] && !editor.filter.text[0] ? '+' : '-', group_names[group]));
+            R_ClearColor();
+            continue;
+        }
+        editor.rows[id] = (vrect_t) { 6, y, rail - 12, 20 };
+        bool selected = editor.selected == id;
+        if (selected || HUD_Hit(&editor.rows[id], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
+            R_DrawFill32(6, y, rail - 12, 20, selected ? MakeColor(39, 68, 80, 255) : MakeColor(29, 41, 50, 255));
+        if (selected)
+            R_DrawFill32(6, y, 2, 20, MakeColor(115, 218, 214, 255));
+        R_SetColor(HUD_Category(id) == HUD_CATEGORY_SERVER ? MakeColor(173, 201, 234, 255)
+                                                           : MakeColor(143, 210, 205, 255));
+        UI_DrawString(10, y + 4, UI_LEFT, HUD_Category(id) == HUD_CATEGORY_SERVER ? "SV" : "CL");
+        R_SetColor(HUD_CanvasItem(id) || selected ? MakeColor(226, 237, 250, 255) : MakeColor(120, 136, 154, 255));
+        const char *name = HUD_Name(id);
+        UI_DrawString(32, y + 5, UI_LEFT, strlen(name) > 15 ? va("%.12s...", name) : name);
+        if (dirty_flags[id]) {
+            R_SetColor(MakeColor(255, 205, 80, 255));
+            UI_DrawString(rail - 124, y + 5, UI_LEFT, "*");
+        }
+        R_ClearColor();
+        bool shown = HUD_CanvasItem(id), on = HUD_Enabled(id);
+        HUD_Button(&editor.preview_toggles[id], rail - 114, y + 1, 40, shown ? "Hide" : "Show", shown);
+        HUD_Button(&editor.toggles[id], rail - 70, y + 1, 64, HUD_Locked(id) ? "Locked" : on ? "Disable" : "Enable", on);
+    }
+    if (!matches)
+        UI_DrawString(8, 98, UI_LEFT, "No matching elements.");
+    int track_height = slots * 20;
+    if (row_count > slots) {
+        int thumb = max(6, track_height * slots / row_count);
+        R_DrawFill32(rail - 3, 92, 2, track_height, MakeColor(34, 49, 60, 255));
+        R_DrawFill32(rail - 3, 92 + (track_height - thumb) * editor.list_first / (row_count - slots), 2, thumb, MakeColor(101, 156, 169, 255));
+    }
+    int footer = bottom - 72;
+    R_DrawFill32(0, footer, rail, 1, MakeColor(34, 49, 60, 255));
+    HUD_Button(&editor.buttons[HUD_BUTTON_RESET_ALL], 6, footer + 6, rail - 12, "Reset to Default", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_SNAP], 6, footer + 29, 54, "Snap", editor.snap);
+    HUD_Button(&editor.buttons[HUD_BUTTON_GHOSTS], 65, footer + 29, 116, "Show disabled", editor.ghosts);
+    HUD_Button(&editor.buttons[HUD_BUTTON_KEYS], rail - 28, footer + 29, 22, "?", editor.keys_open);
+    R_SetColor(MakeColor(131, 148, 166, 255));
+    UI_DrawString(6, footer + 54, UI_LEFT, va("%dx%d / %s %d%%", (int)editor.width, (int)editor.height, editor.scenario == HUD_PREVIEW_LIVE ? "zoom" : "sample", Q_rint(editor.preview_zoom * 100)));
+    R_ClearColor();
+
+    int selected_width = width - 812;
+    vrect_t r = editor.bounds[editor.selected];
+    UI_DrawString(12, bottom + 18, UI_LEFT, HUD_Category(editor.selected) == HUD_CATEGORY_SERVER ? "SV" : "CL");
+    UI_DrawString(38, bottom + 18, UI_LEFT, va("%.*s", max(1, (selected_width - 46) / CHAR_WIDTH), HUD_Name(editor.selected)));
+    R_SetColor(MakeColor(158, 190, 229, 255));
+    UI_DrawString(12, bottom + 36, UI_LEFT, va("%d, %d  / %dx%d", r.x, r.y, r.width, r.height));
+    R_SetColor(MakeColor(131, 148, 166, 255));
+    UI_DrawString(12, bottom + 53, UI_LEFT, HUD_Locked(editor.selected) ? "HUD locked - see info" : editor.field_bad ? "Enter a valid number" : "Screen coordinates");
+    R_ClearColor();
+    HUD_Button(&editor.buttons[HUD_BUTTON_LOCK], 12, bottom + 66, 60, editor.locked[editor.selected] ? "Unlock" : "Lock", editor.locked[editor.selected]);
+    HUD_Button(&editor.buttons[HUD_BUTTON_RESET_SELECTED], 78, bottom + 66, 70, "Reset", false);
+    tx = selected_width;
+    R_DrawFill32(tx, bottom, 1, height - bottom, MakeColor(34, 49, 60, 255));
+    UI_DrawString(tx + 12, bottom + 18, UI_LEFT, "POSITION AND SCALE");
+    static const char *const field_labels[] = { "X", "Y", "S" };
+    for (int i = 0; i < 3; i++) {
+        UI_DrawString(tx + 10 + i * 56, bottom + 55, UI_LEFT, field_labels[i]);
+        HUD_WorkbenchField(HUD_FIELD_X + i, tx + 20 + i * 56, bottom + 49, 42);
+    }
+    HUD_Button(&editor.buttons[HUD_BUTTON_MOVE_UP], tx + 207, bottom + 34, 26, "^", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_MOVE_DOWN], tx + 207, bottom + 58, 26, "v", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_MOVE_LEFT], tx + 177, bottom + 58, 26, "<", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_MOVE_RIGHT], tx + 237, bottom + 58, 26, ">", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_STEP], tx + 237, bottom + 34, 26, va("%d", max(1, editor.step)), editor.step > 1);
+    tx += 272;
+    R_DrawFill32(tx, bottom, 1, height - bottom, MakeColor(34, 49, 60, 255));
+    UI_DrawString(tx + 10, bottom + 18, UI_LEFT, "VISIBILITY");
+    bool shown = HUD_CanvasItem(editor.selected), on = HUD_Enabled(editor.selected);
+    HUD_Button(&editor.buttons[HUD_BUTTON_EDITOR_VISIBLE], tx + 8, bottom + 34, 144, shown ? "Hide in Editor" : "Show in Editor", shown);
+    HUD_Button(&editor.buttons[HUD_BUTTON_VISIBLE], tx + 8, bottom + 58, 144,
+        HUD_Locked(editor.selected) ? "HUD Locked" : on ? "Disable in HUD" : "Enable in HUD", on);
+    tx += 160;
+    R_DrawFill32(tx, bottom, 1, height - bottom, MakeColor(34, 49, 60, 255));
+    UI_DrawString(tx + 8, bottom + 18, UI_LEFT, "ALIGN TO");
+    HUD_Button(&editor.buttons[HUD_BUTTON_REFERENCE], tx + 76, bottom + 12, 62, editor.align_reference && editor.reference >= 0 ? "Ref" : "Screen", editor.align_reference);
+    static const char *const align[] = { "Left", "Ctr", "Right", "Top", "Mid", "Bot" };
+    for (int i = 0; i < 6; i++)
+        HUD_Button(&editor.buttons[HUD_BUTTON_ALIGN_LEFT + i], tx + 6 + (i % 3) * 44, bottom + 39 + (i / 3) * 23, 42, align[i], false);
+    tx += 144;
+    R_DrawFill32(tx, bottom, 1, height - bottom, MakeColor(34, 49, 60, 255));
+    UI_DrawString(tx + 10, bottom + 18, UI_LEFT, dirty ? va("SESSION  %d edits", dirty) : "SESSION  no edits");
+    HUD_Button(&editor.buttons[HUD_BUTTON_CHANGES], width - 66, bottom + 12, 60, "Details", editor.changes_open);
+    HUD_Button(&editor.buttons[HUD_BUTTON_UNDO], tx + 8, bottom + 49, 46, "Undo", editor.history_pos > 0);
+    HUD_Button(&editor.buttons[HUD_BUTTON_REDO], tx + 58, bottom + 49, 46, "Redo", editor.history_pos + 1 < editor.history_count);
+    HUD_Button(&editor.buttons[HUD_BUTTON_CANCEL], tx + 108, bottom + 49, 58, "Cancel", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_APPLY], tx + 170, bottom + 49, 60, "Apply", dirty != 0);
+
+    HUD_DrawInfo(width, bottom + 94);
+
+    R_DrawFill32(rail, 0, width - rail, 30, MakeColor(18, 27, 35, 255));
+    static const char *const scenarios[] = { "Live", "Running", "Spectating", "Voting", "Scoreboard", "Net warning" };
+    int toolbar_x = rail + 6;
+    for (int i = 0; i < HUD_PREVIEW_COUNT; i++) {
+        int w = strlen(scenarios[i]) * CHAR_WIDTH + 12;
+        HUD_Button(&editor.buttons[HUD_BUTTON_SCENARIO_LIVE + i], toolbar_x, 6, w, scenarios[i], editor.scenario == i);
+        toolbar_x += w + 4;
+    }
+    toolbar_x += 8;
+    HUD_Button(&editor.buttons[HUD_BUTTON_FIT], toolbar_x, 6, 36, "Fit", !editor.manual_zoom);
+    HUD_Button(&editor.buttons[HUD_BUTTON_100], toolbar_x + 40, 6, 44, "100%", editor.manual_zoom == 1);
+    HUD_Button(&editor.buttons[HUD_BUTTON_SELECTION], toolbar_x + 88, 6, 84, "Selection", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_ZOOM_OUT], toolbar_x + 176, 6, 22, "-", false);
+    HUD_Button(&editor.buttons[HUD_BUTTON_ZOOM_IN], toolbar_x + 202, 6, 22, "+", false);
+
+    if (editor.changes_open) {
+        int shown = min(dirty, 9), w = 436, h = 44 + max(1, shown) * 20;
+        int x = width - w - 8, y = max(8, bottom - h - 8);
+        editor.overlay = (vrect_t) { x, y, w, h };
+        R_DrawFill32(x, y, w, h, MakeColor(12, 18, 24, 252));
+        HUD_Outline(&editor.overlay, MakeColor(60, 81, 95, 255));
+        R_DrawFill32(x, y, w, 22, MakeColor(27, 40, 51, 255));
+        UI_DrawString(x + 8, y + 7, UI_LEFT, "PENDING CHANGES");
+        UI_DrawString(x + w - 8, y + 7, UI_RIGHT, "Esc closes");
+        editor.change_first = Q_clip(editor.change_first, 0, max(0, dirty - shown));
+        int skip = editor.change_first, line = 0;
+        for (int id = 0; id < HUD_Limit() && line < shown; id++) {
+            if (!HUD_Editable(id) || !dirty_flags[id])
+                continue;
+            if (skip-- > 0)
+                continue;
+            int ry = y + 28 + line++ * 20;
+            editor.change_rows[id] = (vrect_t) { x + 4, ry, w - 62, 18 };
+            editor.reverts[id] = (vrect_t) { x + w - 58, ry, 54, 18 };
+            UI_DrawString(x + 8, ry + 5, UI_LEFT, va("%.26s", HUD_Name(id)));
+            UI_DrawString(x + 226, ry + 5, UI_LEFT, editor.locked[id] != editor.original_locks[id] ? "lock / layout" : "layout");
+            UI_DrawString(x + w - 54, ry + 5, UI_LEFT, "revert");
+        }
+        if (!dirty)
+            UI_DrawString(x + 8, y + 33, UI_LEFT, "No edits yet. Drag or type a coordinate.");
+        else
+            UI_DrawString(
+                x + 8, y + h - 11, UI_LEFT,
+                va("%d-%d of %d / wheel to scroll", editor.change_first + 1, editor.change_first + shown, dirty));
+    }
+    if (editor.keys_open) {
+        static const char *const keys[][2] = {
+            { "/", "Filter elements" }, { "Tab / Shift-Tab", "Next / previous filtered element" },
+            { "Wheel / Page", "Select / page through elements" }, { "Drag / corner", "Move / resize where supported" },
+            { "Ctrl + wheel", "Zoom at pointer (25-400%)" }, { "Middle / Space-drag", "Pan preview; Fit resets view" },
+            { "Arrows / Shift", "Nudge / ten times pad step" }, { "Ctrl + arrows", "Resize selected element" },
+            { "X / Y / S", "Edit screen X / Y / visual scale" }, { "E / V / L", "Editor view / HUD enable / lock" },
+            { "G / N", "Show disabled / snapping" }, { "R / Shift-R", "Reset selected / all unlocked" },
+            { "P / ?", "Pending changes / key map" }, { "Ctrl-Z / Ctrl-Y", "Undo / redo" },
+            { "F / H", "Focus selected / hide workbench" }, { "Enter", "Commit field; otherwise Apply" },
+            { "Esc", "Leave field / close overlay / Cancel" }
+        };
+        int w = 510, h = 36 + q_countof(keys) * 20, x = (width - w) / 2, y = max(8, (bottom - h) / 2);
+        R_DrawFill32(0, 0, width, height, MakeColor(5, 7, 10, 160));
+        editor.overlay = (vrect_t) { x, y, w, h };
+        R_DrawFill32(x, y, w, h, MakeColor(12, 18, 24, 255));
+        HUD_Outline(&editor.overlay, MakeColor(60, 81, 95, 255));
+        R_DrawFill32(x, y, w, 22, MakeColor(27, 40, 51, 255));
+        UI_DrawString(x + 10, y + 7, UI_LEFT, "KEYS");
+        UI_DrawString(x + w - 10, y + 7, UI_RIGHT, "Esc closes");
+        for (int i = 0; i < q_countof(keys); i++) {
+            R_SetColor(MakeColor(154, 215, 210, 255));
+            UI_DrawString(x + 12, y + 29 + i * 20, UI_LEFT, keys[i][0]);
+            R_ClearColor();
+            UI_DrawString(x + 160, y + 29 + i * 20, UI_LEFT, keys[i][1]);
+        }
+    }
+    if (!editor.keys_open && !editor.changes_open) {
+        const char *tip = NULL;
+        for (int id = 0; id < HUD_Limit(); id++)
+            if (HUD_ListItem(id) && HUD_Hit(&editor.rows[id], HUD_ToolsMouse(0), HUD_ToolsMouse(1))) {
+                const char *reason;
+                hud_status_t status = HUD_Status(id, &reason);
+                if (HUD_Hit(&editor.preview_toggles[id], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
+                    tip = HUD_CanvasItem(id) ? "Hide in editor only; HUD stays unchanged." : "Show in editor only; HUD stays unchanged.";
+                else if (HUD_Hit(&editor.toggles[id], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
+                    tip = HUD_Locked(id) ? HUD_EditDescription(id) : HUD_Enabled(id) ?
+                        "Disable in HUD after Apply; editor view stays separate." : "Enable in HUD after Apply; normal event conditions still apply.";
+                else
+                    tip = va("%s [Editor: %s | HUD: %s | %s]", HUD_Name(id), HUD_CanvasItem(id) ? "Shown" : "Hidden",
+                        HUD_Enabled(id) ? "Enabled" : "Disabled", HUD_StatusLabel(status));
+            }
+        if (tip) {
+            int tw = (int)strlen(tip) * CHAR_WIDTH + 12;
+            int x = rail + 6, y = Q_clip((int)HUD_ToolsMouse(1), 4, max(4, bottom - 24));
+            R_DrawFill32(x, y, min(tw, width - x), 20, MakeColor(27, 40, 51, 255));
+            UI_DrawString(x + 6, y + 6, UI_LEFT, va("%.*s", (width - x - 12) / CHAR_WIDTH, tip));
+        }
+    }
+    R_SetScale(uis.scale);
+    R_ClearColor();
+}
+
+/* Called with physical coordinates and the preview clip already installed. */
+static void HUD_DrawBackdrop(void)
+{
+    if (cls.state >= ca_active && editor.scenario == HUD_PREVIEW_LIVE && !editor.manual_zoom)
+        return;
+    vrect_t r = editor.stage;
+    R_ClearColor();
+    R_DrawFill32(r.x, r.y, r.width, r.height, MakeColor(5, 7, 10, 255));
+    if (editor.manual_zoom) {
+        r = (vrect_t) { Q_rint(editor.view_x), Q_rint(editor.view_y),
+            Q_rint(editor.width * editor.preview_zoom / editor.scale), Q_rint(editor.height * editor.preview_zoom / editor.scale) };
+    }
+    R_DrawFill32(r.x, r.y, r.width, r.height, MakeColor(16, 26, 35, 255));
+    int width = 0, height = 0;
+    if (editor.backdrop)
+        R_GetPicSize(&width, &height, editor.backdrop);
+    if (width <= 0 || height <= 0)
+        return;
+    float fit = max(r.width / (float)width, r.height / (float)height);
+    int w = Q_rint(width * fit), h = Q_rint(height * fit);
+    R_DrawStretchPic(r.x + (r.width - w) / 2, r.y + (r.height - h) / 2, w, h, editor.backdrop);
+}
+
 static void HUD_Draw(menuFrameWork_t *menu)
 {
     if (!HUD_EditorActive())
@@ -944,7 +2148,9 @@ static void HUD_Draw(menuFrameWork_t *menu)
     float width = Q_rint(r_config.width * scale), height = Q_rint(r_config.height * scale);
     if (width != editor.width || height != editor.height || scale != editor.scale || cls.active != editor.active) {
         HUD_EndDrag();
-        editor.dragging_tools = false;
+        editor.panning = false;
+        editor.held_button = -1;
+        SCR_HudEditorPrepare();
     }
     if (HUD_Value("sh_netmeter") > 0)
         editor.network_mode = (int)HUD_Value("sh_netmeter");
@@ -952,13 +2158,47 @@ static void HUD_Draw(menuFrameWork_t *menu)
     editor.height = height;
     editor.scale = scale;
     editor.active = cls.active;
+    if (editor.held_button >= 0) {
+        int button = editor.held_button;
+        if (!Key_IsDown(K_MOUSE1) || cls.active != ACT_ACTIVATED ||
+            !HUD_Hit(&editor.buttons[button], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
+            editor.held_button = -1;
+        else if ((int)(com_localTime - editor.hold_time) >= 0) {
+            float dx, dy;
+            HUD_PadDelta(button, &dx, &dy);
+            HUD_Move(dx, dy, false);
+            if (editor.held_changed)
+                HUD_HistoryCapture(editor.history_pos);
+            else {
+                int pos = editor.history_pos;
+                HUD_HistoryCommit();
+                editor.held_changed = editor.history_pos != pos;
+            }
+            editor.hold_time = com_localTime + 70;
+        }
+    }
     int saved_width = scr.hud_width, saved_height = scr.hud_height;
     scr.hud_width = width;
     scr.hud_height = height;
     memset(editor.bounds, 0, sizeof(editor.bounds));
+    HUD_WorkbenchLayout();
+    /* Keep saved HUD coordinates independent from the view transform. */
+    R_SetScale(1);
+    const clipRect_t clip = { .left = editor.stage.x, .top = editor.stage.y,
+        .right = editor.stage.x + editor.stage.width, .bottom = editor.stage.y + editor.stage.height };
+    R_SetClipRect(&clip);
+    HUD_DrawBackdrop();
+    R_SetDrawTransform(editor.view_x, editor.view_y, editor.preview_zoom);
     editor.preview = true;
     R_SetScale(scale);
     R_ClearColor();
+    R_DrawFill32(0, 0, width, height, MakeColor(5, 7, 10, 96));
+    if (cls.state < ca_active || editor.scenario != HUD_PREVIEW_LIVE || editor.manual_zoom) {
+        R_SetColor(MakeColor(143, 160, 180, 255));
+        UI_DrawString(8, 8, UI_LEFT, editor.scenario != HUD_PREVIEW_LIVE ? "Sample scenario" :
+            editor.manual_zoom ? "HUD zoom - static backdrop" : "Preview - no map loaded");
+        R_ClearColor();
+    }
     const struct StrafeHelperParams params = {
         .center = cl_strafeHelperCenter->integer,
         .center_marker = cl_strafeHelperCenterMarker->integer,
@@ -977,7 +2217,8 @@ static void HUD_Draw(menuFrameWork_t *menu)
             HUD_Outline(&editor.bounds[i], i == editor.selected ?
                     MakeColor(255, 205, 80, 255) : MakeColor(130, 153, 170, 95));
     vrect_t r = editor.bounds[editor.selected];
-    if (r.width) {
+    bool selected_shown = HUD_CanvasItem(editor.selected);
+    if (r.width && selected_shown) {
         const char *label = HUD_Name(editor.selected);
         int label_width = min((int)strlen(label), 30) * CHAR_WIDTH + 8;
         int lx = Q_clip(r.x, 0, max(0, (int)width - label_width));
@@ -985,7 +2226,7 @@ static void HUD_Draw(menuFrameWork_t *menu)
         R_DrawFill32(lx, ly, label_width, 13, MakeColor(35, 31, 20, 235));
         UI_DrawString(lx + 4, ly + 3, UI_LEFT, va("%.30s", label));
     }
-    if (HUD_CanResize())
+    if (selected_shown && HUD_CanResize())
         R_DrawFill32(r.x + r.width - 3, r.y + r.height - 3, 6, 6, MakeColor(255, 205, 80, 255));
     if (editor.dragging && !editor.resizing) {
         if (isfinite(editor.guide_x))
@@ -997,173 +2238,13 @@ static void HUD_Draw(menuFrameWork_t *menu)
         R_DrawFill32(width / 2, 0, 1, height, MakeColor(130, 150, 170, 50));
         R_DrawFill32(0, height / 2, width, 1, MakeColor(130, 150, 170, 50));
     }
+    R_SetDrawTransform(0, 0, 1);
+    R_SetClipRect(NULL);
     R_SetScale(uis.scale);
     R_ClearColor();
     if (!HUD_ToolsVisible())
         return;
-    float zoom = HUD_ToolsZoom();
-    int tools_width = uis.width / zoom, tools_height = uis.height / zoom;
-    R_SetScale(uis.scale / zoom);
-    int section_height = editor.tools_section == HUD_SECTION_ARRANGE ? 100 : editor.tools_section == HUD_SECTION_RESET ? 60 : 0;
-    int rows = Q_clip((tools_height - 163 - section_height) / 16, 1, 6);
-    int selected_row = HUD_Row(editor.selected);
-    editor.page_rows = rows;
-    editor.list_first = Q_clip(editor.list_first, max(0, selected_row - rows + 1), selected_row);
-    int shown = min(rows, HUD_Count() - editor.list_first);
-    editor.tools.width = 296;
-    editor.tools.height = 147 + section_height + shown * 16;
-    HUD_ClampTools();
-    HUD_ClearToolsHits();
-    int tx = editor.tools.x, ty = editor.tools.y;
-    bool dirty = false;
-    for (size_t i = 0; i < setting_count; i++)
-        dirty |= settings[i].changed;
-    for (int i = 0; i < HUD_Limit(); i++)
-        dirty |= editor.locked[i] != editor.original_locks[i];
-    R_DrawFill32(tx, ty, editor.tools.width, editor.tools.height, MakeColor(12, 18, 24, 245));
-    HUD_Outline(&editor.tools, MakeColor(60, 81, 95, 255));
-    editor.tools_title = (vrect_t) { tx, ty, editor.tools.width, 24 };
-    R_DrawFill32(tx, ty, editor.tools.width, 24, MakeColor(27, 40, 51, 255));
-    R_DrawFill32(tx, ty, 2, 24, MakeColor(115, 218, 214, 255));
-    UI_DrawString(tx + 10, ty + 8, UI_LEFT, "HUD EDITOR");
-    HUD_Button(&editor.buttons[HUD_BUTTON_UNDO], tx + 126, ty + 3, 48, "Undo", editor.history_pos > 0);
-    HUD_Button(&editor.buttons[HUD_BUTTON_REDO], tx + 180, ty + 3, 48, "Redo", editor.history_pos + 1 < editor.history_count);
-    HUD_Button(&editor.buttons[HUD_BUTTON_HIDE_TOOLS], tx + 234, ty + 3, 54, "Hide", false);
-    static const char *const categories[HUD_CATEGORY_COUNT] = {
-        [HUD_CATEGORY_ALL] = "All",
-        [HUD_CATEGORY_CLIENT] = "Client",
-        [HUD_CATEGORY_SERVER] = "Server",
-    };
-    for (int i = 0; i < HUD_CATEGORY_COUNT; i++)
-        HUD_Button(&editor.categories[i], tx + 8 + i * 96, ty + 29, 88,
-                   categories[i], editor.category == i);
-    for (int row = 0; row < shown; row++) {
-        int i = HUD_Entry(row + editor.list_first), y = ty + 53 + row * 16;
-        editor.rows[i] = (vrect_t) { tx + 6, y, 280, 16 };
-        bool hover = HUD_Hit(&editor.rows[i], HUD_ToolsMouse(0), HUD_ToolsMouse(1));
-        if (i == editor.selected || hover)
-            R_DrawFill32(tx + 6, y, 280, 16, i == editor.selected ?
-                         MakeColor(39, 68, 80, 255) : MakeColor(29, 41, 50, 255));
-        if (i == editor.selected)
-            R_DrawFill32(tx + 6, y, 2, 16, MakeColor(115, 218, 214, 255));
-        const char *name = HUD_Name(i);
-        UI_DrawString(tx + 10, y + 4, UI_LEFT,
-                      strlen(name) > 29 ? va("%.26s...", name) : name);
-        UI_DrawString(tx + 282, y + 4, UI_RIGHT, editor.locked[i] ? "LOCK" : HUD_Value(HUD_Enable(i)) ? "ON" : "OFF");
-    }
-    int bottom = ty + 53 + shown * 16;
-    int track_height = shown * 16;
-    int thumb_height = max(5, track_height * shown / HUD_Count());
-    int thumb_y = ty + 53 + (HUD_Count() > shown ?
-        (track_height - thumb_height) * editor.list_first / (HUD_Count() - shown) : 0);
-    R_DrawFill32(tx + 288, ty + 53, 2, track_height, MakeColor(30, 44, 54, 255));
-    R_DrawFill32(tx + 288, thumb_y, 2, thumb_height, MakeColor(101, 156, 169, 255));
-    UI_DrawString(tx + 10, bottom + 4, UI_LEFT, "Wheel / Tab to select");
-    UI_DrawString(tx + 282, bottom + 4, UI_RIGHT, va("%d / %d", selected_row + 1, HUD_Count()));
-    HUD_Button(&editor.buttons[HUD_BUTTON_VISIBLE], tx + 8, bottom + 20, 88,
-               HUD_Value(HUD_Enable(editor.selected)) ? "Visible" : "Hidden", HUD_Value(HUD_Enable(editor.selected)) != 0);
-    HUD_Button(&editor.buttons[HUD_BUTTON_LOCK], tx + 104, bottom + 20, 88,
-               editor.locked[editor.selected] ? "Locked" : "Lock", editor.locked[editor.selected]);
-    HUD_Button(&editor.buttons[HUD_BUTTON_FOCUS], tx + 200, bottom + 20, 88, "Focus", editor.focus);
-    HUD_Button(&editor.buttons[HUD_BUTTON_ARRANGE_SECTION], tx + 8, bottom + 44, 136,
-               editor.tools_section == HUD_SECTION_ARRANGE ? "[-] Arrange" : "[+] Arrange", editor.tools_section == HUD_SECTION_ARRANGE);
-    HUD_Button(&editor.buttons[HUD_BUTTON_RESET_SECTION], tx + 152, bottom + 44, 136,
-               editor.tools_section == HUD_SECTION_RESET ? "[-] Reset" : "[+] Reset", editor.tools_section == HUD_SECTION_RESET);
-    if (editor.tools_section == HUD_SECTION_ARRANGE) {
-        UI_DrawString(tx + 10, bottom + 68, UI_LEFT, va("X:%d Y:%d  %dx%d", r.x, r.y, r.width, r.height));
-        static const struct {
-            hud_button_t button;
-            const char *label;
-        } arrows[] = {
-            { HUD_BUTTON_MOVE_LEFT, "<" },
-            { HUD_BUTTON_MOVE_RIGHT, ">" },
-            { HUD_BUTTON_MOVE_UP, "^" },
-            { HUD_BUTTON_MOVE_DOWN, "v" },
-        };
-        for (int i = 0; i < q_countof(arrows); i++)
-            HUD_Button(&editor.buttons[arrows[i].button], tx + 8 + i * 36,
-                       bottom + 82, 30, arrows[i].label, false);
-        HUD_Button(&editor.buttons[HUD_BUTTON_SNAP], tx + 164, bottom + 82, 124,
-                   editor.snap ? "Snap: ON" : "Snap: OFF", editor.snap);
-        UI_DrawString(tx + 10, bottom + 108, UI_LEFT, "Align to screen");
-        static const struct {
-            hud_button_t button;
-            const char *label;
-        } align[] = {
-            { HUD_BUTTON_ALIGN_LEFT, "Left" },
-            { HUD_BUTTON_ALIGN_HCENTER, "H-center" },
-            { HUD_BUTTON_ALIGN_RIGHT, "Right" },
-            { HUD_BUTTON_ALIGN_TOP, "Top" },
-            { HUD_BUTTON_ALIGN_VCENTER, "V-center" },
-            { HUD_BUTTON_ALIGN_BOTTOM, "Bottom" },
-        };
-        for (int i = 0; i < q_countof(align); i++)
-            HUD_Button(&editor.buttons[align[i].button], tx + 8 + (i % 3) * 96,
-                       bottom + 120 + (i / 3) * 22, 88, align[i].label, false);
-    } else if (editor.tools_section == HUD_SECTION_RESET) {
-        HUD_Button(&editor.buttons[HUD_BUTTON_RESET_SELECTED], tx + 8, bottom + 68, 280, "Reset selected element", false);
-        HUD_Button(&editor.buttons[HUD_BUTTON_RESET_ALL], tx + 8, bottom + 92, 280, "Restore all defaults", false);
-        UI_DrawString(tx + 10, bottom + 116, UI_LEFT, "Undo or Cancel can restore edits.");
-    }
-    R_DrawFill32(tx + 8, bottom + 64 + section_height, 280, 1, MakeColor(48, 64, 77, 255));
-    HUD_Button(&editor.buttons[HUD_BUTTON_APPLY], tx + 8, bottom + 70 + section_height, 136, dirty ? "Apply *" : "Apply", true);
-    HUD_Button(&editor.buttons[HUD_BUTTON_CANCEL], tx + 152, bottom + 70 + section_height, 136, "Cancel", false);
-
-    static const char *const tips[HUD_BUTTON_COUNT] = {
-        [HUD_BUTTON_APPLY] = "Apply changes and close [Enter]",
-        [HUD_BUTTON_CANCEL] = "Discard changes and close [Esc]",
-        [HUD_BUTTON_RESET_SELECTED] = "Reset this element only [R]",
-        [HUD_BUTTON_SNAP] = "Snap to screen and HUD edges [S]",
-        [HUD_BUTTON_VISIBLE] = "Toggle gameplay visibility [V]",
-        [HUD_BUTTON_HIDE_TOOLS] = "Hide tools; press H to restore",
-        [HUD_BUTTON_PREVIOUS] = "Previous element",
-        [HUD_BUTTON_NEXT] = "Next element",
-        [HUD_BUTTON_MOVE_LEFT] = "Move left; Shift moves 10 units",
-        [HUD_BUTTON_MOVE_RIGHT] = "Move right; Shift moves 10 units",
-        [HUD_BUTTON_MOVE_UP] = "Move up; Shift moves 10 units",
-        [HUD_BUTTON_MOVE_DOWN] = "Move down; Shift moves 10 units",
-        [HUD_BUTTON_RESET_ALL] = "Reset unlocked HUD [Shift+R]",
-        [HUD_BUTTON_UNDO] = "Undo last edit [Ctrl+Z]",
-        [HUD_BUTTON_REDO] = "Redo last edit [Ctrl+Y]",
-        [HUD_BUTTON_LOCK] = "Lock/unlock selected element [L]",
-        [HUD_BUTTON_FOCUS] = "Show selected preview only [F]",
-        [HUD_BUTTON_ALIGN_LEFT] = "Align left edge",
-        [HUD_BUTTON_ALIGN_HCENTER] = "Center horizontally",
-        [HUD_BUTTON_ALIGN_RIGHT] = "Align right edge",
-        [HUD_BUTTON_ALIGN_TOP] = "Align top edge",
-        [HUD_BUTTON_ALIGN_VCENTER] = "Center vertically",
-        [HUD_BUTTON_ALIGN_BOTTOM] = "Align bottom edge",
-        [HUD_BUTTON_ARRANGE_SECTION] = "Position, snapping and alignment [A]",
-        [HUD_BUTTON_RESET_SECTION] = "Restore HUD defaults [D]",
-    };
-    const char *tip = NULL;
-    if (HUD_Hit(&editor.tools_title, HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
-        tip = "Drag this header to move the panel";
-    for (int i = 0; i < q_countof(tips); i++)
-        if (HUD_Hit(&editor.buttons[i], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
-            tip = tips[i];
-    for (int row = 0; row < shown; row++) {
-        int i = HUD_Entry(row + editor.list_first);
-        if (strlen(HUD_Name(i)) > 29 && HUD_Hit(&editor.rows[i], HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
-            tip = HUD_Name(i);
-    }
-    vrect_t details = { tx + 8, bottom + 66, 280, editor.tools_section == HUD_SECTION_ARRANGE ? 14 : 0 };
-    if (HUD_Hit(&details, HUD_ToolsMouse(0), HUD_ToolsMouse(1)))
-        tip = HUD_Locked(editor.selected) ? "Locked; unlock to edit [L]" :
-              HUD_CanResize() ? "Drag corner / Ctrl+arrows: resize" : "Drag or use arrows to move";
-    if (tip) {
-        int columns = max(1, (tools_width - 16) / CHAR_WIDTH);
-        int length = strlen(tip), lines = (length + columns - 1) / columns;
-        int tw = min(length, columns) * CHAR_WIDTH + 12, th = lines * CHAR_HEIGHT + 10;
-        int hx = Q_clip(tx, 0, max(0, tools_width - tw));
-        int hy = ty + editor.tools.height + 4;
-        if (hy + th > tools_height)
-            hy = max(0, ty - th - 4);
-        R_DrawFill32(hx, hy, tw, th, MakeColor(27, 40, 51, 250));
-        for (int line = 0; line < lines; line++)
-            UI_DrawString(hx + 6, hy + 5 + line * CHAR_HEIGHT, UI_LEFT, va("%.*s", columns, tip + line * columns));
-    }
-    R_SetScale(uis.scale);
+    HUD_WorkbenchDraw();
 }
 
 static void HUD_Open_f(void)
@@ -1174,15 +2255,20 @@ static void HUD_Open_f(void)
         UI_PopMenu();
         return;
     }
+    if (!fs_game || Q_stricmp(fs_game->string, "jump")) {
+        Com_Printf("HUD editor is only available when game is jump.\n");
+        return;
+    }
     SCR_HudEditorPrepare();
     memcpy(settings, native_settings, sizeof(native_settings));
     setting_count = HUD_NATIVE_SETTINGS;
     for (int i = 0; i < HUD_LayoutCount(); i++) {
         const hud_layout_item_t *item = HUD_LayoutItem(i);
-        cvar_t *vars[] = { item->x, item->y, item->visible };
-        for (int j = 0; j < 3; j++)
+        cvar_t *vars[] = { item->x, item->y, item->visible, item->scale };
+        for (int j = 0; j < q_countof(vars); j++)
             settings[setting_count++] = (hud_setting_t) { vars[j]->name,
-                HUD_EDIT_LAYOUT_FIRST + i, j == 2 ? 0 : -16000, j == 2 ? 1 : 16000 };
+                HUD_EDIT_LAYOUT_FIRST + i, j == 3 ? HUD_SCALE_MIN : j == 2 ? 0 : -16000,
+                j == 3 ? HUD_SCALE_MAX : j == 2 ? 1 : 16000 };
     }
     for (size_t i = 0; i < setting_count; i++) {
         hud_setting_t *s = &settings[i];
@@ -1192,20 +2278,35 @@ static void HUD_Open_f(void)
             return;
         }
         s->original = s->var->value;
-        s->value = HudEdit_Clamp(s->original, s->low, s->high);
+        s->value = s->low == HUD_SCALE_MIN && s->high == HUD_SCALE_MAX && !isfinite(s->original) ?
+            1 : HudEdit_Clamp(s->original, s->low, s->high);
         s->changed = false;
     }
     Key_ClearStates();
     editor.open = true;
-    editor.dragging = false;
+    editor.dragging = editor.panning = editor.info_expanded = false;
+    editor.manual_zoom = 0;
+    editor.scenario = HUD_PREVIEW_LIVE;
     editor.selected = HUD_EDIT_UPS;
     editor.list_first = 0;
     editor.snap = true;
+    editor.ghosts = true;
+    memset(editor.editor_visibility, 0, sizeof(editor.editor_visibility));
+    memset(editor.enable_setting, 0, sizeof(editor.enable_setting));
+    editor.reference = -1;
+    editor.held_button = -1;
+    editor.step = 1;
+    editor.change_first = 0;
+    editor.field = HUD_FIELD_NONE;
+    editor.skip_char = false;
+    editor.field_bad = false;
+    editor.keys_open = editor.changes_open = editor.align_reference = false;
+    memset(editor.collapsed, 0, sizeof(editor.collapsed));
+    IF_Init(&editor.filter, 21, 64);
+    IF_Init(&editor.input, 8, 24);
     editor.hide_tools = false;
-    editor.dragging_tools = false;
     editor.category = HUD_CATEGORY_ALL;
     editor.focus = false;
-    editor.tools_section = HUD_SECTION_NONE;
     editor.page_rows = 6;
     HUD_ClearToolsHits();
     editor.history_count = editor.history_pos = 0;
@@ -1222,11 +2323,11 @@ static void HUD_Open_f(void)
         editor.locked[i] = editor.lock_vars[i]->integer != 0;
     }
     memcpy(editor.original_locks, editor.locked, sizeof(editor.locked));
-    editor.tools = (vrect_t) { 8, 8, 296, 243 };
     editor.network_mode = (int)HUD_Value("sh_netmeter");
     if (!editor.network_mode)
         editor.network_mode = 3;
     editor.servercount = cl.servercount;
+    editor.backdrop = R_RegisterPic("q2jump_background");
     editor.scale = scr.hud_scale > 0 ? scr.hud_scale : 1;
     UI_PushMenu(&editor.menu);
     HUD_EditorMouse(uis.mouseCoords[0] / uis.scale, uis.mouseCoords[1] / uis.scale);
@@ -1245,6 +2346,6 @@ void HUD_EditorInit(void)
 
 void HUD_EditorShutdown(void)
 {
-    editor.open = editor.preview = editor.dragging = false;
+    editor.open = editor.preview = editor.dragging = editor.panning = false;
     Cmd_RemoveCommand("hud_edit");
 }

@@ -227,7 +227,7 @@ int main(void)
     Cvar_Set("sh_ups_x", "123.5");
     Invoke("ups", "status", NULL);
     assert(strstr(test_output, "- X offset: 123.50\n"));
-    assert(strstr(test_output, "- Y offset: -5.00\n"));
+    assert(strstr(test_output, "- Y offset: -15.00\n"));
     Invoke("status", NULL, NULL);
     const char *ups_status = strstr(test_output, "Center UPS Status");
     assert(ups_status && strstr(ups_status, "X offset") && strstr(ups_status, "123.50"));

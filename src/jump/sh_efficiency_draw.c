@@ -152,7 +152,7 @@ static void SH_Efficiency_FillRect(const float x, const float y,
                                    const float width, const float height,
                                    const uint32_t color) {
     if (!isfinite(x) || !isfinite(y) || !isfinite(width) || !isfinite(height) ||
-        width <= 0.0f || height <= 0.0f || !HUD_EditorShow(HUD_EDIT_EFFICIENCY)) {
+        width <= 0.0f || height <= 0.0f) {
         return;
     }
 
@@ -228,15 +228,11 @@ static void SH_Efficiency_DrawText(const float center_x, const float top_y,
 
     Q_scnprintf(buffer, sizeof(buffer), "%d%%", Q_rint(value * 100.0f));
 
-    HUD_EditorBounds(HUD_EDIT_EFFICIENCY, center_x - strlen(buffer) * CHAR_WIDTH * text_scale * 0.5f,
-                     top_y, strlen(buffer) * CHAR_WIDTH * text_scale + 1, CHAR_HEIGHT * text_scale + 1);
-    if (!HUD_EditorShow(HUD_EDIT_EFFICIENCY)) {
-        return;
-    }
+    const int text_y = Q_rint(top_y / text_scale);
     R_SetColor(shc_ApplyHelperAlpha(SH_Efficiency_FillColor(value)));
     R_SetScale(draw_scale);
     SCR_DrawStringEx(Q_rint(center_x / text_scale),
-                     Q_rint(top_y / text_scale),
+                     text_y,
                      UI_CENTER | UI_DROPSHADOW, sizeof(buffer),
                      buffer, font_pic);
     R_SetScale(hud_scale);
@@ -275,12 +271,15 @@ void SH_Efficiency_Draw(const float helper_upper_y, const float helper_height,
                         ? helper_upper_y + helper_height + y_offset
                         : helper_upper_y + y_offset - bar_height;
 
+    const float visual_scale = SH_VisualScale(hud_efficiency_scale);
+    SH_BeginVisualDraw(HUD_EDIT_EFFICIENCY, visual_scale, visual_scale,
+                       hud_width * 0.5f + x_offset,
+                       y_offset < 0.0f ? bar_y + bar_height : bar_y, hud_scale);
     const bool preview = sh_drawing_preview || HUD_EditorPreview();
     const float displayed = preview ? SH_Efficiency_PreviewValue() : eff_displayed;
     const bool show_value = preview || (eff_displayed_valid && SH_Efficiency_HasDisplayValue());
 
     if (style == SH_EfficiencyStyle_Bar || style == SH_EfficiencyStyle_Both) {
-        HUD_EditorBounds(HUD_EDIT_EFFICIENCY, bar_x - 1, bar_y - 1, bar_width + 2, bar_height + 2);
         if (cl_strafehelperEffBorder && cl_strafehelperEffBorder->integer) {
             SH_Efficiency_FillRect(bar_x - 1.0f, bar_y - 1.0f,
                                    bar_width + 2.0f, bar_height + 2.0f,
@@ -316,6 +315,7 @@ void SH_Efficiency_Draw(const float helper_upper_y, const float helper_height,
         SH_Efficiency_DrawText(bar_x + bar_width * 0.5f, text_y,
                                hud_scale, font_pic, displayed);
     }
+    SH_EndVisualDraw(HUD_EDIT_EFFICIENCY, hud_scale);
 }
 
 void SH_Efficiency_DrawPreview(const float helper_upper_y,

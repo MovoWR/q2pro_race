@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "client.h"
 #include "client/hud_editor.h"
 #include "client/hud_layout.h"
+#include "client/bind_reminders.h"
 #include "src/jump/strafe_helper.h"
 #include "src/jump/strafe_helper_customization.h"
 #include "src/jump/sh_netmeter.h"
@@ -927,7 +928,7 @@ static void SCR_DrawObjects(void)
     drawobj_t *obj;
 
     FOR_EACH_DRAWOBJ(obj) {
-        HUD_LayoutBegin(HUD_LayoutObject(obj->macro ? obj->macro->name : obj->cvar->name));
+        int id = HUD_LayoutObject(obj->macro ? obj->macro->name : obj->cvar->name);
         x = obj->x;
         y = obj->y;
         if (x < 0) {
@@ -936,6 +937,8 @@ static void SCR_DrawObjects(void)
         if (y < 0) {
             y += scr.hud_height - CHAR_HEIGHT + 1;
         }
+        HUD_LayoutSetScaleAnchor(id, x, y);
+        HUD_LayoutBegin(id);
         if (!(obj->flags & UI_IGNORECOLOR)) {
             R_SetColor(obj->color.u32);
         }
@@ -1167,6 +1170,9 @@ static void SCR_DrawDebugPmove(void)
 static void SCR_CalcVrect(void)
 {
     int     size;
+
+    if (HUD_EditorViewport(&scr_vrect))
+        return;
 
     // bound viewsize
     size = Cvar_ClampInteger(scr_viewsize, 40, 100);
@@ -1440,6 +1446,7 @@ SCR_Init
 void SCR_Init(void)
 {
     HUD_LayoutInit();
+    SCR_BindRemindersInit();
     scr_viewsize = Cvar_Get("viewsize", "100", CVAR_ARCHIVE);
     scr_showpause = Cvar_Get("scr_showpause", "1", 0);
     scr_centertime = Cvar_Get("scr_centertime", "2.5", 0);
@@ -2255,6 +2262,7 @@ void SCR_HudEditorPrepare(void)
         int w = max(CHAR_WIDTH, (int)strlen(text) * CHAR_WIDTH);
         int x = obj->x < 0 ? width + obj->x + 1 : obj->x;
         int y = obj->y < 0 ? height + obj->y - CHAR_HEIGHT + 1 : obj->y;
+        HUD_LayoutSetScaleAnchor(id, x, y);
         if (obj->flags & UI_RIGHT) x -= w;
         HUD_LayoutSetBounds(id, (vrect_t) { x, y, w, CHAR_HEIGHT });
     }
@@ -2487,6 +2495,7 @@ static void SCR_Draw2D(void)
 
     SCR_DrawObjects();
     SCR_DrawLocalFPS();
+    SCR_DrawBindReminders(scr_alpha->value);
 
     SCR_DrawOverlay(HL_CHAT, SCR_DrawChatHUD);
 

@@ -1496,7 +1496,7 @@ FIELD CONTROL
 
 static void Field_Push(menuField_t *f)
 {
-    IF_Init(&f->field, f->width, f->width);
+    IF_Init(&f->field, f->width, f->length ? f->length : f->width);
     IF_Replace(&f->field, f->cvar->string);
 }
 

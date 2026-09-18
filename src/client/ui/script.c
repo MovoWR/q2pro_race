@@ -811,6 +811,7 @@ static void Parse_Field(menuFrameWork_t *menu)
         { "n", "numeric" },
         { "s:", "status" },
         { "w:", "width" },
+        { "l:", "length" },
         { NULL }
     };
     menuField_t *f;
@@ -819,7 +820,7 @@ static void Parse_Field(menuFrameWork_t *menu)
     bool colorPickerOnly = false;
     int flags = 0;
     char *status = NULL;
-    int width = 16;
+    int width = 16, length = 0;
     int c;
     char *show_if_cvar = NULL;
     char *show_if_value = NULL;
@@ -852,6 +853,15 @@ static void Parse_Field(menuFrameWork_t *menu)
                 return;
             }
             break;
+        case 'l': {
+            unsigned long parsed_length = strtoul(cmd_optarg, NULL, 10);
+            if (!COM_IsUint(cmd_optarg) || parsed_length < 1 || parsed_length >= MAX_FIELD_TEXT) {
+                Com_Printf("Invalid length\n");
+                return;
+            }
+            length = (int)parsed_length;
+            break;
+        }
         default:
             return;
         }
@@ -864,6 +874,7 @@ static void Parse_Field(menuFrameWork_t *menu)
     f->generic.flags = flags;
     f->cvar = Cvar_WeakGet(Cmd_Argv(center ? cmd_optind : cmd_optind + 1));
     f->width = width;
+    f->length = length;
     f->colorPreview = colorPreview;
     f->colorPickerOnly = colorPickerOnly;
 

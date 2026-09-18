@@ -151,6 +151,11 @@ void printKeyValueGeneric(const char *label, const char *value);
 //
 // Cvar declarations (definitions + registration in sh_init.c)
 //
+extern cvar_t *hud_ups_scale;
+extern cvar_t *hud_strafe_scale;
+extern cvar_t *hud_efficiency_scale;
+extern cvar_t *hud_network_scale;
+
 extern cvar_t *cl_drawStrafeHelper;
 extern cvar_t *cl_strafehelperEfficiency;
 extern cvar_t *cl_strafehelperEffStyle;

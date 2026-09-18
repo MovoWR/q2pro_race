@@ -142,6 +142,8 @@ const char  *Key_KeynumToLabel(int keynum);
 int     Key_StringToKeynum(const char *str);
 void    Key_SetBinding(int keynum, const char *binding);
 const char  *Key_GetBinding(const char *binding);
+/* Borrowed current binding; empty for invalid or unbound keys. */
+const char  *Key_BindingForKey(int keynum);
 int     Key_EnumBindings(int key, const char *binding);
 void    Key_WriteBindings(qhandle_t f);
 

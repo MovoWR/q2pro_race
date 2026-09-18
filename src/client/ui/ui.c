@@ -907,6 +907,7 @@ static void UI_ResetMenuColors_f(void)
 }
 
 static const char *ui_netmeter_cvars[] = {
+    "hud_network_scale",
     "sh_netmeter",
     "sh_netmeter_adaptive",
     "sh_netmeter_min_ms",
@@ -1151,6 +1152,9 @@ void UI_CharEvent(int key)
     if (!uis.activeMenu) {
         return;
     }
+
+    if (HUD_EditorChar(key))
+        return;
 
     Menu_UpdateShowIf(uis.activeMenu);
 

@@ -20,13 +20,27 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "draw_group.h"
 
 static draw_group_t draw_group;
+static float draw_origin[2], draw_zoom = 1;
+
+void R_SetDrawTransform(float x, float y, float zoom)
+{
+    draw_origin[0] = x;
+    draw_origin[1] = y;
+    draw_zoom = isfinite(zoom) && zoom > 0 ? zoom : 1;
+}
 
 void R_BeginDrawGroup(float x, float y, bool hidden)
 {
-    draw_group = (draw_group_t) { .active = true, .hidden = hidden, .x = x, .y = y };
+    draw_group = (draw_group_t) { .active = true, .hidden = hidden, .x = x, .y = y,
+        .scale_x = 1, .scale_y = 1 };
 }
 
-bool R_EndDrawGroup(vrect_t *bounds)
+void R_SetDrawGroupScale(float sx, float sy, float pivot_x, float pivot_y)
+{
+    DrawGroup_SetScale(&draw_group, sx, sy, pivot_x, pivot_y);
+}
+
+bool R_EndDrawGroupRaw(vrect_t *bounds, vrect_t *raw_bounds)
 {
     bool have = draw_group.have_bounds;
     if (bounds && have) {
@@ -35,8 +49,19 @@ bool R_EndDrawGroup(vrect_t *bounds)
         bounds->width = (int)ceilf(draw_group.right) - bounds->x;
         bounds->height = (int)ceilf(draw_group.bottom) - bounds->y;
     }
+    if (raw_bounds && have) {
+        raw_bounds->x = (int)floorf(draw_group.raw_left);
+        raw_bounds->y = (int)floorf(draw_group.raw_top);
+        raw_bounds->width = (int)ceilf(draw_group.raw_right) - raw_bounds->x;
+        raw_bounds->height = (int)ceilf(draw_group.raw_bottom) - raw_bounds->y;
+    }
     draw_group = (draw_group_t) { 0 };
     return have;
+}
+
+bool R_EndDrawGroup(vrect_t *bounds)
+{
+    return R_EndDrawGroupRaw(bounds, NULL);
 }
 
 drawStatic_t draw;
@@ -49,9 +74,11 @@ static inline void GL_StretchPic_(
     vec_t *dst_vert;
     glIndex_t *dst_indices;
 
-    DrawGroup_Rect(&draw_group, draw.scale, &x, &y, w, h);
+    DrawGroup_Rect(&draw_group, draw.scale, &x, &y, &w, &h);
     if (draw_group.active && draw_group.hidden)
         return;
+
+    DrawTransform_Rect(draw_origin[0], draw_origin[1], draw_zoom, draw.scale, &x, &y, &w, &h);
 
     if (tess.numverts + 4 > TESS_MAX_VERTICES ||
         tess.numindices + 6 > TESS_MAX_INDICES ||
