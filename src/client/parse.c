@@ -1208,6 +1208,10 @@ static void CL_ParseZPacket(void)
         Com_Error(ERR_DROP, "%s: inflate() failed with error %d", __func__, ret);
     }
 
+    if (cls.z.total_out != outlen) {
+        Com_Error(ERR_DROP, "%s: invalid decompressed length", __func__);
+    }
+
     temp = msg_read;
     SZ_InitRead(&msg_read, buffer, outlen);
 

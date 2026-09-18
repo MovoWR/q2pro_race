@@ -303,11 +303,15 @@ void SCR_AddNetgraph(void)
         return;
 
     if (scr_netgraph->integer != 2 && sh_netmeter->integer != 2) {
-    for (i = 0; i < cls.netchan.dropped; i++)
-        SCR_DebugGraph(30, 0x40);
+        int dropped = min(cls.netchan.dropped, GRAPH_SAMPLES);
 
-    for (i = 0; i < cl.suppress_count; i++)
-        SCR_DebugGraph(30, 0xdf);
+        // Older loss samples would be overwritten in this ring.
+        graph.current += cls.netchan.dropped - dropped;
+        for (i = 0; i < dropped; i++)
+            SCR_DebugGraph(30, 0x40);
+
+        for (i = 0; i < cl.suppress_count; i++)
+            SCR_DebugGraph(30, 0xdf);
     }
 
     if (scr_netgraph->integer > 1) {
@@ -624,7 +628,11 @@ void SCR_LagSample(void)
     }
 
     ping = h->rcvd - h->sent;
-    for (i = 0; i < cls.netchan.dropped; i++) {
+    // Two ring lengths retain every slot even when unsigned head wraps:
+    // LAG_WIDTH does not divide the unsigned counter's range.
+    i = min(cls.netchan.dropped, 2 * LAG_WIDTH);
+    lag.head += cls.netchan.dropped - i;
+    for (; i > 0; i--) {
         lag.samples[lag.head % LAG_WIDTH] = ping | LAG_CRIT_BIT;
         lag.head++;
     }

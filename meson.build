@@ -409,6 +409,48 @@ fps_commands_test = executable(
 )
 test('fps-commands', fps_commands_test, suite: 'console')
 
+# Parse actual network messages with platform and client subsystems stubbed.
+zpacket_test = executable(
+  'zpacket_test',
+  [
+    'tests/zpacket_test.c',
+    'src/common/msg.c',
+    'src/common/sizebuf.c',
+    'src/shared/shared.c',
+    'src/common/math.c',
+  ],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('zpacket', zpacket_test, suite: 'network')
+
+netgraph_history_test = executable(
+  'netgraph_history_test',
+  [
+    'tests/netgraph_history_test.c',
+    'src/common/msg.c',
+    'src/common/sizebuf.c',
+    'src/common/math.c',
+    'src/common/utils.c',
+    'src/shared/shared.c',
+  ],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('netgraph-history', netgraph_history_test, suite: 'network', timeout: 10)
+
+
+
 jump_menu_keys_test = executable(
   'jump_menu_keys_test',
   ['tests/jump_menu_keys_test.c', 'src/shared/shared.c'],
