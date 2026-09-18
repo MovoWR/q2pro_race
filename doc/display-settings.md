@@ -35,11 +35,11 @@ Display controls edit a draft. Back, Escape or closing the page discards an
 unapplied draft. Apply changes is disabled while the draft matches the current
 configuration.
 
-A display change starts a 15-second Keep changes/Revert confirmation. Keep saves
-the configuration; Revert, Escape, a second fullscreen shortcut or timeout
-restores the previous configuration. VSync-only changes commit without this
-confirmation. The timer uses the engine's real-time clock and continues when the
-menu is closed or recreated by a renderer restart.
+A change applied through the Display menu starts a 15-second Keep changes/Revert
+confirmation. Keep saves the configuration; Revert, Escape, the fullscreen
+shortcut or timeout restores the previous configuration. VSync-only changes
+commit without this confirmation. The timer uses the engine's real-time clock
+and continues when the menu is closed or recreated by a renderer restart.
 
 Trial settings do not change archived cvars. A configuration saved during the
 trial therefore contains the confirmed configuration. The controller verifies
@@ -49,8 +49,10 @@ mismatched display state fails verification and is rolled back.
 If the previous monitor is gone, recovery attempts a decorated
 640 by 480 window on an available monitor.
 
-Alt-Enter uses the same confirmation flow. It remembers the last confirmed
-fullscreen type and resolution. Normal window maximize remains a desktop action.
+Alt-Enter switches immediately without a confirmation or countdown. It remembers
+the last accepted fullscreen type and resolution; a failed switch still restores
+the previous configuration. If a Display-menu confirmation is already pending,
+Alt-Enter cancels that trial. Normal window maximize remains a desktop action.
 
 ## Monitor and input behavior
 

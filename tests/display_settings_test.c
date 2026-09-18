@@ -399,7 +399,7 @@ static void ReadbackAndWindowMemory(void)
     VID_KeepDisplaySettings();
     assert(!strcmp(vid_geometry->string, "1024x768+250+275"));
     assert(VID_ToggleDisplay());
-    VID_KeepDisplaySettings();
+    assert(!VID_PendingDisplaySettings());
     assert(current.window.width == 1024 && current.window.x == 250);
     desired = Exclusive();
     assert(VID_ApplyDisplaySettings(&desired));
@@ -411,27 +411,53 @@ static void ReadbackAndWindowMemory(void)
 static void VsyncAndToggle(void)
 {
     Reset();
+    M_Menu_Video();
     vid_display_settings_t desired = current;
     desired.vsync = 1;
     assert(VID_ApplyDisplaySettings(&desired));
     assert(!VID_PendingDisplaySettings() && swap_value == 1);
     assert(Cvar_VariableInteger("gl_swapinterval") == 1);
-    assert(VID_ToggleDisplay());
+    VID_ToggleFullscreen();
     assert(current.mode == VID_DISPLAY_EXCLUSIVE);
     assert(current.width == 1920 && current.refresh == 144);
-    assert(VID_ToggleDisplay()); // another Alt-Enter cancels the trial
+    assert(!VID_PendingDisplaySettings() && !VID_DisplaySecondsLeft());
+    assert(vid_fullscreen->integer == 2 && _vid_fullscreen->integer == 2);
+    M_VideoFrame();
+    assert(!uis.activeMenu && !uis.menuDepth);
+    now += 15000;
+    VID_DisplayFrame();
+    assert(current.mode == VID_DISPLAY_EXCLUSIVE);
+    VID_ToggleFullscreen();
     assert(current.mode == VID_DISPLAY_WINDOWED && !VID_PendingDisplaySettings());
+    assert(vid_fullscreen->integer == 0 && swap_value == 1);
 
     desired = current;
     desired.mode = VID_DISPLAY_BORDERLESS;
     assert(VID_ApplyDisplaySettings(&desired));
     VID_KeepDisplaySettings();
-    assert(VID_ToggleDisplay());
-    VID_KeepDisplaySettings();
+    VID_ToggleFullscreen();
     assert(current.mode == VID_DISPLAY_WINDOWED && current.window_flags == 0);
-    assert(VID_ToggleDisplay());
+    VID_ToggleFullscreen();
     assert(current.mode == VID_DISPLAY_BORDERLESS);
-    VID_RevertDisplaySettings();
+    assert(!VID_PendingDisplaySettings() && Cvar_VariableInteger("vid_noborder") == 1);
+    M_VideoFrame();
+    assert(!uis.activeMenu && !uis.menuDepth);
+
+    desired = current;
+    desired.mode = VID_DISPLAY_WINDOWED;
+    assert(VID_ApplyDisplaySettings(&desired));
+    M_VideoFrame();
+    assert(uis.activeMenu == &video_menu.confirm);
+    VID_ToggleFullscreen(); // Alt-Enter still cancels a pending menu trial.
+    M_VideoFrame();
+    assert(current.mode == VID_DISPLAY_BORDERLESS && !VID_PendingDisplaySettings());
+    assert(!uis.activeMenu && !uis.menuDepth);
+
+    Reset();
+    fail_calls = 1;
+    VID_ToggleFullscreen();
+    assert(current.mode == VID_DISPLAY_WINDOWED && !VID_PendingDisplaySettings());
+    assert(vid_fullscreen->integer == 0 && strstr(VID_DisplayMessage(), "failed"));
 }
 static void MenuAndRestart(void)
 {

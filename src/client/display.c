@@ -258,6 +258,8 @@ bool VID_ToggleDisplay(void)
             Z_Free(displays);
         }
     }
-    VID_ApplyDisplaySettings(&settings);
+    // The fullscreen shortcut accepts a successful switch immediately.
+    if (VID_ApplyDisplaySettings(&settings))
+        VID_KeepDisplaySettings();
     return true;
 }
