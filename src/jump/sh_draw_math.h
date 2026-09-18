@@ -38,9 +38,11 @@ static inline void SH_EndVisualDraw(hud_edit_id_t id, float hud_scale)
 {
     vrect_t bounds;
     if (R_EndDrawGroup(&bounds)) {
+#if USE_UI
         const float unit = hud_scale > 0.0f ? hud_scale : 1.0f;
         HUD_EditorBounds(id, bounds.x * unit, bounds.y * unit,
                          bounds.width * unit, bounds.height * unit);
+#endif
     }
 }
 

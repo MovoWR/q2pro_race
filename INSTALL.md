@@ -64,8 +64,9 @@ Review and configure options:
     meson configure builddir
 
 Q2PRO specific options are listed in `Project options` section. They are
-defined in `meson_options.txt` file. Keep `client-ui=true` for full client
-builds: jump runtime sources currently share the menu source gate.
+defined in `meson_options.txt` file. `client-ui=false` removes client menus
+and the HUD editor while retaining Jump HUDs and console configuration. Full
+client builds still require a supported video backend.
 The default game directory is `jump`, while the base game is `baseq2`.
 
 Optional libraries are selected with Meson feature options and the wrap files
@@ -106,14 +107,16 @@ Testing
 
 Run the standalone fixtures in a configured build directory:
 
-    meson test -C builddir --suite jump-hud --suite video --suite console --print-errorlogs
+    meson test -C builddir --suite jump-hud --suite video --suite console --suite network --print-errorlogs
 
 Meson builds the required fixture targets before running them. With
-`client-ui=true`, the suites register 13 jump/HUD, four console, and one video
-test, plus a second video test on Windows (18 on Linux, 19 on Windows).
-No game assets or live server are needed. Five jump/HUD tests and both video
-tests require UI; the other eight jump/HUD and four console tests do not
-prove that a full no-UI client links.
+`client-ui=true`, the suites register 13 jump/HUD, five console, two network,
+and one video test, plus a second video test on Windows (21 on Linux,
+22 on Windows). With `client-ui=false`, 17 runtime fixtures remain available;
+editor/controller and FPS menu lifecycle fixtures require UI. No game assets
+or live server are needed. The `zpacket` fixture checks compressed messages
+when `-Dzlib=enabled`; with zlib disabled it checks their rejection. Full
+client linking is validated separately from headless fixture execution.
 To run one fixture:
 
     meson test -C builddir --suite jump-hud hud-editor-state --print-errorlogs
@@ -235,7 +238,7 @@ Build:
 
 Run the regression suites:
 
-    meson test -C builddir --suite jump-hud --suite video --suite console --print-errorlogs
+    meson test -C builddir --suite jump-hud --suite video --suite console --suite network --print-errorlogs
 
 The CI configuration defines Windows x64 and x86 builds. Its existence is
 not a current test result or a guarantee that an old local executable matches

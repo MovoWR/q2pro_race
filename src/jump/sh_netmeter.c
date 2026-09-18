@@ -4,7 +4,9 @@
 #include "sh_draw_math.h"
 #include "client/hud_editor.h"
 #include "client/hud_layout.h"
+#if USE_UI
 #include <src/client/ui/ui.h>
+#endif
 
 typedef enum {
     NETEVENT_SPIKE  = BIT(0),  // Sudden latency increase
@@ -362,9 +364,11 @@ static void SCR_DrawNetMeterNotice(int bar_y, int bar_h)
         return;
     }
 
+#if USE_UI
     if (uis.activeMenu && uis.activeMenu->name && strcmp(uis.activeMenu->name, "jumpnetalerts") == 0) {
         is_test = true;
     }
+#endif
 
     if (is_test) {
         flags = NETEVENT_LOSS;
@@ -775,9 +779,11 @@ void SH_NetMeter_Draw(void)
 
     bool is_test = false;
 
+#if USE_UI
     if (uis.activeMenu && uis.activeMenu->name && strcmp(uis.activeMenu->name, "jumpnetalerts") == 0) {
         is_test = true;
     }
+#endif
 
     mode = HUD_EditorPreview() ? HUD_EditorNetworkMode() : Cvar_ClampInteger(sh_netmeter, 0, 3);
     if (!HUD_EditorPreview() && (!cls.netchan.protocol || cls.demo.playback)) {

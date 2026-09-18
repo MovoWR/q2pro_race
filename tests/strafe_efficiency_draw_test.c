@@ -1,5 +1,8 @@
 /* Exercise production efficiency drawing, tint, timing, and preview isolation. */
 #include "../src/jump/sh_efficiency_draw.c"
+#ifndef USE_UI
+#define USE_UI 0
+#endif
 #include "../src/jump/strafe_helper_customization.c"
 #undef NDEBUG
 #include <assert.h>
@@ -48,8 +51,10 @@ static float text_bounds_y, text_bounds_height;
 #endif
 static char last_text[8];
 static bool editor_preview;
+#if USE_UI
 static const cvar_t *draft_var;
 static float draft_value;
+#endif
 
 typedef struct {
     float displayed, held;

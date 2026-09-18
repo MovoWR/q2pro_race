@@ -44,10 +44,11 @@ including shallow water and dry ground, because those fixed vectors do not rotat
 with view yaw. Vertical-only currents and opposing flags that cancel within the
 same source remain supported. The efficiency meter remains dry-air-only.
 
-These sources are currently collected in `ui_src` in
-[meson.build](../../meson.build). Keep `client-ui=true` for full client builds;
-the efficiency calculation module's standalone test does not prove the
-complete overlay is independent of UI/editor code.
+These runtime sources are linked independently of `client-ui` in
+[meson.build](../../meson.build). Disabling client UI removes menus and the
+HUD editor while retaining Jump HUDs, prediction helpers and console commands.
+Netmeter menu/editor previews are unavailable without UI; normal sampling,
+alerts and drawing remain active.
 
 The built-in and external menus share the
 [In-Game Menu layout](../../doc/custom-cvars.md#in-game-menu-layout)
@@ -70,12 +71,15 @@ for modifier and key-release behavior.
 From the repository root, after [toolchain setup](../../INSTALL.md):
 
 ```sh
-meson test -C builddir --suite jump-hud --suite console --print-errorlogs
+meson test -C builddir --suite jump-hud --suite console --suite network --print-errorlogs
 ```
 
 The jump/HUD fixtures cover math, production controllers, renderer boundaries
-and editor state. The `console` suite also covers FPS commands and JumpMod keyboard
-shortcuts. UI-dependent fixtures require `client-ui=true`; these suites do not
+and editor state. The `console` suite also covers FPS commands, preservation
+of custom FPS values in the bindings menu, and JumpMod keyboard shortcuts.
+The `network` suite covers compressed-message lengths and bounded packet-loss
+history updates, including counter wraparound. UI-dependent fixtures require
+`client-ui=true`; these suites do not
 need game assets or a running game/server. Fixture success does not replace
 an explicitly authorized in-game rendering or input check.
 

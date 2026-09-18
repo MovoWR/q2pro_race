@@ -10,7 +10,9 @@ cvar_t *hud_network_scale = &(cvar_t) { .value = 1 };
 client_state_t cl;
 client_static_t cls;
 scr_t scr;
+#if USE_UI
 uiStatic_t uis;
+#endif
 
 #define TEST_CVAR(name) static cvar_t name##_storage; cvar_t *name = &name##_storage
 TEST_CVAR(scr_alpha);
@@ -128,7 +130,9 @@ static struct { int x, y, w, h, color; float alpha; } rectangles[10000];
 static int rectangle_count, text_count, preview_count, checks, failures;
 static char last_text[64];
 static float draw_alpha;
+#if USE_UI
 static bool editor_preview, editor_show = true;
+#endif
 
 #define CHECK(expr) do { checks++; if (!(expr)) { \
     fprintf(stderr, "%s:%d: %s\n", __func__, __LINE__, #expr); failures++; \
@@ -136,6 +140,7 @@ static bool editor_preview, editor_show = true;
 
 int Cvar_ClampInteger(cvar_t *var, int low, int high) { return Test_ClampCvarInteger(var, low, high); }
 float Cvar_ClampValue(cvar_t *var, float low, float high) { return Test_ClampCvarValue(var, low, high); }
+#if USE_UI
 bool HUD_EditorPreview(void) { return editor_preview; }
 bool HUD_EditorShow(int id)
 {
@@ -152,15 +157,25 @@ float HUD_EditorClamp(cvar_t *var, float low, float high)
 }
 
 void HUD_EditorBounds(hud_edit_id_t id, float x, float y, float w, float h) {}
+#endif
 void HUD_LayoutBegin(int id) {}
 void HUD_LayoutEnd(void) {}
 void R_SetAlpha(float alpha) { draw_alpha = alpha; }
+#if USE_UI
 void UI_SetColor_Wrapper(uint32_t color) { draw_alpha = ((color >> 24) & 255) / 255.0f; }
 void UI_ClearColor_Wrapper(void) { draw_alpha = 1; }
 void UI_DrawFill32_Wrapper(int x, int y, int w, int h, uint32_t color)
 {
     if (Test_GroupRect(x, y, w, h)) preview_count++;
 }
+#else
+void R_SetColor(uint32_t color) { draw_alpha = ((color >> 24) & 255) / 255.0f; }
+void R_ClearColor(void) { draw_alpha = 1; }
+void R_DrawFill32(int x, int y, int w, int h, uint32_t color)
+{
+    if (Test_GroupRect(x, y, w, h)) preview_count++;
+}
+#endif
 void R_DrawStretchPic(int x, int y, int w, int h, qhandle_t pic)
 {
     Test_GroupRect(x, y, w, h);
@@ -223,11 +238,15 @@ static void Setup(void)
     SH_NetMeter_Clear();
     memset(&cl, 0, sizeof(cl));
     memset(&cls, 0, sizeof(cls));
+#if USE_UI
     memset(&uis, 0, sizeof(uis));
+#endif
     for (size_t i = 0; i < q_countof(test_cvars); i++)
         memset(test_cvars[i], 0, sizeof(*test_cvars[i]));
+#if USE_UI
     editor_preview = false;
     editor_show = true;
+#endif
     cls.netchan.protocol = PROTOCOL_VERSION_Q2PRO;
     cls.realtime = 1000;
     scr.hud_width = 640;
@@ -422,6 +441,7 @@ static void CheckNotices(void)
     SH_NetMeter_Draw(); CHECK(text_count == 0 && rectangle_count == 0);
     cls.demo.playback = false; cls.netchan.protocol = 0;
     SH_NetMeter_Draw(); CHECK(text_count == 0);
+#if USE_UI
     static menuFrameWork_t menu;
     menu.name = "jumpnetalerts"; uis.activeMenu = &menu;
     SH_NetMeter_Draw(); CHECK(text_count == 1 && !strcmp(last_text, "TEST ALERT"));
@@ -429,6 +449,9 @@ static void CheckNotices(void)
     unsigned head = netmeter.head;
     SH_NetMeter_Draw();
     CHECK(preview_count > 0 && netmeter.head == head);
+#else
+    CHECK(!HUD_EditorPreview() && preview_count == 0);
+#endif
 }
 
 static void DrawHistogram(void)
@@ -543,6 +566,7 @@ static void CheckViewportPreservesSettings(void)
     }
 }
 
+#if USE_UI
 static void CheckEditorPing(void)
 {
     Setup();
@@ -571,6 +595,8 @@ static void CheckEditorPing(void)
     CHECK(text_count == 1 && !strcmp(last_text, "73"));
 }
 
+#endif
+
 static void CheckModeRange(void)
 {
     const int modes[] = { -1, 0, 1, 2, 3, 4, INT_MAX };
@@ -589,7 +615,12 @@ static void CheckModeRange(void)
 static void CheckVisualScaling(void)
 {
     Setup();
+#if USE_UI
     editor_preview = true;
+#else
+    for (int i = 0; i < scr.hud_width; i++)
+        SH_NetMeter_Sample(50);
+#endif
     scr.hud_scale = test_draw_scale = 1;
     Set(sh_histogram_x, -1);
     Set(sh_histogram_y, -1);
@@ -603,6 +634,7 @@ static void CheckVisualScaling(void)
     CHECK(test_group_bounds.x == 0 && test_group_bounds.width == 640);
     CHECK(test_group_bounds.height == 30);
     CHECK(!test_group.active);
+#if USE_UI
     editor_show = false;
     ResetDrawing();
     SH_NetMeter_Draw();
@@ -610,6 +642,7 @@ static void CheckVisualScaling(void)
     CHECK(test_group_bounds.width == 640 && test_group_bounds.height == 30);
 
     editor_show = true;
+#endif
     hud_network_scale->value = .5f;
     Set(sh_lagometer_x, -1);
     Set(sh_lagometer_y, -1);
@@ -621,15 +654,19 @@ static void CheckVisualScaling(void)
     SCR_DrawNetMeterNetgraph(1);
     CHECK(test_group_bounds.width == 640 && test_group_bounds.height == 8);
     hud_network_scale->value = 1;
+#if USE_UI
     editor_preview = false;
+#endif
 }
 
 int main(int argc, char **argv)
 {
     if (argc == 1 || !strcmp(argv[1], "scaling")) CheckVisualScaling();
     if (argc == 1 || !strcmp(argv[1], "modes")) CheckModeRange();
+#if USE_UI
     if (argc == 1 || !strcmp(argv[1], "preview"))
         CheckEditorPing();
+#endif
     if (argc == 1 || !strcmp(argv[1], "viewport")) CheckViewportPreservesSettings();
     if (argc == 1 || !strcmp(argv[1], "loss")) CheckLoss();
     if (argc == 1 || !strcmp(argv[1], "jitter")) CheckJitter();

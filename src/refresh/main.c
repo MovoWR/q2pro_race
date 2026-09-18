@@ -428,7 +428,8 @@ static void GL_DrawWorldOrigin(void)
     float line_width = cl_worldorigin_linewidth->value;
     if (line_width < 1.0f) line_width = 1.0f;
     if (line_width > 10.0f) line_width = 10.0f;
-    glLineWidth(line_width);
+    if (qglLineWidth)
+        qglLineWidth(line_width);
 
     // Draw the axes
     GL_LockArrays(6);
@@ -436,7 +437,8 @@ static void GL_DrawWorldOrigin(void)
     GL_UnlockArrays();
 
     // Restore default states
-    glLineWidth(1.0f);
+    if (qglLineWidth)
+        qglLineWidth(1.0f);
     GL_StateBits(GLS_DEFAULT);
 }
 

@@ -85,6 +85,10 @@ ui_src = [
   'src/client/ui/servers.c',
   'src/client/ui/ui.c',
   'src/client/ui/builtin_menu.c',
+]
+
+# Jump HUDs and console commands remain available without client menus.
+client_src += [
   'src/jump/sh_netmeter.c',
   'src/jump/strafe_efficiency.c',
   'src/jump/sh_efficiency_draw.c',
@@ -94,7 +98,6 @@ ui_src = [
   'src/jump/sh_hud_menu.c',
   'src/jump/strafe_helper_customization.c',
   'src/jump/sh_init.c',
-
 ]
 
 refresh_src = [
@@ -604,6 +607,40 @@ bind_reminders_test = executable(
 )
 test('bind-reminders', bind_reminders_test, suite: 'jump-hud')
 
+# Runtime fixtures also exercise builds without client menus.
+netmeter_test_exe = executable(
+  'netmeter_test',
+  'tests/netmeter_test.c',
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('jump-netmeter', netmeter_test_exe, suite: 'jump-hud')
+
+sh_menu_test_exe = executable(
+  'sh_menu_test',
+  'tests/sh_menu_test.c',
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('jump-menu', sh_menu_test_exe, suite: 'jump-hud')
+
+strafe_efficiency_draw_test_exe = executable(
+  'strafe_efficiency_draw_test',
+  ['tests/strafe_efficiency_draw_test.c', 'src/jump/strafe_efficiency.c'],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('strafe-efficiency-draw', strafe_efficiency_draw_test_exe, suite: 'jump-hud')
+
 # UI fixtures include production controllers with boundary stubs.
 if get_option('client-ui')
   menu_bindselect2_test = executable(
@@ -618,39 +655,6 @@ if get_option('client-ui')
     install: false,
   )
   test('menu-bindselect2', menu_bindselect2_test, suite: 'console')
-
-  netmeter_test_exe = executable(
-    'netmeter_test',
-    'tests/netmeter_test.c',
-    include_directories: ['inc', '.'],
-    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: strafe_efficiency_test_deps + common_deps,
-    build_by_default: false,
-    install: false,
-  )
-  test('jump-netmeter', netmeter_test_exe, suite: 'jump-hud')
-
-  sh_menu_test_exe = executable(
-    'sh_menu_test',
-    'tests/sh_menu_test.c',
-    include_directories: ['inc', '.'],
-    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: strafe_efficiency_test_deps + common_deps,
-    build_by_default: false,
-    install: false,
-  )
-  test('jump-menu', sh_menu_test_exe, suite: 'jump-hud')
-
-  strafe_efficiency_draw_test_exe = executable(
-    'strafe_efficiency_draw_test',
-    ['tests/strafe_efficiency_draw_test.c', 'src/jump/strafe_efficiency.c'],
-    include_directories: ['inc', '.'],
-    c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'],
-    dependencies: strafe_efficiency_test_deps + common_deps,
-    build_by_default: false,
-    install: false,
-  )
-  test('strafe-efficiency-draw', strafe_efficiency_draw_test_exe, suite: 'jump-hud')
 
   hud_editor_state_test_exe = executable(
     'hud_editor_state_test',
