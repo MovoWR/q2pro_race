@@ -10,6 +10,13 @@ descriptions of console variables and commands added to or modified by Q2PRO
 since the original Quake 2 release. Cvars and commands inherited from original
 Quake 2 are not described here (yet).
 
+NOTE: This is a reference for the retained Q2PRO server source. In this fork,
+`meson.build` comments out the standalone `q2proded` target and builds the
+`q2pro_race` client and game library. The current build does not produce a
+server executable; this manual does not imply that these server commands are
+available in the client. Optional server features also depend on their build
+configuration. See link:../INSTALL.md[INSTALL.md] for the current build scope.
+
 Variables
 ---------
 
@@ -242,7 +249,7 @@ sv_recycle::
 WARNING: Be sure to read ‘recycle’ command description below before enabling ‘sv_recycle’.
 
 sv_allow_map::
-    Controls the ‘map’ command behavior. ‘map’ is often mistakingly used by
+    Controls the ‘map’ command behavior. ‘map’ is often mistakenly used by
     server operators to change maps instead of the more lightweight ‘gamemap’.
     Thus, this variable exists to prevent misuse of ‘map’. Default value is 0
     for dedicated servers, 1 otherwise.
@@ -290,12 +297,15 @@ sv_prioritize_entities::
 Downloads
 ~~~~~~~~~
 
-These variables control legacy server UDP downloads.
+These variables control files served through legacy server UDP downloads.
+They do not configure a separate HTTP content server or define the client
+inbound file policy. The client applies its own path and extension checks;
+see link:client.asciidoc[the client manual].
 
 allow_download::
     Globally allows or disallows server UDP downloads. Remaining variables listed
     below are effective only when downloads are globally enabled. Default value
-    is 0.
+    is 0 for a dedicated server and 1 otherwise.
      - 0 — downloads are disabled
      - 1 — downloads are enabled
 
@@ -321,8 +331,9 @@ allow_download_textures::
     Default value is 1.
 
 allow_download_others::
-    Enables downloading of files from any subdirectory other than those listed
-    above. Default value is 0.
+    Allows the server to serve files from any subdirectory other than those
+    listed above. Default value is 0. This is not a client-side control for
+    receiving arbitrary file types or archive members.
 
 sv_max_download_size::
     Maximum size of UDP download in bytes. Value of 0 disables the limit.
@@ -398,7 +409,7 @@ sv_mvd_begincmd::
     This command is issued on behalf of dummy MVD observer as soon as it enters
     the game. Do whatever preparations are needed here to make sure MVD
     observer enters an appropriate observing mode, opens the scoreboard, etc.
-    MVD observer has it's own command buffer and each ‘wait’ cycle lasts 100 ms
+    MVD observer has its own command buffer and each ‘wait’ cycle lasts 100 ms
     there. Default value is "wait 50; putaway; wait 10; help;".
 
 sv_mvd_scorecmd::
@@ -632,7 +643,7 @@ com_fatal_error::
 
 com_debug_break::
     Development variable that turns all errors into debug breakpoints. Default
-    value is 0 (disabled).
+    value is 0 (disabled). Available only in debug builds.
 
 Commands
 --------
@@ -677,8 +688,8 @@ pickclient <address:port>::
     _port_.  This is useful if the server is behind NAT or firewall and can not
     accept remote connections. Remote client must support passive connections
     (R1Q2 and Q2PRO clients do), must be in passive connection mode and the
-    specified _port_ must be reachable. See ‘passive’ [[client]] command for
-    more details.
+    specified _port_ must be reachable. See the ‘passive’ command in
+    link:client.asciidoc[the client manual] for more details.
 
 addban <address[/mask]> [comment ...]::
     Adds specified _address_ to the ban list. Specify _mask_ to ban entire
@@ -794,7 +805,7 @@ following special characters are recognized at the beginning of the string:
 * # — escape character (_str_ is matched literally)
 
 If match string begins with any other character, it is matched literally. All
-string comparsions are case-insensitive.
+string comparisons are case-insensitive.
 ***********************
 
 addlrconcmd <command>::

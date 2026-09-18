@@ -13,7 +13,7 @@ Python during configuration. CI installs the Python build tools with:
 Run the recipes below from the repository root. See [Testing](#testing) for
 standalone regression checks.
 
-Q2PRO client requires either SDL2 or OpenAL for sound output. For video output,
+On Unix, the Q2PRO client requires either SDL2 or OpenAL for sound output. For video output,
 native X11 and Wayland backends are available, as well as generic SDL2 backend.
 
 Note that SDL2 is optional if using native X11 and Wayland backends and OpenAL,
@@ -104,12 +104,16 @@ suffix and platform library extension.
 Testing
 -------
 
-Run the standalone jump/HUD fixtures in a configured build directory:
+Run the standalone fixtures in a configured build directory:
 
-    meson test -C builddir --suite jump-hud --print-errorlogs
+    meson test -C builddir --suite jump-hud --suite video --suite console --print-errorlogs
 
-Meson builds the required fixture targets before running them. The full suite
-has 11 tests with `client-ui=true`; no game assets or live server are needed.
+Meson builds the required fixture targets before running them. With
+`client-ui=true`, the suites register 13 jump/HUD, four console, and one video
+test, plus a second video test on Windows (18 on Linux, 19 on Windows).
+No game assets or live server are needed. Five jump/HUD tests and both video
+tests require UI; the other eight jump/HUD and four console tests do not
+prove that a full no-UI client links.
 To run one fixture:
 
     meson test -C builddir --suite jump-hud hud-editor-state --print-errorlogs
@@ -133,7 +137,10 @@ configured prefix (`/usr/local` by default).
 
 Copy `baseq2/pak*.pak` files and `baseq2/players` directory from unpacked
 Quake 2 data into `/usr/local/share/q2pro_race/baseq2` to complete the
-installation.
+installation. Copy this repository's `jump/pics/` and `jump/players/` assets
+into the matching `jump/` directory under the configured data directory for
+the fork's menu artwork and supplied skins; Meson does not install those assets.
+Preserve existing player files.
 
 Alternatively, configure with `-Dsystem-wide=false` to build a ‘portable’
 version that expects to be launched from the root of Quake 2 data tree (this
@@ -156,14 +163,16 @@ directory or copying files.
 Music support
 -------------
 
-Q2PRO supports playback of background music ripped off original CD in Ogg
-Vorbis format. Music files should be placed in `music` subdirectory of the game
-directory in format `music/trackNN.ogg`, where `NN` corresponds to CD track
-number. `NN` should be typically in range 02-11 (track 01 is data track on
-original CD and should never be used).
+With FFmpeg support enabled, Q2PRO supports playback of background music
+ripped off the original CD in Ogg Vorbis format. The current Windows CI recipe
+sets `-Davcodec=disabled`, so those builds do not include this music backend.
 
-Note that so-called ‘GOG’ naming convention where music tracks are named
-‘Track01’ to ‘Track21’ is not supported.
+Place loose music files in the game directory's `music/` subdirectory, for
+example `music/track02.ogg`. Numeric music cues map directly to `trackNN`;
+there is no automatic renumbering for distributions with a different track
+order. Music is not read from PAK/PKZ archives. The backend also tries FLAC,
+Opus, MP3, and WAV when the linked FFmpeg libraries provide the required
+formats/codecs.
 
 
 MinGW-w64
@@ -196,14 +205,14 @@ documentation update.
 Visual Studio
 -------------
 
-It is possible to build Q2PRO on Windows using Visual Studio 2022 and Meson.
+The configured Windows CI build uses MSVC and Meson.
 
 Install Visual Studio with the MSVC C/C++ toolset and a Windows SDK. Install
 Python 3 and the Meson/Ninja tools described under [Prerequisites](#prerequisites).
 Make Python, Meson, and Ninja available on PATH in the developer shell.
 
-Optionally, download and install nasm executable. The easiest way to add it
-into PATH is to put it into `Program Files/Meson`.
+Install NASM for the bundled libjpeg-turbo SIMD build and add the directory
+containing `nasm.exe` to PATH. Windows CI installs it before configuration.
 
 The build needs to be launched from appropriate Visual Studio command line
 shell: use `x64 Native Tools Command Prompt` for x64 or
@@ -224,9 +233,9 @@ Build:
 
     meson compile -C builddir
 
-Run the regression suite:
+Run the regression suites:
 
-    meson test -C builddir --suite jump-hud --print-errorlogs
+    meson test -C builddir --suite jump-hud --suite video --suite console --print-errorlogs
 
 The CI configuration defines Windows x64 and x86 builds. Its existence is
 not a current test result or a guarantee that an old local executable matches

@@ -9,18 +9,21 @@ assignees: ''
 
 ### Before reporting bugs
 
-Make sure the bug is reproducible with latest Q2PRO version. If you compile
-Q2PRO yourself, update to the latest version from git master. If you are using
-prebuilt Windows binaries, update to the latest nightly build.
+Report the exact `q2pro_race` build that reproduces the bug. For local builds,
+include the source revision and whether the checkout has local changes. For
+prebuilt clients or Starter installations, identify the downloaded artifact.
+If you also tested another version, state its result separately.
 
 ### Important information
 
 Provide the following information:
-- Q2PRO version
+
+- `q2pro_race` version and artifact/source identity
 - OS version
 - GPU driver and version
 
 For Linux:
+
 - Linux distribution and version
 - Window manager version
 
@@ -42,14 +45,14 @@ If reporting graphics glitches, provide screenshot or video.
 
 ### Log file
 
-Provide a link to the log file created by launching `q2pro +set developer 1
-+set logfile 1`.
+Provide the relevant log from `q2pro_race +set developer 1 +set logfile 1`
+(`q2pro_race.exe` on Windows), launched from the normal game-data directory.
 
 ### Crash reports
 
-If Q2PRO crashes, provide a crash report (Windows) or a backtrace (Linux). On
-Linux, backtrace can be created by launching Q2PRO with `gdb q2pro --args
-[...]` and typing `bt` after the crash.
+If `q2pro_race` crashes, provide a crash report (Windows, when crash-dump support
+is enabled) or a backtrace (Linux). On Linux, start
+`gdb --args ./q2pro_race [client arguments]`, type `run`, then `bt` after the crash.
 
 ### Compilation issues
 

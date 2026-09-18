@@ -1,7 +1,8 @@
-Does not apply to files in the src/jump/strafe_helper directory,
-which are under the MPL-2.0 license.
-
-See src/jump/strafe_helper/LICENSE
+The imported strafe_helper component is covered by MPL-2.0; its license
+text is in src/jump/LICENSE. Its sources now live directly under src/jump/.
+That directory also contains GPL-derived additions, so directory location
+alone does not establish the license of every file. See individual source
+notices and NOTE; this path clarification does not change their terms.
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991

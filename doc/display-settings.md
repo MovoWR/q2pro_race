@@ -36,7 +36,8 @@ unapplied draft. Apply changes is disabled while the draft matches the current
 configuration.
 
 A change applied through the Display menu starts a 15-second Keep changes/Revert
-confirmation. Keep saves the configuration; Revert, Escape, the fullscreen
+confirmation. Keep commits the archived settings; the client's normal
+configuration-saving path writes them to disk. Revert, Escape, the fullscreen
 shortcut or timeout restores the previous configuration. VSync-only changes
 commit without this confirmation. The timer uses the engine's real-time clock
 and continues when the menu is closed or recreated by a renderer restart.
@@ -105,15 +106,17 @@ cursor policy, leaving ordinary windowed menus to the system cursor.
 `inc/client/video.h` connect supported backends. The Windows implementation
 lives in `src/windows/client.c`.
 
-Run the offline suites:
+From the repository root, run the offline suites in a build configured with `client-ui=true`:
 
 ```sh
 meson test -C builddir --suite video --suite jump-hud --print-errorlogs
 ```
 
 `display-settings` runs the production parser, controller and menu with engine
-boundaries stubbed. `windows-display` runs the Windows backend against simulated
-display and window APIs. It does not create a game window or change host display
+boundaries stubbed. Both video fixtures require `client-ui=true`;
+`windows-display` is additionally registered only on Windows. It runs the
+Windows backend against simulated display and window APIs. It does not create a
+game window or change host display
 settings. Cases cover selection, negative coordinates, desktop restoration,
 readback failures, rollback, disconnection, DPI transitions, focus changes,
 legacy bit depth, config preservation, fullscreen shortcuts, renderer restarts,

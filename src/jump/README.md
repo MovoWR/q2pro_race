@@ -27,9 +27,12 @@ setup procedure for this checkout. Do not add a submodule or create the old
 
 The helper observes movement; preview values must not enter movement or
 network history. Drawing reads HUD editor drafts only during its preview
-pass. See the [developer guide](../../doc/development.md#architecture) for
-the engine flow and the
-[cvar reference](../../doc/custom-cvars.md) for current settings.
+pass. Native visual scale is applied in separate renderer draw groups for UPS,
+the helper, efficiency and the network monitor. Efficiency and network alerts
+must not be nested inside another item's group. Captured editor bounds include
+item scaling but exclude workbench zoom; legacy native size controls remain
+independent. The source table above identifies the engine integration points;
+see the [cvar reference](../../doc/custom-cvars.md) for current settings.
 
 Swimming uses the same angle solver as ground and air movement. PMove supplies
 its post-friction 3D velocity and normalized wish direction, including view pitch,
@@ -46,6 +49,14 @@ These sources are currently collected in `ui_src` in
 the efficiency calculation module's standalone test does not prove the
 complete overlay is independent of UI/editor code.
 
+The built-in and external menus share the
+[In-Game Menu layout](../../doc/custom-cvars.md#in-game-menu-layout)
+and [Jump Setup layout](../../doc/custom-cvars.md#jump-settings-layout).
+The native demo browser is available under **Multiplayer > Browse demos**.
+Movement-replay `sh record`, `sh stop` and `sh play` actions are not implemented and are not
+exposed by the menu. Native console recording uses `record` and `stop`; this
+is not a local movement-replay or ghost engine.
+
 ## JumpMod keyboard shortcuts
 
 During active Jump gameplay, Ctrl+M sends `inven`, Ctrl+Up/Down send
@@ -59,13 +70,14 @@ for modifier and key-release behavior.
 From the repository root, after [toolchain setup](../../INSTALL.md):
 
 ```sh
-meson test -C builddir --suite jump-hud --print-errorlogs
+meson test -C builddir --suite jump-hud --suite console --print-errorlogs
 ```
 
-The [coverage table](../../doc/development.md#standalone-jumphud-suite)
-distinguishes math, production-code fixtures, renderer stubs, and editor
-state. Fixture success does not replace an explicitly authorized in-game
-rendering or input check.
+The jump/HUD fixtures cover math, production controllers, renderer boundaries
+and editor state. The `console` suite also covers FPS commands and JumpMod keyboard
+shortcuts. UI-dependent fixtures require `client-ui=true`; these suites do not
+need game assets or a running game/server. Fixture success does not replace
+an explicitly authorized in-game rendering or input check.
 
 ## Historical upstream usage
 
