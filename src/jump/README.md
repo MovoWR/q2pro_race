@@ -31,6 +31,16 @@ pass. See the [developer guide](../../doc/development.md#architecture) for
 the engine flow and the
 [cvar reference](../../doc/custom-cvars.md) for current settings.
 
+Swimming uses the same angle solver as ground and air movement. PMove supplies
+its post-friction 3D velocity and normalized wish direction, including view pitch,
+up/down input and vertical currents, plus the actual water acceleration target and
+budget. The solver maximizes horizontal gain from acceleration at the current
+pitch; it does not predict net speed gain after water drag. Nonzero horizontal
+water currents and grounded conveyors suppress guidance at every water depth,
+including shallow water and dry ground, because those fixed vectors do not rotate
+with view yaw. Vertical-only currents and opposing flags that cancel within the
+same source remain supported. The efficiency meter remains dry-air-only.
+
 These sources are currently collected in `ui_src` in
 [meson.build](../../meson.build). Keep `client-ui=true` for full client builds;
 the efficiency calculation module's standalone test does not prove the

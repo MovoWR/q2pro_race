@@ -44,15 +44,28 @@ static pml_t        pml;
 static const pmoveParams_t  *pmp;
 
 #if USE_CLIENT
+static bool PM_HasHorizontalCurrent(int contents)
+{
+    // Opposing flags cancel within each current source in PM_AddCurrents.
+    return (!!(contents & CONTENTS_CURRENT_0) != !!(contents & CONTENTS_CURRENT_180)) ||
+           (!!(contents & CONTENTS_CURRENT_90) != !!(contents & CONTENTS_CURRENT_270));
+}
+
 static bool PM_StrafeHelper_ShouldTrack(void)
 {
     if (pm->s.pm_type != PM_NORMAL)
         return false;
-    if (pml.ladder || pm->waterlevel >= 2)
+    if (pml.ladder)
         return false;
     if (pm->s.pm_flags & (PMF_TIME_TELEPORT | PMF_TIME_WATERJUMP))
         return false;
     if (!pm->cmd.sidemove)
+        return false;
+
+    // Fixed horizontal currents do not rotate with view yaw like player input.
+    // Water (200/400 UPS) and conveyors (100 UPS) cannot cancel each other.
+    if (PM_HasHorizontalCurrent(pm->watertype) ||
+        (pm->groundentity && PM_HasHorizontalCurrent(pml.groundcontents)))
         return false;
 
     return true;
