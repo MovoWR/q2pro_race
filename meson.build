@@ -405,7 +405,7 @@ fps_commands_test = executable(
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
           cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
   dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
@@ -461,7 +461,7 @@ jump_menu_keys_test = executable(
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1', '-DUSE_UI=1'] +
           cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
   dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
@@ -492,7 +492,7 @@ console_history_test = executable(
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
           cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
   dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
@@ -505,7 +505,7 @@ cvar_toggle_test = executable(
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
           cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
   dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,
@@ -520,7 +520,7 @@ if get_option('client-ui')
     include_directories: ['inc', '.'],
     c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
             cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-    link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+    link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
     dependencies: strafe_efficiency_test_deps + common_deps,
     build_by_default: false,
     install: false,
@@ -533,7 +533,7 @@ if get_option('client-ui')
       include_directories: ['inc', '.'],
       c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1', '-D_WIN32_WINNT=0x0601'] +
               cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-      link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+      link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
       dependencies: common_deps,
       build_by_default: false,
       install: false,
@@ -601,7 +601,7 @@ bind_reminders_test = executable(
   include_directories: ['inc', '.'],
   c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
           cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
-  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
   dependencies: strafe_efficiency_test_deps + common_deps,
   build_by_default: false,
   install: false,

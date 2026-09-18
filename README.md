@@ -120,7 +120,7 @@ meson setup buildDir
 meson compile -C buildDir
 ```
 
-For platform-specific dependencies, portable builds, and Windows build notes, see [INSTALL.md](INSTALL.md).
+For platform-specific dependencies, portable builds, and Windows/macOS build notes, see [INSTALL.md](INSTALL.md).
 
 Run the standalone suites with:
 
@@ -138,6 +138,12 @@ CI runs all three suites on Linux and Windows with `-Db_ndebug=true`; assertions
 remain enabled. Windows jobs initialize the x86/x64 MSVC toolchain through
 Visual Studio's Developer PowerShell.
 Configuration, compilation, and tests run in separate Windows CI steps so a failure stops artifact packaging.
+
+CI also builds macOS Apple Silicon and Intel clients with Clang, Homebrew and
+Meson (Intel uses Rosetta). It packages separate ZIPs with the client, base game
+library and selected `jump/` assets for the existing release workflow. See the
+[macOS recipe and runtime requirements](INSTALL.md#macos); native macOS build
+and runtime results must be checked separately from this configuration.
 
 ## Developer documentation
 

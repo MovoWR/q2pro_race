@@ -25,6 +25,13 @@ env:
     -Dwrap_mode=forcefallback
     -Dx11=disabled
 
+  MESON_ARGS_MACOS: >-
+    -Dicmp-errors=disabled
+    -Dwayland=disabled
+    -Dwindows-crash-dumps=disabled
+    -Dwrap_mode=nofallback
+    -Dx11=disabled
+    -Dsystem-wide=false
 
 jobs:
   strafe-efficiency:
@@ -173,11 +180,97 @@ jobs:
           name: q2pro_race-windows-${{ matrix.arch }}-${{ env.VERSION }}
           path: artifacts
 
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            brew-prefix: /opt/homebrew
+          - arch: x86_64
+            brew-prefix: /usr/local
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+
+      - name: Set up Rosetta and Intel Homebrew
+        if: matrix.arch == 'x86_64'
+        env:
+          NONINTERACTIVE: 1
+        run: |
+          softwareupdate --install-rosetta --agree-to-license
+          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          arch -${{ matrix.arch }} /bin/bash -e -o pipefail <<'BUILD'
+          export PATH="${{ matrix.brew-prefix }}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          brew update
+          brew install meson ninja sdl2 openal-soft libpng jpeg-turbo zlib curl pkg-config
+          BUILD
+
+      - name: Configure
+        shell: bash
+        run: |
+          arch -${{ matrix.arch }} /bin/bash -e -o pipefail <<'BUILD'
+          export PATH="${{ matrix.brew-prefix }}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          openal_prefix="$(brew --prefix openal-soft)"
+          export CC=clang
+          export CFLAGS="--include stdbool.h --include stddef.h -I$openal_prefix/include -I$openal_prefix/include/AL"
+          export PKG_CONFIG_LIBDIR="$(brew --prefix)/lib/pkgconfig:$openal_prefix/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix curl)/lib/pkgconfig"
+          export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
+          meson setup ${{ env.MESON_ARGS }} ${{ env.MESON_ARGS_MACOS }} \
+            builddir-${{ matrix.arch }} --buildtype=release -Db_ndebug=true
+          BUILD
+
+      - name: Build
+        shell: bash
+        run: |
+          arch -${{ matrix.arch }} /bin/bash -e -o pipefail <<'BUILD'
+          export PATH="${{ matrix.brew-prefix }}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          meson compile -C builddir-${{ matrix.arch }}
+          BUILD
+
+      - name: Run standalone tests
+        shell: bash
+        run: |
+          arch -${{ matrix.arch }} /bin/bash -e -o pipefail <<'BUILD'
+          export PATH="${{ matrix.brew-prefix }}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          meson test -C builddir-${{ matrix.arch }} --suite jump-hud --suite video --suite console --suite network --print-errorlogs
+          BUILD
+
+      - name: Verify and package macOS artifacts
+        run: |
+          builddir="builddir-${{ matrix.arch }}"
+          test -x "$builddir/q2pro_race"
+          lipo -verify_arch ${{ matrix.arch }} "$builddir/q2pro_race"
+          lipo -verify_arch ${{ matrix.arch }} "$builddir/game${{ matrix.arch }}.dylib"
+          otool -L "$builddir/q2pro_race"
+          mkdir -p artifacts q2pro_race/baseq2 q2pro_race/jump/pics q2pro_race/jump/players/female
+          cp "$builddir/q2pro_race" q2pro_race/
+          cp "$builddir/game${{ matrix.arch }}.dylib" q2pro_race/baseq2/
+          cp jump/pics/prochars.png jump/pics/conback.png jump/pics/q2jump_background.png q2pro_race/jump/pics/
+          cp jump/players/female/ctf_{b,r}{.pcx,.png,_i.pcx} q2pro_race/jump/players/female/
+          zip -r "artifacts/q2pro_race-darwin-${{ matrix.arch }}.zip" q2pro_race
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          retention-days: 2
+          name: q2pro_race-darwin-${{ matrix.arch }}
+          path: artifacts/*.zip
+          if-no-files-found: error
+
   release:
     if: >-
       ${{ github.event_name == 'push' &&
           (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/q2pro_race') }}
-    needs: [windows, strafe-efficiency, linux-client]
+    needs: [windows, macos, strafe-efficiency, linux-client]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -205,6 +298,8 @@ jobs:
               (cd "$dir" && zip -r "../$(basename "$dir").zip" .)
             fi
           done
+          # macOS ZIPs are created on macOS to retain executable permissions.
+          cp artifacts/q2pro_race-darwin-*/*.zip artifacts/
 
       - name: Create or update "latest" release
         env:

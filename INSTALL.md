@@ -102,6 +102,86 @@ Other platforms use `q2pro_race` and a `game` library with the configured CPU
 suffix and platform library extension.
 
 
+macOS
+-----
+
+The macOS CI matrix follows the Clang/Homebrew/Meson release build approach in
+[the q2jump-pro workflow](https://github.com/q2jump-pro/q2jump-pro/blob/4b91f74ecd84bd4027ab9f8e6da982a9270fac66/.github/workflows/build.yml).
+It builds Apple Silicon (`arm64`) natively on `macos-latest`, and Intel
+(`x86_64`) on the same runner using Rosetta 2 and Intel Homebrew. These are
+separate binaries, not a universal application bundle.
+
+Install Xcode Command Line Tools and Homebrew before a local build. Use the
+Homebrew installation for the target architecture: `/opt/homebrew` for Apple
+Silicon or `/usr/local` for Intel. On Apple Silicon, an Intel build also needs
+Rosetta 2 and an Intel Homebrew installation; run the commands below in an
+`arch -x86_64 /bin/bash` shell with `/usr/local/bin` first on `PATH`.
+
+```sh
+brew update
+brew install meson ninja sdl2 openal-soft libpng jpeg-turbo zlib curl pkg-config
+openal_prefix="$(brew --prefix openal-soft)"
+export CC=clang
+export CFLAGS="--include stdbool.h --include stddef.h -I$openal_prefix/include -I$openal_prefix/include/AL"
+export PKG_CONFIG_LIBDIR="$(brew --prefix)/lib/pkgconfig:$openal_prefix/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix curl)/lib/pkgconfig"
+export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
+meson setup builddir-macos --buildtype=release -Db_ndebug=true \
+  --auto-features=enabled --fatal-meson-warnings \
+  -Danticheat-server=true -Davcodec=disabled -Dclient-gtv=true \
+  -Dpacketdup-hack=true -Dvariable-fps=true \
+  -Dicmp-errors=disabled -Dwayland=disabled -Dwindows-crash-dumps=disabled \
+  -Dwrap_mode=nofallback -Dx11=disabled -Dsystem-wide=false
+meson compile -C builddir-macos
+meson test -C builddir-macos --suite jump-hud --suite video --suite console --suite network --print-errorlogs
+```
+
+Use a separate build directory for each architecture. SDL2 supplies video and
+software audio; OpenAL Soft is also enabled. FFmpeg, X11, Wayland, Linux ICMP
+error handling, and Windows crash dumps are disabled. Homebrew paths are
+queried dynamically instead of pinning an OpenAL Cellar version. The test
+linker probes include Apple's `-dead_strip` for fixtures that include engine
+source but stub only the functions exercised by the tests.
+
+There are intentional differences from the reference: this fork retains its
+normal release settings (`tests=false`, `werror=false`, `b_ndebug=true`) and
+keeps `client-ui=true`. The engine's built-in diagnostic commands are separate
+from the standalone suites. `system-wide=false` makes the package use the
+Quake II data directory it is launched from. The macOS package also includes
+this fork's selected `jump/` images and skins and puts the bundled base game
+library in `baseq2/`.
+
+CI checks the Mach-O architecture of both outputs and creates these ZIPs on
+macOS, preserving the executable's mode before artifact upload:
+
+| Archive | Contents under `q2pro_race/` |
+| --- | --- |
+| `q2pro_race-darwin-arm64.zip` | `q2pro_race`, `baseq2/gamearm64.dylib`, selected `jump/` assets |
+| `q2pro_race-darwin-x86_64.zip` | `q2pro_race`, `baseq2/gamex86_64.dylib`, selected `jump/` assets |
+
+The existing release job waits for both macOS configurations as well as
+Windows and Linux fixtures, then includes both ZIPs in the `latest` release.
+The workflow definition alone does not establish a successful macOS build.
+
+These archives contain Homebrew-linked executables, without bundled third-party
+dylibs, Quake II game data, signing, or notarization. Install the matching
+architecture's runtime libraries with `brew install sdl2 openal-soft libpng jpeg-turbo zlib curl`.
+Extract into a separate directory and supply the Quake II base data as described
+under [Installation](#installation). The base game library is not a Q2Jump
+server mod.
+
+Launch from the extracted `q2pro_race/` data directory. OpenAL is loaded by its
+library name at runtime, so expose Homebrew's OpenAL directory explicitly:
+
+```sh
+cd q2pro_race
+DYLD_LIBRARY_PATH="$(brew --prefix openal-soft)/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./q2pro_race
+```
+
+Compile/test results do not verify graphics, audio, input, macOS security
+prompts, or compatibility with older macOS versions. Those require separate
+checks on the intended Mac; no live game/server test is part of this recipe.
+
+
 Testing
 -------
 
