@@ -1,6 +1,7 @@
 /* Native display menu. Draft controls never write engine cvars. */
 #include "ui.h"
 #include "client/video.h"
+#include "system/system.h"
 
 enum { DISPLAY_MODE, DISPLAY_MONITOR, DISPLAY_SIZE, DISPLAY_REFRESH, DISPLAY_VSYNC, DISPLAY_ROWS };
 enum { DISPLAY_APPLY, DISPLAY_BACK, DISPLAY_GRAPHICS, DISPLAY_KEEP, DISPLAY_REVERT };

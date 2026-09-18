@@ -1,6 +1,6 @@
 /* Offline tests execute the production controller, parser and menu with boundary stubs. */
-#include "../src/client/display.c"
 #include "../src/client/ui/video.c"
+#include "../src/client/display.c"
 #undef NDEBUG
 #include <assert.h>
 
