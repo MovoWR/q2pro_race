@@ -409,6 +409,35 @@ static void NativeReadbackValidation(void)
     current_mode_unavailable = false;
 }
 
+static void NativeMalformedListPersistence(void)
+{
+    static const char *lists[] = {
+        "bad",
+        "bad 1920x1080@120 1920x1080@120"
+    };
+    for (int i = 0; i < q_countof(lists); i++) {
+        ResetWindows();
+        Cvar_Set("vid_modelist", lists[i]);
+        vid_display_settings_t settings = Exclusive();
+        settings.width = 1920;
+        settings.height = 1080;
+        assert(VID_ApplyDisplaySettings(&settings));
+        assert(!strcmp(vid_modelist->string, lists[i]));
+        VID_KeepDisplaySettings();
+        assert(!VID_PendingDisplaySettings());
+        assert(vid_fullscreen->integer == 2 && _vid_fullscreen->integer == 2);
+        assert(!strcmp(vid_modelist->string, i ? lists[i] : "bad 1920x1080@120"));
+
+        // Reapplying saved cvars must retain the confirmed mode, not desktop size.
+        Win_SetMode();
+        vid_display_settings_t actual;
+        assert(Win_GetDisplaySettings(&actual));
+        assert(actual.mode == VID_DISPLAY_EXCLUSIVE && !strcmp(actual.display, "DISPLAY2"));
+        assert(actual.width == 1920 && actual.height == 1080 && actual.refresh == 120);
+        assert(Win_RestoreDesktop());
+    }
+}
+
 int main(void)
 {
     List_Init(&ui_menus);
@@ -417,6 +446,7 @@ int main(void)
     DesktopMoveAndDisconnect();
     DpiFocusAndLegacyDepth();
     LegacyDesktopFallback();
+    NativeMalformedListPersistence();
     NativeReadbackValidation();
     assert(!allocations);
     puts("Win32 simulated monitor selection, modes, placement, rollback and hotplug passed.");

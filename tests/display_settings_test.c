@@ -544,10 +544,112 @@ static void WindowSizePolling(void)
     }
 }
 
+static void SelectedTokenParser(void)
+{
+    Reset();
+    vrect_t rect;
+    int refresh, depth;
+    Cvar_Set("vid_modelist", " \tbad\n640X480:16@75\r\n1920x1080@120:32 \tdesktop ");
+    assert(!VID_GetFullscreenMode(1, &rect, &refresh, &depth));
+    assert(VID_GetFullscreenMode(2, &rect, &refresh, &depth));
+    assert(rect.width == 640 && rect.height == 480 && refresh == 75 && depth == 16);
+    assert(VID_GetFullscreenMode(3, &rect, &refresh, &depth));
+    assert(rect.width == 1920 && rect.height == 1080 && refresh == 120 && depth == 32);
+    assert(VID_GetFullscreenMode(4, &rect, &refresh, &depth));
+    assert(!rect.width && !rect.height && !refresh && !depth);
+    Cvar_SetInteger(vid_fullscreen, 4, FROM_CODE);
+    assert(!VID_GetFullscreen(&rect, &refresh, &depth)); // preserve desktop fallback
+    assert(!VID_GetFullscreenMode(0, &rect, &refresh, &depth));
+    assert(!VID_GetFullscreenMode(-1, &rect, &refresh, &depth));
+    assert(!VID_GetFullscreenMode(5, &rect, &refresh, &depth));
+
+    static const char *invalid[] = {
+        "desktopjunk", "640x480junk", "640x", "640x480@", "640x480:",
+        "640x480@75:", "640x480:32@", "640x480@75:32junk",
+        "319x480", "8193x480", "640x239", "640x8193", "640x480@1001", "640x480:33"
+    };
+    for (int i = 0; i < q_countof(invalid); i++) {
+        Cvar_Set("vid_modelist", va("bad %s 1920x1080@120", invalid[i]));
+        assert(!VID_GetFullscreenMode(2, &rect, &refresh, &depth));
+        assert(rect.width == 640 && rect.height == 480 && !refresh && !depth);
+        assert(VID_GetFullscreenMode(3, &rect, &refresh, &depth));
+        assert(rect.width == 1920 && rect.height == 1080 && refresh == 120 && !depth);
+    }
+    Cvar_Set("vid_modelist", "320x240@0:0 8192x8192@1000:32");
+    assert(VID_GetFullscreenMode(1, &rect, &refresh, &depth));
+    assert(rect.width == 320 && rect.height == 240 && !refresh && !depth);
+    assert(VID_GetFullscreenMode(2, &rect, &refresh, &depth));
+    assert(rect.width == 8192 && rect.height == 8192 && refresh == 1000 && depth == 32);
+}
+
+static void MalformedListTransactions(void)
+{
+    for (int archived = 0; archived < 2; archived++) {
+        for (int timeout = 0; timeout < 2; timeout++) {
+            Reset();
+            Cvar_Set("vid_modelist", "bad");
+            if (archived)
+                vid_modelist->flags |= CVAR_ARCHIVE;
+            int flags = vid_modelist->flags;
+            vid_display_settings_t desired = Exclusive();
+            desired.width = 1920;
+            desired.height = 1080;
+            assert(VID_ApplyDisplaySettings(&desired));
+            assert(!strcmp(vid_modelist->string, "bad") && vid_modelist->flags == flags);
+            assert(vid_fullscreen->integer == 0 && _vid_fullscreen->integer == 2);
+            if (timeout) {
+                now += 15000;
+                VID_DisplayFrame();
+            } else {
+                VID_RevertDisplaySettings();
+            }
+            assert(!VID_PendingDisplaySettings());
+            assert(!strcmp(vid_modelist->string, "bad") && vid_modelist->flags == flags);
+            assert(vid_fullscreen->integer == 0 && _vid_fullscreen->integer == 2);
+        }
+    }
+
+    static const char *lists[] = {
+        "bad",
+        " \tbad\n1920x1080@120  1920x1080@120 \r\n",
+        "desktop 640X480:32@75 640x480@75:32"
+    };
+    static const char *kept_lists[] = {
+        "bad 1920x1080@120",
+        " \tbad\n1920x1080@120  1920x1080@120 \r\n",
+        "desktop 640X480:32@75 640x480@75:32 1920x1080@120"
+    };
+    static const int indices[] = { 2, 2, 4 };
+    for (int i = 0; i < q_countof(lists); i++) {
+        Reset();
+        Cvar_Set("vid_modelist", lists[i]);
+        vid_display_settings_t desired = Exclusive();
+        desired.width = 1920;
+        desired.height = 1080;
+        assert(VID_ApplyDisplaySettings(&desired));
+        assert(!strcmp(vid_modelist->string, lists[i]));
+        assert(!(vid_modelist->flags & CVAR_ARCHIVE));
+        assert(vid_fullscreen->integer == 0 && _vid_fullscreen->integer == 2);
+        VID_KeepDisplaySettings();
+        assert(!VID_PendingDisplaySettings());
+        assert(!strcmp(vid_modelist->string, kept_lists[i]));
+        assert(vid_modelist->flags & CVAR_ARCHIVE);
+        assert(vid_fullscreen->integer == indices[i] && _vid_fullscreen->integer == indices[i]);
+        vrect_t rect;
+        int refresh;
+        assert(VID_GetFullscreen(&rect, &refresh, NULL));
+        assert(rect.width == 1920 && rect.height == 1080 && refresh == 120);
+        VID_KeepDisplaySettings();
+        assert(!strcmp(vid_modelist->string, kept_lists[i]));
+    }
+}
+
 int main(void)
 {
     List_Init(&ui_menus);
     Parser();
+    SelectedTokenParser();
+    MalformedListTransactions();
     ApplyKeepAndConfig();
     RollbackAndClock();
     FailureAndHotplug();

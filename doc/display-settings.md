@@ -95,6 +95,11 @@ cursor policy, leaving ordinary windowed menus to the system cursor.
 - Confirming an exclusive selection preserves the selected mode in
   `vid_modelist` and archives that list together with its index.
 - Explicit legacy refresh-rate and bit-depth mode syntax remains supported.
+  Each whitespace-delimited entry keeps its one-based index, including malformed
+  entries. Only the selected entry is parsed: a malformed selection uses the
+  existing backend fallback, but does not block later valid modes. Saving a mode
+  reuses the first exact matching entry or appends it; existing spelling, order,
+  whitespace and duplicate entries remain unchanged.
 - Selecting Windowed through the new menu clears `vid_noborder`,
   `win_notitle` and `win_noresize` to provide a draggable, resizable frame.
 
@@ -120,8 +125,9 @@ game window or change host display
 settings. Cases cover selection, negative coordinates, desktop restoration,
 readback failures, rollback, disconnection, DPI transitions, focus changes,
 legacy bit depth, config preservation, fullscreen shortcuts, renderer restarts,
-window-size cycling across monitor polls, and external resolution changes at
-an unchanged refresh rate.
+window-size cycling across monitor polls, saved-mode reapplication after malformed
+legacy entries, unchanged configuration on Revert/timeout, and external resolution
+changes at an unchanged refresh rate.
 
 These fixtures do not verify GPU-driver presentation or visual appearance on
 physical monitors. Manual game validation, when authorized, should cover all
