@@ -23,7 +23,12 @@
 FPS defaults seed missing slots at client startup, after normal config/autoexec
 loading and command-line `+set` overrides. Explicitly configured or saved slots
 keep their values. Changing a default at runtime or through a late `+exec` does
-not reset existing slots.
+not reset existing slots. FPS command values must be complete positive decimal
+integers from 1 through 2147483647; the existing frame limiter still applies its
+mode-specific bounds and rounding. Invalid `+fps`, `-fps` or selected hold/release
+slot values leave the current FPS unchanged. Slot numbers must be complete
+integers from 1 through 12. Invalid startup defaults use 30 for missing hold slots
+and 120 for missing release slots, without overwriting saved slots or defaults.
 
 `toggle cl_maxfps 30 120` cycles between 30 and 120. If the current FPS is
 outside the list (for example, 60), the next toggle selects its first value,

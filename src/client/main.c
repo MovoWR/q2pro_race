@@ -18,6 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // cl_main.c  -- client main loop
 
 #include "client.h"
+#include "client/fps.h"
 #include "src/jump/strafe_helper_customization.h"
 #include "src/jump/strafe_helper.h"
 #include "src/jump/sh_menus.h"
@@ -2799,108 +2800,6 @@ void cl_timeout_changed(cvar_t *self)
     self->integer = 1000 * Cvar_ClampValue(self, 0, 24 * 24 * 60 * 60);
 }
 
-// Cvar_Set() writes with FROM_CODE, and change_string_value() deliberately
-// skips the `changed' callback in that case. Setting cl_maxfps that way would
-// update the cvar but leave the client ticking at the old rate, so re-time the
-// frame loop explicitly.
-static void CL_SetMaxFps(const char *value)
-{
-    Cvar_Set("cl_maxfps", value);
-    CL_UpdateFrameTimes();
-}
-
-static void CL_FpsDown_f(void)
-{
-    if (Cmd_Argc() < 3) {
-        Com_Printf("usage: +fps <down_fps> <up_fps>\n");
-        return;
-    }
-
-    const char *down_str = Cmd_Argv(1);
-    const char *up_str = Cmd_Argv(2);
-
-    if (!COM_IsUint(down_str) || Q_atoi(down_str) <= 0) {
-        Com_Printf("Error: down_fps must be a positive integer\n");
-        return;
-    }
-    if (!COM_IsUint(up_str) || Q_atoi(up_str) <= 0) {
-        Com_Printf("Error: up_fps must be a positive integer\n");
-        return;
-    }
-
-    CL_SetMaxFps(down_str);
-}
-
-static void CL_FpsUp_f(void)
-{
-    if (Cmd_Argc() < 3) {
-        Com_Printf("usage: -fps <down_fps> <up_fps>\n");
-        return;
-    }
-
-    const char *down_str = Cmd_Argv(1);
-    const char *up_str = Cmd_Argv(2);
-
-    if (!COM_IsUint(down_str) || Q_atoi(down_str) <= 0) {
-        Com_Printf("Error: down_fps must be a positive integer\n");
-        return;
-    }
-    if (!COM_IsUint(up_str) || Q_atoi(up_str) <= 0) {
-        Com_Printf("Error: up_fps must be a positive integer\n");
-        return;
-    }
-
-    CL_SetMaxFps(up_str);
-}
-
-#define NUM_FPS_SLOTS 12
-
-static cvar_t *fps_hold[NUM_FPS_SLOTS];
-static cvar_t *fps_release[NUM_FPS_SLOTS];
-
-// returns a zero based slot index, or -1 if the argument is out of range
-static int CL_ParseFpsSlot(void)
-{
-    int slot = Q_atoi(Cmd_Argv(1)) - 1;
-
-    if (slot < 0 || slot >= NUM_FPS_SLOTS) {
-        Com_Printf("usage: %s <slot 1-%d>\n", Cmd_Argv(0), NUM_FPS_SLOTS);
-        return -1;
-    }
-
-    return slot;
-}
-
-static void CL_FpsHoldDown_f(void)
-{
-    int slot = CL_ParseFpsSlot();
-
-    if (slot >= 0 && fps_hold[slot])
-        CL_SetMaxFps(fps_hold[slot]->string);
-}
-
-static void CL_FpsHoldUp_f(void)
-{
-    int slot = CL_ParseFpsSlot();
-
-    if (slot >= 0 && fps_release[slot])
-        CL_SetMaxFps(fps_release[slot]->string);
-}
-
-static void CL_FpsShortcut_f(void)
-{
-    const char *cmd = Cmd_Argv(0);
-    // command lookup is case insensitive, so `F60' reaches us just like `f60'
-    if (cmd && Q_tolower(cmd[0]) == 'f') {
-        int fps = Q_atoi(cmd + 1);
-        if (fps >= 20 && fps <= 120) {
-            char val[16];
-            Q_snprintf(val, sizeof(val), "%i", fps);
-            CL_SetMaxFps(val);
-        }
-    }
-}
-
 static const cmdreg_t c_client[] = {
     { "cmd", CL_ForwardToServer_f },
     { "pause", CL_Pause_f },
@@ -3281,13 +3180,7 @@ static void CL_InitLocal(void)
     SH_Init();
 
     // Configs and command-line overrides are loaded before missing slots are seeded.
-    for (int i = 0; i < NUM_FPS_SLOTS; i++) {
-        char name[32];
-        Q_snprintf(name, sizeof(name), "fps_hold_%d", i + 1);
-        fps_hold[i] = Cvar_Get(name, Cvar_VariableString("fps_default_hold"), CVAR_ARCHIVE);
-        Q_snprintf(name, sizeof(name), "fps_release_%d", i + 1);
-        fps_release[i] = Cvar_Get(name, Cvar_VariableString("fps_default_release"), CVAR_ARCHIVE);
-    }
+    CL_InitFpsSlots();
 }
 
 static const cmdreg_t c_ignores[] = {

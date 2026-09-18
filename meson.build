@@ -43,6 +43,7 @@ client_src = [
   'src/client/download.c',
   'src/client/effects.c',
   'src/client/entities.c',
+  'src/client/fps.c',
   'src/client/input.c',
   'src/client/keys.c',
   'src/client/locs.c',
@@ -392,6 +393,19 @@ strafe_efficiency_test_exe = executable(
   install: false,
 )
 test('strafe-efficiency', strafe_efficiency_test_exe, suite: 'jump-hud')
+
+fps_commands_test = executable(
+  'fps_commands_test',
+  ['tests/fps_commands_test.c', 'src/shared/shared.c'],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('fps-commands', fps_commands_test, suite: 'console')
 
 console_history_test = executable(
   'console_history_test',
