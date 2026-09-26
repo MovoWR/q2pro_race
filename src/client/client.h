@@ -638,6 +638,7 @@ void CL_Disconnect(error_type_t type);
 void CL_UpdateRecordingSetting(void);
 void CL_Begin(void);
 void CL_CheckForResend(void);
+bool CL_IsJumpGame(void);
 void CL_ClearState(void);
 void CL_RestartFilesystem(bool total);
 void CL_RestartRefresh(bool total);

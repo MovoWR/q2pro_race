@@ -394,6 +394,11 @@ static void CL_Pause_f(void)
     CL_CheckForPause();
 }
 
+bool CL_IsJumpGame(void)
+{
+    return fs_game && !Q_stricmp(fs_game->string, "jump");
+}
+
 /*
 =================
 CL_CheckForResend

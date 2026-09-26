@@ -1,0 +1,4 @@
+# Preserve imported reference snapshots and third-party notices byte for byte.
+tools/q2jump-starter/docs/baseline-evidence/** -text -whitespace
+tools/q2jump-starter/docs/design-import-20260912/** -text -whitespace
+tools/q2jump-starter/packaging/licenses/** -text -whitespace

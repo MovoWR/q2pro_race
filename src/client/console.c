@@ -669,9 +669,13 @@ Con_RegisterMedia
 */
 void Con_RegisterMedia(void)
 {
-    con.charsetImage = R_RegisterFont(con_font->string);
+    bool jump = CL_IsJumpGame();
+
+    con.charsetImage = R_RegisterFont(jump ? "prochars" : con_font->string);
     if (!con.charsetImage) {
-        if (strcmp(con_font->string, con_font->default_string)) {
+        if (jump) {
+            con.charsetImage = R_RegisterFont("conchars");
+        } else if (strcmp(con_font->string, con_font->default_string)) {
             Cvar_Reset(con_font);
             con.charsetImage = R_RegisterFont(con_font->default_string);
         }

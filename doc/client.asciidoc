@@ -11,9 +11,22 @@ since the original Quake 2 release. Cvars and commands inherited from original
 Quake 2 are not described here (yet).
 
 This copy describes q2pro_race and its registered defaults. Saved configs and
-command-line settings can override them; optional features depend on the build.
+command-line settings can override them except for the Jump fonts below;
+optional features depend on the build.
 See link:custom-cvars.md[the custom settings reference] for jump overlays,
 FPS bindings, bind reminders, menu customization, and the HUD editor.
+
+Jump appearance
+---------------
+
+While `game jump` is active, the console, HUD, and menu render with `prochars`,
+falling back to the stock `conchars` font if it cannot be loaded (for example,
+in a build without PNG support).
+The built-in Jump menu's decorative player model always uses `female/ctf_b`,
+regardless of the player's selected skin. These visual choices do not change
+the saved `con_font`, `scr_font`, `skin`, or `gender` cvars. Player setup and
+the skin and gender sent to servers continue to use the player's settings.
+Other game directories follow their normal font, menu, and appearance settings.
 
 JumpMod Keyboard Shortcuts
 -------------------------
@@ -408,7 +421,9 @@ con_scale::
     depending on current display resolution). Set to 1 to disable scaling.
 
 con_font::
-    Font used for drawing console text. Default value is "conchars".
+    Font used for drawing console text. Default value is "conchars". With
+    `game jump`, `prochars` is used, with `conchars` as a fallback, without
+    changing this cvar.
 
 con_background::
     Image used as console background. Default value is "conback".
@@ -505,7 +520,9 @@ scr_alpha::
     value is 0.7.
 
 scr_font::
-    Font used for drawing HUD text. Default value is "prochars".
+    Font used for drawing HUD text. Default value is "prochars". With
+    `game jump`, `prochars` is used, with `conchars` as a fallback, without
+    changing this cvar.
 
 scr_lag_draw::
     Toggles drawing of small (48x48 pixels) ping graph on the screen. Default

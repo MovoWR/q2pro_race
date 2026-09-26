@@ -181,6 +181,76 @@ jobs:
           name: q2pro_race-windows-${{ matrix.arch }}-${{ env.VERSION }}
           path: artifacts
 
+  starter:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Download pinned Starter build inputs
+        shell: pwsh
+        run: |
+          $starter = Join-Path $PWD 'tools/q2jump-starter'
+          $archives = Get-Content (Join-Path $starter 'docs/baseline-evidence/baseline-archives.json') -Raw | ConvertFrom-Json
+          $downloadDir = Join-Path $starter 'downloads/baseline'
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          foreach ($archive in $archives) {
+            $path = Join-Path $downloadDir $archive.filename
+            Invoke-WebRequest -Uri $archive.url -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $archive.sha256) {
+              throw "Starter archive checksum mismatch: $($archive.filename)"
+            }
+          }
+
+          $inputs = Get-Content (Join-Path $starter 'packaging/starter-inputs.json') -Raw | ConvertFrom-Json
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $installer
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $inputs.compiler.installer_sha256) {
+            throw 'Inno Setup installer checksum mismatch.'
+          }
+          $compilerDir = Join-Path $starter 'tools/vendor/innosetup-6.7.3'
+          & $installer /PORTABLE=1 /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART ('/DIR=' + $compilerDir)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $compiler = Join-Path $compilerDir 'ISCC.exe'
+          if (-not (Test-Path $compiler -PathType Leaf) -or
+              (Get-FileHash $compiler -Algorithm SHA256).Hash.ToLowerInvariant() -ne $inputs.compiler.sha256) {
+            throw 'Inno Setup compiler checksum mismatch.'
+          }
+
+      - name: Run Starter offline tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tools/q2jump-starter/tests -p test_build.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./tools/q2jump-starter/client-helper/build.ps1 -Output tools/q2jump-starter/build/ci-client-helper-tests -Test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Starter
+        shell: pwsh
+        run: |
+          python tools/q2jump-starter/scripts/build.py --output tools/q2jump-starter/build/ci-starter
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $inputs = Get-Content tools/q2jump-starter/packaging/starter-inputs.json -Raw | ConvertFrom-Json
+          $built = "tools/q2jump-starter/build/ci-starter/dist/Q2JUMP-Starter-$($inputs.version)-setup.exe"
+          if (-not (Test-Path $built -PathType Leaf)) { throw 'Starter build did not produce Setup.' }
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Copy-Item -LiteralPath $built -Destination artifacts/q2pro_race_starter.exe
+          if ((Get-FileHash $built -Algorithm SHA256).Hash -ne
+              (Get-FileHash artifacts/q2pro_race_starter.exe -Algorithm SHA256).Hash) {
+            throw 'Renamed Starter differs from the tested build.'
+          }
+
+      - name: Upload Starter artifact
+        uses: actions/upload-artifact@v7
+        with:
+          retention-days: 2
+          name: q2pro_race-starter
+          path: artifacts/q2pro_race_starter.exe
+          if-no-files-found: error
+
   macos:
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -265,7 +335,7 @@ jobs:
     if: >-
       ${{ github.event_name == 'push' &&
           (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/q2pro_race') }}
-    needs: [windows, macos, strafe-efficiency, linux-client]
+    needs: [windows, macos, strafe-efficiency, linux-client, starter]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -295,6 +365,7 @@ jobs:
           done
           # macOS ZIPs are created on macOS to retain executable permissions.
           cp artifacts/q2pro_race-darwin-*/*.zip artifacts/
+          cp artifacts/q2pro_race-starter/q2pro_race_starter.exe artifacts/
 
       - name: Create or update "latest" release
         env:
@@ -303,16 +374,16 @@ jobs:
           if gh release view latest --json name --jq .name >/dev/null 2>&1; then
             echo "Updating 'latest' release"
             gh release edit latest -t "Latest" -n "Automatically updated latest build" --latest
-            gh release upload latest ./artifacts/*.zip --clobber
+            gh release upload latest ./artifacts/*.zip ./artifacts/q2pro_race_starter.exe --clobber
           else
             echo "Creating latest release"
-            gh release create latest ./artifacts/*.zip --title "Latest" --notes "Automatically updated latest build"
+            gh release create latest ./artifacts/*.zip ./artifacts/q2pro_race_starter.exe --title "Latest" --notes "Automatically updated latest build"
           fi
       - name: Update tag
         uses: actions/github-script@v9
         with:
           script: |
-            github.rest.git.updateRef({
+            await github.rest.git.updateRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: "tags/latest",

@@ -68,6 +68,8 @@ defined in `meson_options.txt` file. `client-ui=false` removes client menus
 and the HUD editor while retaining Jump HUDs and console configuration. Full
 client builds still require a supported video backend.
 The default game directory is `jump`, while the base game is `baseq2`.
+Jump's console, HUD, and menu prefer `prochars` and fall back to the stock
+`conchars` font when it cannot be loaded, including builds without PNG support.
 
 MP4 video recording is experimental and excluded by default
 (`-Dmp4-recording=false`), including release CI builds. To include its encoder,

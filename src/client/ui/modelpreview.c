@@ -8,6 +8,7 @@ the Free Software Foundation; either version 2 of the License, or
 */
 
 #include "ui.h"
+#include "../client.h"
 
 typedef struct {
     int firstFrame;
@@ -140,6 +141,12 @@ static void ParseCurrentSkin(char *model, size_t modelSize,
 {
     char value[MAX_QPATH];
     char *p;
+
+    if (CL_IsJumpGame()) {
+        Q_strlcpy(model, "female", modelSize);
+        Q_strlcpy(skin, "ctf_b", skinSize);
+        return;
+    }
 
     Cvar_VariableStringBuffer("skin", value, sizeof(value));
     if ((p = strchr(value, '/')) || (p = strchr(value, '\\'))) {

@@ -1394,6 +1394,13 @@ void SCR_ModeChanged(void)
 
 static void scr_font_changed(cvar_t *self)
 {
+    if (CL_IsJumpGame()) {
+        scr.font_pic = R_RegisterFont("prochars");
+        if (!scr.font_pic)
+            scr.font_pic = R_RegisterFont("conchars");
+        return;
+    }
+
     scr.font_pic = R_RegisterFont(self->string);
     if (!scr.font_pic && strcmp(self->string, self->default_string)) {
         Cvar_Reset(self);

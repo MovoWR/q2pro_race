@@ -14,6 +14,7 @@ cvar_t *sys_basedir = &base_var;
 cvar_t *sys_homedir = &home_var;
 static int allocations;
 static char test_root[MAX_OSPATH];
+static bool media_test_active, media_jump, media_prochars;
 
 void Com_LPrintf(print_type_t type, const char *format, ...)
 {
@@ -253,6 +254,12 @@ void CL_RestartFilesystem(bool total)
     abort();
 }
 
+bool CL_IsJumpGame(void)
+{
+    assert(media_test_active);
+    return media_jump;
+}
+
 void SCR_EndLoadingPlaque(void)
 {
     abort();
@@ -270,6 +277,17 @@ bool SCR_ParseColor(const char *s, color_t *color)
 
 qhandle_t R_RegisterImage(const char *name, imagetype_t type, imageflags_t flags)
 {
+    assert(media_test_active);
+    if (type == IT_FONT) {
+        if (!strcmp(name, "prochars"))
+            return media_prochars ? 1 : 0;
+        if (!strcmp(name, "conchars"))
+            return 2;
+        if (!strcmp(name, "custom"))
+            return 3;
+    } else if (type == IT_PIC && !strcmp(name, "conback")) {
+        return 4;
+    }
     abort();
 }
 
@@ -429,6 +447,34 @@ static void RemoveFixtureDir(const char *name)
 #endif
 }
 
+static void TestMediaRegistration(void)
+{
+    cvar_t font = { .string = "custom", .default_string = "conchars" };
+    cvar_t background = { .string = "conback", .default_string = "conback" };
+
+    con_font = &font;
+    con_background = &background;
+    media_test_active = true;
+    media_jump = true;
+    media_prochars = true;
+    Con_RegisterMedia();
+    assert(con.charsetImage == 1 && con.backImage == 4);
+    assert(!strcmp(font.string, "custom"));
+
+    /* A build without PNG support can still load the stock PCX console font. */
+    media_prochars = false;
+    Con_RegisterMedia();
+    assert(con.charsetImage == 2 && con.backImage == 4);
+    assert(!strcmp(font.string, "custom"));
+
+    media_jump = false;
+    Con_RegisterMedia();
+    assert(con.charsetImage == 3 && con.backImage == 4);
+    assert(!strcmp(font.string, "custom"));
+    media_test_active = false;
+    con_font = con_background = NULL;
+}
+
 int main(void)
 {
     char base[MAX_OSPATH], home[MAX_OSPATH];
@@ -437,6 +483,7 @@ int main(void)
 #else
     unsigned pid = getpid();
 #endif
+    TestMediaRegistration();
     Q_snprintf(test_root, sizeof(test_root), "console-history-%u", pid);
     assert(!os_mkdir(test_root));
     FixturePath(base, "install");
@@ -577,6 +624,6 @@ int main(void)
 #else
     assert(!rmdir(test_root));
 #endif
-    puts("console history: persistence, isolation, fallback, limits and homedir passed");
+    puts("console history: persistence, isolation, fallback, limits, homedir and font registration passed");
     return 0;
 }

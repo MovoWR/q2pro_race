@@ -17,6 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "ui.h"
+#include "../client.h"
 #include "common/files.h"
 
 bool ui_builtin_menu_active = false;
@@ -1542,5 +1543,10 @@ void UI_LoadScript(void)
         Parse_BuiltinMenu();
     } else {
         Parse_File("q2pro.menu", 0);
+    }
+    if (CL_IsJumpGame()) {
+        uis.fontHandle = R_RegisterFont("prochars");
+        if (!uis.fontHandle)
+            uis.fontHandle = R_RegisterFont("conchars");
     }
 }
