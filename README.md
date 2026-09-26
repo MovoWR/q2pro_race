@@ -111,6 +111,12 @@ See [doc/custom-cvars.md](doc/custom-cvars.md) for the current list of race, HUD
 3. Launch the client.
 4. Open the in-game menus and tune the helper, network overlays, colors, and binds until the setup feels right.
 
+Fresh Jump configurations start with WASD movement, Space jump, Ctrl crouch,
+Mouse2 double-jump, F1 menu, Tab scoreboard, always run enabled, and
+`gl_beamstyle 1`. Existing player configurations and custom defaults are
+preserved. See the [first-launch bindings](doc/client.asciidoc) for the full
+layout and configuration precedence.
+
 ## Build
 
 Q2PRO uses the Meson build system. A basic local build looks like this:

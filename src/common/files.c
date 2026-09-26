@@ -3693,6 +3693,7 @@ void FS_AddConfigFiles(bool init)
     // default.cfg may come from packfile, but config.cfg and autoexec.cfg
     // must be real files within the game directory.
     Com_AddConfigFile(COM_DEFAULT_CFG, flag);
+    CL_AddDefaultConfig(flag);
     Com_AddConfigFile(COM_CONFIG_CFG, FS_TYPE_REAL | flag);
 
     // autoexec.cfg is executed twice, first from basedir and then from

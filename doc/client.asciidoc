@@ -28,6 +28,49 @@ the saved `con_font`, `scr_font`, `skin`, or `gender` cvars. Player setup and
 the skin and gender sent to servers continue to use the player's settings.
 Other game directories follow their normal font, menu, and appearance settings.
 
+First-launch Jump bindings
+-------------------------
+
+With `game jump`, a fresh configuration replaces the original PAK's keyboard
+layout with these defaults:
+
+[cols="1,2",options="header"]
+|=================
+| Key | Action
+| W / S / A / D | Forward / back / strafe left / strafe right
+| Space | Jump (`+moveup`)
+| Ctrl | Crouch (`+movedown`)
+| Mouse1 / Mouse2 | Attack / double jump (`+dj`)
+| Shift | Walk while always run is enabled
+| F1 | JumpMod menu (`inven`)
+| Tab | Scoreboard (`score`)
+| Enter | Select menu item (`invuse`)
+| [ / ] | Previous / next menu item
+| E / R | Join easy / hard team
+| Q / F | Store position / respawn (`kill`)
+| T / Y | Chat / team chat
+| F12 | Screenshot
+| Escape | Client menu
+| Backtick / tilde | Console
+|=================
+
+Always run (`cl_run 1`) and `gl_beamstyle 1` are enabled and archived with the
+player's settings. These are first-launch choices, not forced values.
+
+The client applies this layout after the original `default.cfg`, before
+`autoexec.cfg`, `postexec.cfg`, and command-line overrides. It skips the new
+defaults if the startup search finds an existing real player config
+(`q2config.cfg` on Windows, `config.cfg` elsewhere), a loose `default.cfg`, or
+a `default.cfg` in a Jump PAK/PKZ. Empty or unreadable config files also prevent
+replacement. Other game directories and dedicated servers keep their defaults.
+
+Saved binding lists now start with `unbindall`, so restarting or loading a
+binding export restores the saved layout without reviving stock bindings.
+Custom rebindings and unbound keys survive saving and reloading. An installation
+already launched with the old defaults keeps its saved configuration; updating
+the client does not reset it. Change that layout through Quick Binds or console
+`bind` commands.
+
 JumpMod Keyboard Shortcuts
 -------------------------
 

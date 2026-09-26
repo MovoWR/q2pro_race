@@ -212,8 +212,13 @@ jobs:
             throw 'Inno Setup installer checksum mismatch.'
           }
           $compilerDir = Join-Path $starter 'tools/vendor/innosetup-6.7.3'
-          & $installer /PORTABLE=1 /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART ('/DIR=' + $compilerDir)
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installation = Start-Process -FilePath $installer -ArgumentList @(
+            '/PORTABLE=1', '/CURRENTUSER', '/VERYSILENT',
+            '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $compilerDir + '"')
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($installation.ExitCode -ne 0) {
+            throw "Inno Setup installation failed with exit code $($installation.ExitCode)."
+          }
           $compiler = Join-Path $compilerDir 'ISCC.exe'
           if (-not (Test-Path $compiler -PathType Leaf) -or
               (Get-FileHash $compiler -Algorithm SHA256).Hash.ToLowerInvariant() -ne $inputs.compiler.sha256) {

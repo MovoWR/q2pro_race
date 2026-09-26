@@ -38,6 +38,7 @@ client_src = [
   'src/client/ascii.c',
   'src/client/console.c',
   'src/client/crc.c',
+  'src/client/defaults.c',
   'src/client/demo.c',
   'src/client/display.c',
   'src/client/download.c',
@@ -472,6 +473,27 @@ jump_menu_keys_test = executable(
   install: false,
 )
 test('jump-menu-keys', jump_menu_keys_test, suite: 'console')
+
+default_config_test = executable(
+  'default_config_test',
+  [
+    'tests/default_config_test.c',
+    'src/client/defaults.c',
+    'src/common/cmd.c',
+    'src/common/cvar.c',
+    'src/common/error.c',
+    'src/common/utils.c',
+    'src/shared/shared.c',
+  ],
+  include_directories: ['inc', '.'],
+  c_args: ['-DUSE_CLIENT=1', '-DUSE_REF=1'] +
+          cc.get_supported_arguments('/Gy', '-ffunction-sections', '-fdata-sections'),
+  link_args: cc.get_supported_link_arguments('/OPT:REF', '-Wl,--gc-sections', '-Wl,-dead_strip'),
+  dependencies: strafe_efficiency_test_deps + common_deps,
+  build_by_default: false,
+  install: false,
+)
+test('default-config', default_config_test, suite: 'console')
 
 laser_test = executable(
   'laser_test',

@@ -21,6 +21,9 @@ also deterministic when reconstructing retained installation/recovery receipts.
 The wizard has separate new-game and existing-game choices. The latter reviews
 client replacements before using the managed transaction and its backups;
 neither choice changes player configuration or custom PAKs.
+The client supplies first-launch Jump bindings when no saved player config or
+custom defaults exist; Starter does not install or overwrite configuration files.
+See `doc/client.asciidoc` in the engine source for the layout and startup order.
 Existing-game folders may contain unrelated uninstallers. Legacy combined
 Starter installations are identified by the `Q2JUMP.installation` marker.
 
@@ -50,6 +53,9 @@ archive URLs, sizes, and SHA-256 hashes. The Python builder checks all selected
 original-data files against `baseline-lock.json` before compiling setup.
 Keep these downloads under `downloads/baseline/` and the verified compiler
 under `tools/vendor/innosetup-6.7.3/`; those directories are excluded from Git.
+CI waits for the compiler installer to finish and checks its process exit code
+before verifying the pinned `ISCC.exe` checksum. A failed installation stops
+the provisioning step before the Starter tests or build run.
 The build also requires the Windows x64 .NET Framework C# compiler and
 PowerShell. See `packaging/SOURCE.txt` for source and rebuild details.
 

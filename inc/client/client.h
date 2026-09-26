@@ -70,6 +70,7 @@ bool CL_ProcessEvents(void);
 void CL_ErrorEvent(const netadr_t *from);
 #endif
 void CL_Init(void);
+void CL_AddDefaultConfig(unsigned flags);
 void CL_Disconnect(error_type_t type);
 void CL_Shutdown(void);
 unsigned CL_Frame(unsigned msec);
@@ -145,6 +146,7 @@ float V_CalcFov(float fov_x, float width, float height);
 #else // USE_CLIENT
 
 #define CL_Init()                       (void)0
+#define CL_AddDefaultConfig(flags)      (void)0
 #define CL_Disconnect(type)             (void)0
 #define CL_Shutdown()                   (void)0
 #define CL_UpdateUserinfo(var, from)    (void)0

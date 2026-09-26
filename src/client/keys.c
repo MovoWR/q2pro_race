@@ -504,6 +504,9 @@ void Key_WriteBindings(qhandle_t f)
 {
     int     i;
 
+    // Restore the complete layout without reviving bindings from default.cfg.
+    FS_FPrintf(f, "unbindall\n");
+
     for (i = 0; i < 256; i++) {
         if (keybindings[i] && keybindings[i][0]) {
             FS_FPrintf(f, "bind %s \"%s\"\n", Key_KeynumToString(i),
