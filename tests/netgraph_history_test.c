@@ -75,6 +75,7 @@ void R_EndFrame(void) { abort(); }
 bool MVD_GetDemoStatus(float *progress, bool *paused, int *framenum) { abort(); }
 #endif
 unsigned Sys_Milliseconds(void) { abort(); }
+bool CL_IsJumpGame(void) { abort(); }
 void CL_SetSky(void) { abort(); }
 bool shc_ParseColorCvar(const char *cvarValue, uint32_t *outUint32, color_t *outColor) { abort(); }
 void IN_Activate(void) { abort(); }
