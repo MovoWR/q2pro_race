@@ -159,9 +159,7 @@ jobs:
           mkdir artifacts/jump/players
           mkdir artifacts/jump/players/female
           cp builddir-${{ matrix.arch }}/q2pro_race.exe artifacts/
-          cp jump/pics/prochars.png artifacts/jump/pics/
-          cp jump/pics/conback.png artifacts/jump/pics/
-          cp jump/pics/q2jump_background.png artifacts/jump/pics/
+          cp jump/pics/* artifacts/jump/pics/
           cp jump/players/female/ctf_b.pcx artifacts/jump/players/female/
           cp jump/players/female/ctf_b.png artifacts/jump/players/female/
           cp jump/players/female/ctf_b_i.pcx artifacts/jump/players/female/
@@ -324,7 +322,7 @@ jobs:
           mkdir -p artifacts q2pro_race/baseq2 q2pro_race/jump/pics q2pro_race/jump/players/female
           cp "$builddir/q2pro_race" q2pro_race/
           cp "$builddir/game${{ matrix.arch }}.dylib" q2pro_race/baseq2/
-          cp jump/pics/prochars.png jump/pics/conback.png jump/pics/q2jump_background.png q2pro_race/jump/pics/
+          cp jump/pics/* q2pro_race/jump/pics/
           cp jump/players/female/ctf_{b,r}{.pcx,.png,_i.pcx} q2pro_race/jump/players/female/
           zip -r "artifacts/q2pro_race-darwin-${{ matrix.arch }}.zip" q2pro_race
 

@@ -11,6 +11,9 @@ build and test Starter but do not publish a release. This describes the
 configured workflow, not evidence that a remote CI run or public upload passed.
 
 Starter downloads the published Windows x64 client ZIP at installation time.
+Windows and macOS client packaging copies every file in the checked-in
+`jump/pics/` directory, including the PCX images and the PNG backgrounds and
+font. Starter installs this complete picture set from the Windows x64 ZIP.
 When `latest` contains several revisioned x64 ZIPs, Starter chooses the matching
 asset with the newest GitHub `created_at` timestamp, using the higher asset ID
 to break a same-second tie. Revision counts can differ across publishing
