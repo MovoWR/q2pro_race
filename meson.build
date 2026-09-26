@@ -374,6 +374,11 @@ else
   client_src += 'src/client/cin.c'
 endif
 
+if get_option('mp4-recording') and config.get('USE_AVCODEC', 0) == 0
+  error('MP4 recording requires FFmpeg support; configure with -Davcodec=enabled.')
+endif
+config.set10('USE_MP4_RECORDING', get_option('mp4-recording'))
+
 if win32
   subdir('src/windows')
 else
@@ -843,6 +848,7 @@ summary({
   'libpng'             : config.get('USE_PNG', 0) != 0,
   'md3'                : config.get('USE_MD3', 0) != 0,
   'md5'                : config.get('USE_MD5', 0) != 0,
+  'mp4-recording'      : config.get('USE_MP4_RECORDING', 0) != 0,
   'mvd-client'         : config.get('USE_MVD_CLIENT', 0) != 0,
   'mvd-server'         : config.get('USE_MVD_SERVER', 0) != 0,
   'openal'             : config.get('USE_OPENAL', 0) != 0,

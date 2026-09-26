@@ -43,7 +43,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <jpeglib.h>
 #endif
 
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -1334,7 +1334,7 @@ static void make_screenshot(const char *name, const char *ext,
 
 #endif // USE_TGA || USE_JPG || USE_PNG
 
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
 
 /*
 ==================
@@ -1915,11 +1915,11 @@ static void IMG_MP4Status_f(void)
                minutes, seconds, mp4.bitrate);
 }
 
-#endif // USE_AVCODEC
+#endif // USE_MP4_RECORDING
 
 bool IMG_Recording(void)
 {
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
     return mp4.fmt_ctx != NULL;
 #else
     return false;
@@ -2838,7 +2838,7 @@ fail:
 
 static const cmdreg_t img_cmd[] = {
     { "imagelist", IMG_List_f, IMG_List_c },
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
     { "mp4record", IMG_MP4Record_f },
     { "mp4stop", IMG_MP4Stop_f },
     { "mp4status", IMG_MP4Status_f },
@@ -2887,7 +2887,7 @@ void IMG_Init(void)
     r_screenshot_template = Cvar_Get("gl_screenshot_template", "quakeXXX", 0);
 #endif // USE_PNG || USE_JPG || USE_TGA
 
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
     r_mp4_fps = Cvar_Get("gl_mp4_fps", "60", 0);
     r_mp4_template = Cvar_Get("gl_mp4_template", "demoXX", 0);
     r_mp4_bitrate = Cvar_Get("gl_mp4_bitrate", "15000", 0);
@@ -2911,7 +2911,7 @@ void IMG_Init(void)
 
 void IMG_Shutdown(void)
 {
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
     IMG_StopMP4();
 #endif
     Cmd_Deregister(img_cmd);

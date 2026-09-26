@@ -410,12 +410,15 @@ the clean latency/jitter baseline. Jitter averaging retains fractional milliseco
 
 ## MP4 Recording
 
-These cvars and `mp4record [filename]`, `mp4stop`, and `mp4status` require a
-build with FFmpeg support (`avcodec`). The configured Windows CI build disables
-that feature, so it does not provide these commands. Native `record` / `stop`
-demo recording is separate and does not require FFmpeg. MP4 output is written
-to the active game directory's `video/` folder; available encoders depend on
-the linked FFmpeg build.
+These cvars and `mp4record [filename]`, `mp4stop`, and `mp4status` require
+`-Dmp4-recording=true` together with FFmpeg support (`-Davcodec=enabled`).
+MP4 recording is experimental and defaults to off; release CI explicitly uses
+`-Dmp4-recording=false`. With it disabled, the encoder, commands and cvars are
+excluded even when FFmpeg cinematic/music playback is enabled. Native
+`record` / `stop` demo recording is separate and does not require FFmpeg.
+The tracked built-in and external menus contain no MP4 recording entries.
+MP4 output is written to the active game directory's `video/` folder;
+available encoders depend on the linked FFmpeg build.
 
 | Cvar | Default | Description |
 | --- | --- | --- |

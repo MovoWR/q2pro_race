@@ -69,6 +69,13 @@ and the HUD editor while retaining Jump HUDs and console configuration. Full
 client builds still require a supported video backend.
 The default game directory is `jump`, while the base game is `baseq2`.
 
+MP4 video recording is experimental and excluded by default
+(`-Dmp4-recording=false`), including release CI builds. To include its encoder,
+commands and cvars, configure with `-Dmp4-recording=true -Davcodec=enabled`
+and install the FFmpeg dependencies listed above. Enabling recording without
+FFmpeg support is a configuration error. FFmpeg cinematic/music playback and
+native `record` / `stop` demo recording do not depend on this option.
+
 Optional libraries are selected with Meson feature options and the wrap files
 in `subprojects/`. Native Windows video links `opengl32`, sound/input uses
 `winmm`, and sockets use `ws2_32`. The tracked

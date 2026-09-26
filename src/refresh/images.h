@@ -89,7 +89,7 @@ void IMG_FreeAll(void);
 void IMG_Init(void);
 void IMG_Shutdown(void);
 void IMG_GetPalette(void);
-#if USE_AVCODEC
+#if USE_MP4_RECORDING
 void IMG_MP4Frame(void);
 void IMG_StopMP4(void);
 #endif
