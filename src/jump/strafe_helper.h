@@ -10,6 +10,7 @@ extern "C" {
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
 // Fixed setting limits; viewport clipping must not change saved preferences.
+#define SH_MARKER_HEIGHT_MAX          80.0f
 #define SH_EFFICIENCY_WIDTH_MIN       8.0f
 #define SH_EFFICIENCY_WIDTH_MAX       4000.0f
 #define SH_EFFICIENCY_HEIGHT_MIN      1.0f
@@ -200,6 +201,8 @@ extern cvar_t *cl_strafehelperSmoothingMode;
 extern cvar_t *cl_strafehelperNerdStats;
 extern cvar_t *cl_strafehelper_center_width;
 extern cvar_t *cl_strafehelper_optimal_width;
+extern cvar_t *cl_strafehelper_center_height;
+extern cvar_t *cl_strafehelper_optimal_height;
 extern cvar_t *cl_strafehelper_optimal_outline;
 extern cvar_t *cl_strafehelper_color_accelerating;
 extern cvar_t *cl_strafehelper_color_optimal;

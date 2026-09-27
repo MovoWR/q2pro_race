@@ -56,6 +56,8 @@ void SH_Cmd_g(genctx_t *ctx, int argnum) {
             Prompt_AddMatch(ctx, "smoothing_mode");
             Prompt_AddMatch(ctx, "center_width");
             Prompt_AddMatch(ctx, "optimal_width");
+            Prompt_AddMatch(ctx, "center_height");
+            Prompt_AddMatch(ctx, "optimal_height");
             Prompt_AddMatch(ctx, "color_accelerating");
             Prompt_AddMatch(ctx, "color_optimal");
             Prompt_AddMatch(ctx, "color_centermarker");
@@ -199,6 +201,10 @@ void SH_Cmd_f(void) {
             SH_CenterWidth_f();
         else if (!strcmp(cmd, "optimal_width"))
             SH_OptimalWidth_f();
+        else if (!strcmp(cmd, "center_height"))
+            SH_CenterHeight_f();
+        else if (!strcmp(cmd, "optimal_height"))
+            SH_OptimalHeight_f();
         else if (!strcmp(cmd, "color_accelerating"))
             SH_Color_Accel_f();
         else if (!strcmp(cmd, "color_optimal"))
@@ -348,6 +354,8 @@ void SH_Status_f(void) {
     SH_PrintStatusInt("Smoothing mode", cl_strafehelperSmoothingMode);
     SH_PrintStatusFloat("Center width", cl_strafehelper_center_width);
     SH_PrintStatusFloat("Optimal width", cl_strafehelper_optimal_width);
+    SH_PrintStatusFloat("Center height", cl_strafehelper_center_height);
+    SH_PrintStatusFloat("Optimal height", cl_strafehelper_optimal_height);
     SH_PrintStatusInt("Optimal outline", cl_strafehelper_optimal_outline);
     SH_PrintStatusString("Accelerating color", cl_strafehelper_color_accelerating);
     SH_PrintStatusString("Optimal color", cl_strafehelper_color_optimal);

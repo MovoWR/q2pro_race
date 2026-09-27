@@ -153,6 +153,8 @@ static void CheckNumericSettings(void)
         { "eff", "hold", "sh_efficiency_hold_ms", "0", "2000", "-0.01", "2000.01" },
         { "eff", "text_scale", "sh_efficiency_text_scale", "0.25", "8", "0.24", "8.01" },
         { "hud", "ypos", "sh_y", "-4000", "4000", "-4000.01", "4000.01" },
+        { "hud", "center_height", "sh_center_height", "0", "80", "-0.01", "80.01" },
+        { "hud", "optimal_height", "sh_optimal_height", "0", "80", "-0.01", "80.01" },
         { "ups", "ypos", "sh_ups_y", "-4000", "4000", "-4000.01", "4000.01" },
         { "ups", "scale", "sh_ups_scale", "0.25", "8", "0.24", "8.01" },
     };
@@ -214,6 +216,11 @@ static void CheckNumericSettings(void)
 int main(void)
 {
     SH_Init();
+    assert(cl_strafehelper_center_height && cl_strafehelper_optimal_height);
+    assert(!strcmp(cl_strafehelper_center_height->default_string, "0"));
+    assert(!strcmp(cl_strafehelper_optimal_height->default_string, "0"));
+    assert(cl_strafehelper_center_height->flags & CVAR_ARCHIVE);
+    assert(cl_strafehelper_optimal_height->flags & CVAR_ARCHIVE);
     for (int i = 0; i < test_var_count; i++)
         assert(strncmp(test_vars[i].name, "sh_ice", 6));
     int registered_vars = test_var_count;
@@ -235,6 +242,17 @@ int main(void)
 
     CheckNumericSettings();
 
+    Invoke("hud", "center_height", "3.5");
+    assert(!strcmp(cl_strafehelper_center_height->string, "3.5"));
+    assert(!strcmp(cl_strafehelper_optimal_height->string, "0"));
+    Invoke("hud", "optimal_height", "0.25");
+    assert(!strcmp(cl_strafehelper_optimal_height->string, "0.25"));
+    assert(!strcmp(cl_strafehelper_center_height->string, "3.5"));
+    Invoke("hud", "help", NULL);
+    assert(strstr(test_output, "center_height") && strstr(test_output, "optimal_height"));
+    Invoke("status", NULL, NULL);
+    assert(strstr(test_output, "Center height") && strstr(test_output, "Optimal height"));
+
     const char *valid[] = { "0", "-50", "50", "-4000", "4000", "-12.5", " 5 ", "+5e-1", "-0" };
     for (int i = 0; i < q_countof(valid); i++) {
         Invoke("hud", "ypos", valid[i]);
@@ -254,6 +272,7 @@ int main(void)
     assert(matches == 5 && Matched("hud") && Matched("eff") && Matched("ups") && !Matched("ice"));
     Complete("hud", NULL, 2);
     assert(Matched("ypos") && Matched("preset") && !Matched("fade_inactive"));
+    assert(Matched("center_height") && Matched("optimal_height"));
     Complete("hud", "bar_style", 3);
     assert(matches == 4 && Matched("solid") && Matched("gradient"));
     Complete("hud", "smoothing_mode", 3);

@@ -162,10 +162,14 @@ static void ExpectDefaults(void)
     ExpectBinding("ENTER", "invuse");
     ExpectBinding("[", "invprev");
     ExpectBinding("]", "invnext");
-    ExpectBinding("e", "team easy");
-    ExpectBinding("r", "team hard");
+    ExpectBinding("e", "");
+    ExpectBinding("r", "");
+    ExpectBinding("F5", "team hard");
+    ExpectBinding("F6", "team easy");
     ExpectBinding("q", "store");
-    ExpectBinding("f", "kill");
+    ExpectBinding("f", "");
+    ExpectBinding("k", "kill");
+    ExpectBinding("1", "replay g 1");
     ExpectBinding("UPARROW", "");
     ExpectBinding("MOUSE3", "");
     ExpectBinding(",", "");

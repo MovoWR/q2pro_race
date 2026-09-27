@@ -46,8 +46,11 @@ layout with these defaults:
 | Tab | Scoreboard (`score`)
 | Enter | Select menu item (`invuse`)
 | [ / ] | Previous / next menu item
-| E / R | Join easy / hard team
-| Q / F | Store position / respawn (`kill`)
+| F6 | Join easy team
+| F5 | Join hard team
+| Q | Store position
+| K | Respawn (`kill`)
+| 1 | Replay (`replay g 1`)
 | T / Y | Chat / team chat
 | F12 | Screenshot
 | Escape | Client menu
@@ -97,6 +100,11 @@ that key is released, even if Ctrl is released first.
 
 Variables
 ---------
+
+Enter a variable name without a value to display its current value and default,
+even when they match. For example, `sh_height` shows the current strafe-helper
+height alongside its default. Use `creset sh_height` to restore that setting to
+its default.
 
 Netcode
 ~~~~~~~
@@ -163,7 +171,7 @@ cl_async::
 
 r_maxfps::
     Specifies the rendering rate limit when ‘cl_async’ is positive. Default
-    value is 120. Nonzero values are clamped to 10-1000; 0 selects the 1000 FPS
+    value is 125. Nonzero values are clamped to 10-1000; 0 selects the 1000 FPS
     ceiling. The scheduler rounds the frame interval to whole milliseconds.
 
 cl_maxfps::
@@ -685,6 +693,10 @@ controls. Apply starts a 15-second Keep/Revert confirmation before saving the
 archived settings. VSync-only changes commit immediately. Back discards
 unapplied changes. See
 link:display-settings.md[Display settings] for behavior and validation details.
+
+gl_swapinterval::
+    Controls vertical synchronization. Default value is 0 (disabled).
+    Set to 1 to synchronize buffer swaps with the display refresh.
 
 vid_modelist::
     Space separated list of fullscreen video modes. Both _freq_ and _bpp_

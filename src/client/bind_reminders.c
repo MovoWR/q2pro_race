@@ -28,18 +28,18 @@ static const struct {
     const char *name, *command, *label, *value;
 } extended_reminders[BIND_REMINDER_EXTENDED_COUNT] = {
     { "scr_bindreminders_menu", "inven", "Menu", "1" },
-    { "scr_bindreminders_respawn", "kill", "Respawn", "0" },
-    { "scr_bindreminders_store", "store", "Store", "1" },
+    { "scr_bindreminders_respawn", "kill", "Respawn", "1" },
+    { "scr_bindreminders_store", "store", "Store", "0" },
     { "scr_bindreminders_observer", "observer", "Observer", "0" },
 };
 
 void SCR_BindRemindersInit(void)
 {
     static const char *const commands[BIND_REMINDER_COUNT] = {
-        "toggle cl_maxfps 30 120", "store", "recall", "reset", "", "", "", ""
+        "toggle cl_maxfps 30 120", "team hard", "recall", "team easy", "", "", "", ""
     };
     static const char *const labels[BIND_REMINDER_COUNT] = {
-        "30 / 120", "Store", "Recall", "Reset", "", "", "", ""
+        "30 / 120", "Team hard", "Recall", "Team easy", "", "", "", ""
     };
     char name[64], legacy_name[64];
 
@@ -599,9 +599,10 @@ void SCR_PreviewBindReminders(void)
             { "1", "20 FPS", true, true },
             { "MOUSE4", "30 / 120", true, false },
             { "MOUSE5", "30 > 120", true, false },
-            { "F", "Store", false, false },
-            { "R", "Recall", false, false },
-            { "T", "Reset", false, false },
+            { "K", "Respawn", false, false },
+            { "F1", "Menu", false, false },
+            { "F5", "Team hard", false, false },
+            { "F6", "Team easy", false, false },
         };
         memcpy(rows, sample, sizeof(sample));
         count = q_countof(sample);

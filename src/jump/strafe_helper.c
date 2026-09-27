@@ -739,6 +739,14 @@ bool StrafeHelper_HasData(void) {
     return sh.velocity_norm > SH_EPSILON;
 }
 
+static float SH_MarkerHeight(const cvar_t *var, float automatic_height) {
+    const float height = var ? HUD_EditorValue(var) : 0.0f;
+    if (!isfinite(height) || height <= 0.0f) {
+        return automatic_height;
+    }
+    return SH_ClampDrawValue(height, 1.0f, SH_MARKER_HEIGHT_MAX);
+}
+
 void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
                               const float hud_width, const float hud_height,
                               const int font_pic) {
@@ -760,6 +768,9 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     const float optimal_x = center_x + optimal_offset;
     const float visual_scale = SH_VisualScale(hud_strafe_scale);
     const float center_y = upper_y + params->height * 0.5f;
+    const float center_height = SH_MarkerHeight(cl_strafehelper_center_height, params->height * 0.5f);
+    const float optimal_height = SH_MarkerHeight(cl_strafehelper_optimal_height, params->height);
+    const float optimal_y = center_y - optimal_height * 0.5f;
     SH_Efficiency_DrawPreview(center_y - params->height * visual_scale * 0.5f,
                               params->height * visual_scale, hud_width,
                               params->hud_scale, font_pic);
@@ -772,26 +783,26 @@ void StrafeHelper_DrawPreview(const struct StrafeHelperParams *params,
     if (cl_strafehelper_optimal_outline && cl_strafehelper_optimal_outline->integer) {
         drawRectangleOutline(
             optimal_x - optimal_width / 2.0f,
-            upper_y,
+            optimal_y,
             optimal_width,
-            params->height,
+            optimal_height,
             1.0f,
             shc_ElementId_OptimalAngle);
     } else {
         shc_drawFilledRectangle(
             optimal_x - optimal_width / 2.0f,
-            upper_y,
+            optimal_y,
             optimal_width,
-            params->height,
+            optimal_height,
             shc_ElementId_OptimalAngle);
     }
 
     if (params->center_marker) {
         shc_drawFilledRectangle(
             center_x - center_width / 2.0f,
-            upper_y + params->height / 2.0f,
+            upper_y + params->height - center_height,
             center_width,
-            params->height / 2.0f,
+            center_height,
             shc_ElementId_CenterMarker);
     }
 
@@ -866,11 +877,13 @@ void StrafeHelper_Draw(const struct StrafeHelperParams *params,
     }
 
     const bool outline = cl_strafehelper_optimal_outline && cl_strafehelper_optimal_outline->integer;
-    drawAngleMarker(sh.angle_optimal + offset, optimal_width, upper_y, params->height,
+    const float optimal_height = SH_MarkerHeight(cl_strafehelper_optimal_height, params->height);
+    drawAngleMarker(sh.angle_optimal + offset, optimal_width, center_y - optimal_height * 0.5f, optimal_height,
                     params, hud_width, shc_ElementId_OptimalAngle, outline);
     if (params->center_marker) {
         const float current_angle = params->center ? 0.0f : SH_UnwrapAngle(sh.angle_current, 0.0f);
-        drawAngleMarker(current_angle, center_width, upper_y + params->height / 2.0f, params->height / 2.0f,
+        const float center_height = SH_MarkerHeight(cl_strafehelper_center_height, params->height * 0.5f);
+        drawAngleMarker(current_angle, center_width, upper_y + params->height - center_height, center_height,
                         params, hud_width, shc_ElementId_CenterMarker, false);
     }
     SH_EndVisualDraw(HUD_EDIT_STRAFE, params->hud_scale);

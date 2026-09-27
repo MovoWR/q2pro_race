@@ -17,6 +17,10 @@ void SH_ypos_f(void);
 
 void SH_Height_f(void);
 
+void SH_CenterHeight_f(void);
+
+void SH_OptimalHeight_f(void);
+
 void SH_CenterMarker_f(void);
 
 void SH_CenterWidth_f(void);

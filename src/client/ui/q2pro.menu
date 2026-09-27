@@ -134,7 +134,7 @@ begin options
     title "Options"
 
     action --status "Customize your player name and appearance." "player setup" pushmenu players
-    action --status "Configure jump-specific HUD and assist tools." "Jump Settings" pushmenu jump
+    action --status "Configure jump-specific HUD and assist tools." "jump settings" pushmenu jump
     action --status "Adjust mouse sensitivity and input settings." "input setup" pushmenu input
     action --status "Bind movement and game actions to keys." "key bindings" pushmenu keys
     action --status "Graphics, resolution, and quality settings." "video setup" pushmenu video
@@ -527,13 +527,15 @@ begin strafehelper
     toggle --show-value --status "Show a central mark for neutral mouse position." "center marker" sh_centermarker
     range --show-value --status "Scale factor for the strafe helper bar." "scale" sh_scale 0.5 4.0 0.1
     range --show-value --status "Vertical offset from screen center; negative values move upward." "Y position" sh_y -320 320 5
-    range --show-value --status "Height of the strafe helper bar in pixels." "height" sh_height 4 80 1
+    range --show-value --status "Accelerating bar height in pixels; sets automatic marker heights." "height" sh_height 4 80 1
     range --show-value --status "Transparency of the strafe helper bar." "alpha" sh_alpha 0 1 0.05
     strings --show-value --status "Visual drawing style of the strafe helper." "bar style" sh_bar_style gradient solid outline minimal
     range --show-value --status "Smooth visual movement of strafe helper angles; 0 disables it." "smoothing" sh_smoothing 0 10 0.1
     pairs --show-value --status "Easing curve used by strafe helper smoothing." "   smoothing mode" sh_smoothing_mode linear 1 quadratic 2 cubic 3 sine 4 exponential 5
     range --show-value --status "Width of the center mouse position marker." "center width" sh_center_width 0.1 5 0.1
+    range --show-value --status "Center marker height in pixels; 0 uses half the bar height." "center height" sh_center_height 0 80 1
     range --show-value --status "Width of the optimal acceleration zone." "optimal width" sh_optimal_width 0.1 5 0.1
+    range --show-value --status "Optimal marker height in pixels; 0 uses the bar height." "optimal height" sh_optimal_height 0 80 1
     toggle --show-value --status "Draw the optimal angle marker as an outline." "optimal outline" sh_optimal_outline
     field --picker --status "Color when mouse is within optimal zone." "accelerating color" sh_color_accelerating
     field --picker --status "Color when moving at perfect angle." "optimal color" sh_color_optimal
@@ -642,6 +644,7 @@ begin raceline
     focus --menu-width
 
     style --live
+    pairs --show-value --status "Drawing style for race lines and other beams. Heatmap styles replace the line color." "style" gl_beamstyle textured 0 polygonal 1 heatmap 2 arrow 3 "heat + arrow" 4
     range --show-value --status "Thickness of the movement trail line." "width" race_width 0 20 1
     range --show-value --status "Opacity level of the movement trail." "opacity" race_alpha 0 1 0.05
     range --show-value --status "Duration before the line fades away (ms)." "lifetime (ms)" race_life 0 5000 100

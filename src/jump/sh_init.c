@@ -63,9 +63,11 @@ cvar_t *cl_strafehelperSmoothing;
 cvar_t *cl_strafehelperSmoothingMode;
 cvar_t *cl_strafehelperNerdStats;
 
-// width
+// marker geometry
 cvar_t *cl_strafehelper_center_width;
 cvar_t *cl_strafehelper_optimal_width;
+cvar_t *cl_strafehelper_center_height;
+cvar_t *cl_strafehelper_optimal_height;
 cvar_t *cl_strafehelper_optimal_outline;
 
 // color settings
@@ -203,6 +205,8 @@ void SH_Init(void)
     cl_strafehelperSmoothingMode = Cvar_Get("sh_smoothing_mode", "1", CVAR_ARCHIVE);
     cl_strafehelper_center_width = Cvar_Get("sh_center_width", "2", CVAR_ARCHIVE);
     cl_strafehelper_optimal_width = Cvar_Get("sh_optimal_width", "2", CVAR_ARCHIVE);
+    cl_strafehelper_center_height = Cvar_Get("sh_center_height", "0", CVAR_ARCHIVE);
+    cl_strafehelper_optimal_height = Cvar_Get("sh_optimal_height", "0", CVAR_ARCHIVE);
     cl_strafehelper_optimal_outline = Cvar_Get("sh_optimal_outline", "1", CVAR_ARCHIVE);
     cl_strafehelper_color_accelerating = Cvar_Get("sh_color_accelerating", "0 128 0 128", CVAR_ARCHIVE);
     cl_strafehelper_color_optimal = Cvar_Get("sh_color_optimal", "255 215 0 255", CVAR_ARCHIVE);

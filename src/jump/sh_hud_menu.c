@@ -229,6 +229,16 @@ void SH_CenterMarker_f(void) {
     Com_Printf("Center marker %s.\n", enable ? "enabled" : "disabled");
 }
 
+void SH_CenterHeight_f(void) {
+    SH_SetFloatCvar("sh_center_height", "Center marker height (0 = half bar height)",
+                    "sh hud center_height <0-80>", 0.0f, SH_MARKER_HEIGHT_MAX);
+}
+
+void SH_OptimalHeight_f(void) {
+    SH_SetFloatCvar("sh_optimal_height", "Optimal marker height (0 = bar height)",
+                    "sh hud optimal_height <0-80>", 0.0f, SH_MARKER_HEIGHT_MAX);
+}
+
 void SH_CenterWidth_f(void) {
     if (Cmd_Argc() < 4) // Check if no value argument provided
     {
@@ -812,7 +822,9 @@ void SH_Hud_Help_f(void) {
     Com_Printf("Layout\n");
     Com_Printf("  %-34s %s\n", "scale <value>", "Set bar horizontal scale.");
     Com_Printf("  %-34s %s\n", "ypos <-4000-4000>", "Set vertical offset from screen center.");
-    Com_Printf("  %-34s %s\n", "height <value>", "Set bar height.");
+    Com_Printf("  %-34s %s\n", "height <value>", "Set accelerating bar height and automatic marker heights.");
+    Com_Printf("  %-34s %s\n", "center_height <0-80>", "Center marker pixels; 0 uses half the bar height.");
+    Com_Printf("  %-34s %s\n", "optimal_height <0-80>", "Optimal marker pixels; 0 uses the bar height.");
     Com_Printf("  %-34s %s\n", "center_width <0.1-5.0>", "Set center marker width.");
     Com_Printf("  %-34s %s\n", "optimal_width <value>", "Set optimal marker width.");
     Com_Printf("----------------------------------------------------------------------------------------\n");

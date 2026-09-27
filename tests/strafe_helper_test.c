@@ -12,7 +12,7 @@ client_state_t cl;
 client_static_t cls;
 static cvar_t smoothing_var, smoothing_mode_var, nerdstats_var;
 static struct {
-    float x, width;
+    float x, y, width, height;
     enum shc_ElementId id;
 } drawn_rectangles[16];
 static int drawn_count;
@@ -504,6 +504,113 @@ static void CheckVisualScaling(void)
     hud_ups_scale->value = 1;
 }
 
+static void CheckElementHeight(enum shc_ElementId id, float expected_y, float expected_height)
+{
+    float top = INFINITY, bottom = -INFINITY;
+    for (int i = 0; i < drawn_count; i++) {
+        if (drawn_rectangles[i].id != id) continue;
+        top = min(top, drawn_rectangles[i].y);
+        bottom = max(bottom, drawn_rectangles[i].y + drawn_rectangles[i].height);
+    }
+    if (expected_height == 0) {
+        assert(isinf(top) && top > 0);
+        return;
+    }
+    assert(isfinite(top) && isfinite(bottom));
+    CheckNear(top, expected_y, .0001f);
+    CheckNear(bottom - top, expected_height, .0001f);
+}
+
+static void CheckElementHeights(void)
+{
+    static const struct {
+        float bar_height, center, optimal, center_height, optimal_height;
+    } cases[] = {
+        { 12, 0, 0, 6, 12 },
+        { 12, 20, 0, 20, 12 },
+        { 12, 0, 24, 6, 24 },
+        { 12, 3.5f, 19.5f, 3.5f, 19.5f },
+        { 30, 0, 0, 15, 30 },
+        { 12, .25f, .75f, 1, 1 },
+        { 12, 100, 100, 80, 80 },
+        { 12, -1, -10, 6, 12 },
+        { 12, NAN, NAN, 6, 12 },
+        { 12, INFINITY, -INFINITY, 6, 12 },
+    };
+    static const char *styles[] = { "solid", "gradient", "outline", "minimal" };
+    cvar_t width = { .value = 2 }, style = { 0 }, outline = { 0 };
+    cvar_t center_height = { 0 }, optimal_height = { 0 };
+    cvar_t *old_center_width = cl_strafehelper_center_width;
+    cvar_t *old_optimal_width = cl_strafehelper_optimal_width;
+    cvar_t *old_center_height = cl_strafehelper_center_height;
+    cvar_t *old_optimal_height = cl_strafehelper_optimal_height;
+    cvar_t *old_style = cl_strafehelperBarStyle;
+    cvar_t *old_outline = cl_strafehelper_optimal_outline;
+    cl_strafehelper_center_width = cl_strafehelper_optimal_width = &width;
+    cl_strafehelper_center_height = &center_height;
+    cl_strafehelper_optimal_height = &optimal_height;
+    cl_strafehelperBarStyle = &style;
+    cl_strafehelper_optimal_outline = &outline;
+    Setup(0);
+    Sample(400, .5f, 1, 0, 300, 2.4f);
+    cl.frame.ps.pmove.pm_type = PM_NORMAL;
+    test_draw_scale = 1;
+
+    for (int preview = 0; preview <= 1; preview++) {
+        for (int s = 0; s < q_countof(styles); s++) {
+            style.string = (char *)styles[s];
+            for (int border = 0; border <= 1; border++) {
+                outline.integer = border;
+                for (int i = 0; i < q_countof(cases); i++) {
+                    struct StrafeHelperParams params = {
+                        .center = 1, .center_marker = 1, .scale = 1,
+                        .height = cases[i].bar_height, .y = 20, .hud_scale = 1
+                    };
+                    center_height.value = cases[i].center;
+                    optimal_height.value = cases[i].optimal;
+                    const cvar_t center_before = center_height, optimal_before = optimal_height;
+                    const float upper_y = 260 - params.height * .5f;
+                    const float center_y = upper_y + params.height - cases[i].center_height;
+                    const float optimal_y = 260 - cases[i].optimal_height * .5f;
+                    for (int scale = 1; scale <= 2; scale++) {
+                        hud_strafe_scale->value = scale;
+                        drawn_count = 0;
+                        if (preview) StrafeHelper_DrawPreview(&params, 640, 480, 0);
+                        else StrafeHelper_Draw(&params, 640, 480, 0);
+                        CheckElementHeight(shc_ElementId_CenterMarker, center_y, cases[i].center_height);
+                        CheckElementHeight(shc_ElementId_OptimalAngle, optimal_y, cases[i].optimal_height);
+                        CheckElementHeight(shc_ElementId_AcceleratingAngles, upper_y,
+                                           s == 3 ? 0 : params.height);
+                        float top = min(center_y, optimal_y);
+                        float bottom = max(center_y + cases[i].center_height,
+                                           optimal_y + cases[i].optimal_height);
+                        if (s != 3) {
+                            top = min(top, upper_y);
+                            bottom = max(bottom, upper_y + params.height);
+                        }
+                        top = floorf(260 + (top - 260) * scale);
+                        bottom = ceilf(260 + (bottom - 260) * scale);
+                        assert(test_group_bounds.y == top);
+                        assert(test_group_bounds.height == bottom - top);
+                        CheckNear(efficiency_helper_y, 260 - params.height * scale * .5f, .0001f);
+                        CheckNear(efficiency_helper_height, params.height * scale, .0001f);
+                        assert(!test_group.active && !sh_drawing_preview);
+                        assert(!memcmp(&center_height, &center_before, sizeof(center_height)));
+                        assert(!memcmp(&optimal_height, &optimal_before, sizeof(optimal_height)));
+                    }
+                }
+            }
+        }
+    }
+    hud_strafe_scale->value = 1;
+    cl_strafehelper_center_width = old_center_width;
+    cl_strafehelper_optimal_width = old_optimal_width;
+    cl_strafehelper_center_height = old_center_height;
+    cl_strafehelper_optimal_height = old_optimal_height;
+    cl_strafehelperBarStyle = old_style;
+    cl_strafehelper_optimal_outline = old_outline;
+}
+
 int main(void)
 {
     CheckWaterMath();
@@ -511,6 +618,7 @@ int main(void)
     CheckUps();
     CheckUpsViewport();
     CheckVisualScaling();
+    CheckElementHeights();
 #if USE_UI
     CheckUpsTextBounds();
 #endif
@@ -684,7 +792,9 @@ void shc_drawFilledRectangle(float x, float y, float w, float h, enum shc_Elemen
     if (!Test_GroupRect(x, y, w, h)) return;
     assert(drawn_count < q_countof(drawn_rectangles));
     drawn_rectangles[drawn_count].x = x;
+    drawn_rectangles[drawn_count].y = y;
     drawn_rectangles[drawn_count].width = w;
+    drawn_rectangles[drawn_count].height = h;
     drawn_rectangles[drawn_count].id = id;
     drawn_count++;
 }
@@ -715,8 +825,10 @@ void SH_Efficiency_DrawPreview(float y, float h, float width, float scale, int f
 }
 cvar_t *cl_predict;
 cvar_t *cl_strafehelper_center_width;
+cvar_t *cl_strafehelper_center_height;
 cvar_t *cl_strafehelper_optimal_outline;
 cvar_t *cl_strafehelper_optimal_width;
+cvar_t *cl_strafehelper_optimal_height;
 cvar_t *cl_strafehelperBarStyle;
 cvar_t *cl_strafehelperNerdStats;
 cvar_t *cl_strafehelperSmoothing;

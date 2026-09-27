@@ -4,6 +4,10 @@ Defaults below are the values registered by the current source. Saved configs,
 command-line overrides, and the documented presets can change active values.
 Optional media features are available only when enabled in the build.
 
+Enter a cvar name by itself, such as `sh_height`, to see its current value and
+registered default, even when they match. Use `creset sh_height` to restore just
+that setting to its default.
+
 ## Sound
 
 | Cvar | Default | Description |
@@ -48,6 +52,9 @@ outside the list (for example, 60), the next toggle selects its first value,
 ## Bind reminders
 
 Bind reminders are enabled by default. Configure them in **Jump Setup > HUD & Visuals > Bind Reminders**.
+The default list contains FPS bindings, Respawn (`kill`), Recall, Menu, Team hard,
+and Team easy. Store, Reset, and Observer are not shown by default. Existing saved
+reminder selections remain unchanged.
 **Detect FPS binds** is on by default: the list reads the current bindings and
 aliases loaded by your configs, so no manual FPS reminder entries are needed.
 Rebinding/unbinding a key, reloading a config, redefining an alias or changing a
@@ -99,10 +106,10 @@ and **Observer**. The options find keys whose whole binding is `inven`, `kill`,
 `inven` binding; it does not fall back to the client menu's Esc key.
 They update when keys are rebound and add no row while unbound. Existing matching
 custom rows retain their captions and unbound placeholders and are not duplicated;
-the corresponding switch also hides those rows. Menu and Store start enabled;
-Respawn and Observer start disabled. Saved user settings are preserved. On
-startup, an existing custom `kill` or `observer` reminder enables its new switch
-unless that switch has already been set; its Reset default remains off. These
+the corresponding switch also hides those rows. Menu and Respawn start enabled;
+Store and Observer start disabled. Saved user settings are preserved. On
+startup, an existing matching custom reminder enables its switch unless that
+switch has already been set; Reset uses the defaults above. These
 options do not assign or execute bindings.
 
 **Extra reminders 1-4** and **Extra reminders 5-8** configure additional actions,
@@ -116,8 +123,8 @@ turns off automatic FPS rows; custom and enabled extended reminders remain.
 | `scr_bindreminders_visible` | `1` | Shows the reminder list. |
 | `scr_bindreminders_fps` | `1` | Discovers loaded FPS bindings automatically. |
 | `scr_bindreminders_menu` | `1` | Shows keys bound to `inven` (JumpMod menu). |
-| `scr_bindreminders_respawn` | `0` | Shows keys bound to `kill`; also controls matching custom rows. |
-| `scr_bindreminders_store` | `1` | Shows keys bound to `store`; also controls matching custom rows. |
+| `scr_bindreminders_respawn` | `1` | Shows keys bound to `kill`; also controls matching custom rows. |
+| `scr_bindreminders_store` | `0` | Shows keys bound to `store`; also controls matching custom rows. |
 | `scr_bindreminders_observer` | `0` | Shows keys bound to `observer`; also controls matching custom rows. |
 | `scr_bindreminders_alpha` | `0.6` | Opacity from 0 to 1, multiplied by `scr_alpha`. |
 | `scr_bindreminders_x`, `scr_bindreminders_y` | `0` | Position offsets managed by the HUD editor. |
@@ -135,9 +142,9 @@ new names in scripts loaded later and in external menus.
 | Custom row | Command | Caption |
 | --- | --- | --- |
 | 1 | `toggle cl_maxfps 30 120` | `30 / 120` |
-| 2 | `store` | `Store` |
+| 2 | `team hard` | `Team hard` |
 | 3 | `recall` | `Recall` |
-| 4 | `reset` | `Reset` |
+| 4 | `team easy` | `Team easy` |
 | 5-8 | empty | empty |
 
 The older default caption `FPS 30 / 120` also displays as `30 / 120`, without
@@ -214,16 +221,24 @@ numeric overflow or underflow, and extra arguments leave the setting unchanged.
 | `sh_draw` | `1` | Enables the strafe helper HUD bar. |
 | `sh_center` | `1` | Centers the display on horizontal velocity; `0` uses view yaw and wraps at ±180 degrees. |
 | `sh_centermarker` | `1` | Draws the center marker. |
-| `sh_height` | `15` | Height of the strafe helper bar. |
+| `sh_height` | `15` | Height of the accelerating bar and the basis for automatic marker heights. |
 | `sh_scale` | `1.500000` | Visual scale of the helper. |
 | `sh_y` | `0` | Offset from screen center; negative moves upward. Console/editor support -4000 to 4000; the menu slider covers -320 to 320. |
 | `sh_alpha` | `0.500000` | Overall helper alpha multiplier. |
 | `sh_bar_style` | `gradient` | Bar rendering style. |
 | `sh_center_width` | `2` | Width of the center marker/zone. |
+| `sh_center_height` | `0` | Center marker height in HUD pixels before scaling: `0` follows half of `sh_height`; positive values draw at 1-80 pixels. Bottom-aligned to the accelerating bar. |
 | `sh_optimal_width` | `2` | Width of the optimal acceleration zone. |
+| `sh_optimal_height` | `0` | Optimal marker height in HUD pixels before scaling: `0` follows `sh_height`; positive values draw at 1-80 pixels. Vertically centered on the accelerating bar. |
 | `sh_optimal_outline` | `1` | Draws the optimal zone as an outline. |
 | `sh_smoothing` | `0` | Smooths the angle bar (0-10); `0` disables smoothing. |
 | `sh_smoothing_mode` | `1` | Smoothing curve/mode. Nonlinear modes `4` and `5` retain some sensitivity to frame timing. |
+
+Set `sh_center_height 24` to make the center marker 24 HUD pixels tall before
+scaling, or use `sh hud center_height 24`. Set it back to `0` to follow half the
+bar height. The matching optimal-marker command is `sh hud optimal_height`.
+Both controls are also available in the Strafe Helper menu; `0` preserves their
+automatic sizing as `sh_height` changes.
 
 ## Strafe Helper Colors and NerdStats
 
@@ -298,6 +313,11 @@ Race line settings apply to server-provided beams only while `game` is `jump`.
 Other games retain normal BFG beam lifetime, width, palette color and opacity.
 Rail cores retain their own color, width, lifetime and fading in every game.
 `gl_beamstyle` remains a global rendering option.
+
+In **Jump Setup > HUD & Visuals > Race Line**, **style** selects `gl_beamstyle`:
+textured (`0`), polygonal (`1`), heatmap (`2`), arrow (`3`), or heat + arrow (`4`).
+Changes apply immediately. Heatmap styles replace the selected line color with
+distance-based colors; the other styles use the configured line color.
 
 | Cvar | Default | Description |
 | --- | --- | --- |

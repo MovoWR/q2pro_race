@@ -355,9 +355,26 @@ static void setup(void)
     SCR_BindRemindersInit();
 }
 
-static void setup_manual(void)
+/* Generic layout tests deliberately configure the former four-row panel. */
+static void configure_test_reminders(void)
+{
+    set_text("scr_bindreminders_command_2", "store");
+    set_text("scr_bindreminders_label_2", "Store");
+    set_text("scr_bindreminders_command_4", "reset");
+    set_text("scr_bindreminders_label_4", "Reset");
+    set_text("scr_bindreminders_respawn", "0");
+    set_text("scr_bindreminders_store", "1");
+}
+
+static void setup_auto(void)
 {
     setup();
+    configure_test_reminders();
+}
+
+static void setup_manual(void)
+{
+    setup_auto();
     assert(setting("scr_bindreminders_fps")->integer == 1);
     set_text("scr_bindreminders_fps", "0");
 }
@@ -423,15 +440,17 @@ static void assert_text_does_not_overlap(void)
 
 static void test_defaults_and_unbound_rows(void)
 {
-    setup_manual();
+    setup();
+    set_text("scr_bindreminders_fps", "0");
     assert(var_count == 22);
     assert(fabsf(setting("scr_bindreminders_alpha")->value - 0.6f) < 0.0001f);
     assert(!strcmp(setting("scr_bindreminders_command_1")->string, "toggle cl_maxfps 30 120"));
     assert(!strcmp(setting("scr_bindreminders_command_8")->string, ""));
     collect();
     assert(row_count == 4);
-    assert(has_text("30 / 120") && has_text("Store"));
-    assert(has_text("Recall") && has_text("Reset"));
+    assert(has_text("30 / 120") && has_text("Team hard"));
+    assert(has_text("Recall") && has_text("Team easy"));
+    assert(!has_text("Store") && !has_text("Reset") && !has_text("Observer"));
     for (int i = 0; i < row_count; i++) {
         assert(!strcmp(collected_rows[i].keys, "--"));
         assert(collected_rows[i].fps == (i == 0));
@@ -614,6 +633,43 @@ static const char *key_row(const char *label)
         if (!strcmp(collected_rows[i].keys, label))
             return collected_rows[i].caption;
     return NULL;
+}
+
+static void test_default_bindings(void)
+{
+    static const struct {
+        const char *command, *key, *caption;
+    } defaults[] = {
+        { "f30", "FPS", "30 FPS" },
+        { "kill", "K", "Respawn" },
+        { "recall", "R", "Recall" },
+        { "inven", "I", "Menu" },
+        { "team hard", "H", "Team hard" },
+        { "team easy", "E", "Team easy" },
+        { "store", "S", NULL },
+        { "reset", "T", NULL },
+        { "observer", "O", NULL },
+    };
+    setup();
+    assert(!strcmp(reminder_commands[1]->string, "team hard"));
+    assert(!strcmp(reminder_commands[2]->string, "recall"));
+    assert(!strcmp(reminder_commands[3]->string, "team easy"));
+    for (int i = 0; i < q_countof(defaults); i++) {
+        bindings[i] = defaults[i].command;
+        labels[i] = defaults[i].key;
+    }
+    collect();
+    assert(row_count == 6);
+    for (int i = 0; i < q_countof(defaults); i++) {
+        const char *caption = key_row(defaults[i].key);
+        assert(defaults[i].caption ? caption && !strcmp(caption, defaults[i].caption) : !caption);
+    }
+    draw(1);
+    assert(text_count == 12);
+    assert(rendered_text("Team hard") >= 0 && rendered_text("Team easy") >= 0);
+    assert(rendered_text("Respawn") >= 0 && rendered_text("Menu") >= 0);
+    assert(rendered_text("Store") < 0 && rendered_text("Reset") < 0 && rendered_text("Observer") < 0);
+    assert_text_does_not_overlap();
 }
 
 static void add_alias(const char *name, const char *command)
@@ -857,7 +913,7 @@ static void test_conditional_scripts_without_evaluation(void)
 
 static void test_disabled_item_skips_discovery(void)
 {
-    setup();
+    setup_auto();
     add_alias("nested_fps", "f20");
     bindings[1] = "nested_fps";
     labels[1] = "FPS_KEY";
@@ -968,7 +1024,7 @@ static void test_truthful_fps_captions(void)
 
 static void representative_bindings(void)
 {
-    setup();
+    setup_auto();
     bindings[1] = "f20";
     labels[1] = "1";
     bindings[2] = "toggle cl_maxfps 30 120";
@@ -1044,8 +1100,10 @@ static void test_empty_editor_preview(void)
     assert(primitive_count == 0);
 
     draw_editor_preview();
-    assert(text_count == 12 && primitives[0].w == 110 && primitives[0].h == 90);
-    assert(rendered_text("20 FPS") >= 0 && rendered_text("Store") >= 0);
+    assert(text_count == 14 && primitives[0].w == 118 && primitives[0].h == 104);
+    assert(rendered_text("20 FPS") >= 0 && rendered_text("Respawn") >= 0);
+    assert(rendered_text("Menu") >= 0 && rendered_text("Team hard") >= 0 && rendered_text("Team easy") >= 0);
+    assert(rendered_text("Store") < 0 && rendered_text("Reset") < 0 && rendered_text("Observer") < 0);
     assert_text_does_not_overlap();
 }
 
@@ -1750,17 +1808,19 @@ static void test_extended_options(void)
         const char *setting, *key, *caption, *value;
     } options[] = {
         { "scr_bindreminders_menu", "I", "Menu", "1" },
-        { "scr_bindreminders_respawn", "K", "Respawn", "0" },
-        { "scr_bindreminders_store", "S", "Store", "1" },
+        { "scr_bindreminders_respawn", "K", "Respawn", "1" },
+        { "scr_bindreminders_store", "S", "Store", "0" },
         { "scr_bindreminders_observer", "O", "Observer", "0" }
     };
-    setup_manual();
+    setup();
     for (int i = 0; i < q_countof(options); i++) {
         cvar_t *var = setting(options[i].setting);
         assert(!strcmp(var->string, options[i].value));
         assert(!strcmp(var->default_string, options[i].value));
         assert(var->flags & CVAR_ARCHIVE);
     }
+    configure_test_reminders();
+    set_text("scr_bindreminders_fps", "0");
     bindings[4] = "inven";
     labels[4] = "I";
     collect();
@@ -1902,6 +1962,7 @@ static void test_extended_live_bindings(void)
 static void test_extended_capacity_and_hidden(void)
 {
     setup();
+    set_text("scr_bindreminders_store", "1");
     set_text("scr_bindreminders_menu", "1");
     set_text("scr_bindreminders_respawn", "1");
     set_text("scr_bindreminders_observer", "1");
@@ -1953,7 +2014,8 @@ static void test_extended_saved_custom_rows(void)
         Cvar_Get("scr_bindreminders_command_6", "INVEN", CVAR_ARCHIVE);
         Cvar_Get("scr_bindreminders_label_6", "My menu", CVAR_ARCHIVE);
         if (explicit_off) {
-            Cvar_Get("scr_bindreminders_respawn", "0", CVAR_ARCHIVE);
+            Cvar_Get("scr_bindreminders_respawn", "1", CVAR_ARCHIVE);
+            set_text("scr_bindreminders_respawn", "0");
             Cvar_Get("scr_bindreminders_observer", "0", CVAR_ARCHIVE);
             Cvar_Get("scr_bindreminders_menu", "1", CVAR_ARCHIVE);
             set_text("scr_bindreminders_menu", "0");
@@ -1963,7 +2025,7 @@ static void test_extended_saved_custom_rows(void)
         cvar_t *observer = setting("scr_bindreminders_observer");
         cvar_t *menu = setting("scr_bindreminders_menu");
         assert(respawn->integer == !explicit_off && observer->integer == !explicit_off);
-        assert(!strcmp(respawn->default_string, "0") && !strcmp(observer->default_string, "0"));
+        assert(!strcmp(respawn->default_string, "1") && !strcmp(observer->default_string, "0"));
         assert((respawn->flags & CVAR_ARCHIVE) && (observer->flags & CVAR_ARCHIVE));
         assert(menu->integer == !explicit_off && !strcmp(menu->default_string, "1"));
         assert(menu->flags & CVAR_ARCHIVE);
@@ -1986,9 +2048,9 @@ static void test_extended_saved_custom_rows(void)
         Cvar_Reset(observer);
         Cvar_Reset(menu);
         SCR_BindRemindersInit();
-        assert(respawn->integer == 0 && observer->integer == 0 && menu->integer == 1);
+        assert(respawn->integer == 1 && observer->integer == 0 && menu->integer == 1);
         collect();
-        assert(row_count == 4 && !key_row("K") && !key_row("O"));
+        assert(row_count == 5 && !strcmp(key_row("K"), "My respawn") && !key_row("O"));
         assert(!strcmp(key_row("I"), "My menu"));
     }
     /* Existing compound custom commands do not change exact-action defaults. */
@@ -1998,7 +2060,7 @@ static void test_extended_saved_custom_rows(void)
     Cvar_Get("scr_bindreminders_command_5", "observer extra", CVAR_ARCHIVE);
     Cvar_Get("scr_bindreminders_command_6", "inven extra", CVAR_ARCHIVE);
     SCR_BindRemindersInit();
-    assert(setting("scr_bindreminders_respawn")->integer == 0);
+    assert(setting("scr_bindreminders_respawn")->integer == 1);
     assert(setting("scr_bindreminders_observer")->integer == 0);
     assert(setting("scr_bindreminders_menu")->integer == 1);
 }
@@ -2023,7 +2085,7 @@ static void test_saved_cvar_names(void)
     assert(!strcmp(reminder_commands[7]->string, "f60"));
     assert(!strcmp(reminder_labels[7]->string, ""));
     assert(!strcmp(reminder_commands[0]->default_string, "toggle cl_maxfps 30 120"));
-    assert(!strcmp(reminder_labels[1]->default_string, "Store"));
+    assert(!strcmp(reminder_labels[1]->default_string, "Team hard"));
     assert(!strcmp(reminder_commands[4]->default_string, ""));
     assert(reminder_commands[4]->flags & CVAR_ARCHIVE);
     Cvar_Reset(reminder_commands[0]);
@@ -2032,7 +2094,7 @@ static void test_saved_cvar_names(void)
     Cvar_Reset(reminder_labels[4]);
     SCR_BindRemindersInit();
     assert(!strcmp(reminder_commands[0]->string, "toggle cl_maxfps 30 120"));
-    assert(!strcmp(reminder_labels[1]->string, "Store"));
+    assert(!strcmp(reminder_labels[1]->string, "Team hard"));
     assert(!strcmp(reminder_commands[4]->string, ""));
     assert(!strcmp(reminder_labels[4]->string, ""));
     assert(!strcmp(Cvar_FindVar("scr_bindreminder_command_5")->string, "f75"));
@@ -2041,6 +2103,51 @@ static void test_saved_cvar_names(void)
     Cvar_Get("scr_bindreminder_command_1", "f20", CVAR_ARCHIVE | CVAR_WEAK);
     SCR_BindRemindersInit();
     assert(!strcmp(reminder_commands[0]->string, "toggle cl_maxfps 30 120"));
+}
+
+static void test_saved_default_overrides(void)
+{
+    for (int legacy = 0; legacy <= 1; legacy++) {
+        setup();
+        var_count = 0;
+        const char *prefix = legacy ? "scr_bindreminder" : "scr_bindreminders";
+        char name[64];
+        snprintf(name, sizeof(name), "%s_command_2", prefix);
+        Cvar_Get(name, "store", CVAR_ARCHIVE);
+        snprintf(name, sizeof(name), "%s_label_2", prefix);
+        Cvar_Get(name, "My save", CVAR_ARCHIVE);
+        snprintf(name, sizeof(name), "%s_command_4", prefix);
+        Cvar_Get(name, "reset", CVAR_ARCHIVE);
+        snprintf(name, sizeof(name), "%s_label_4", prefix);
+        Cvar_Get(name, "My reset", CVAR_ARCHIVE);
+        Cvar_Get("scr_bindreminders_respawn", "0", CVAR_ARCHIVE);
+        Cvar_Get("scr_bindreminders_store", "1", CVAR_ARCHIVE);
+        Cvar_Get("scr_bindreminders_menu", "0", CVAR_ARCHIVE);
+        Cvar_Get("scr_bindreminders_observer", "1", CVAR_ARCHIVE);
+        for (int init = 0; init < 2; init++) {
+            SCR_BindRemindersInit();
+            assert(!strcmp(reminder_commands[1]->string, "store"));
+            assert(!strcmp(reminder_labels[1]->string, "My save"));
+            assert(!strcmp(reminder_commands[3]->string, "reset"));
+            assert(!strcmp(reminder_labels[3]->string, "My reset"));
+            assert(setting("scr_bindreminders_respawn")->integer == 0);
+            assert(setting("scr_bindreminders_store")->integer == 1);
+            assert(setting("scr_bindreminders_menu")->integer == 0);
+            assert(setting("scr_bindreminders_observer")->integer == 1);
+        }
+        bindings[1] = "store";
+        labels[1] = "S";
+        bindings[2] = "reset";
+        labels[2] = "T";
+        collect();
+        assert(row_count == 3);
+        assert(!strcmp(key_row("S"), "My save") && !strcmp(key_row("T"), "My reset"));
+        set_text("scr_bindreminders_store", "0");
+        SCR_BindRemindersInit();
+        collect();
+        assert(row_count == 2 && !key_row("S"));
+        assert(!strcmp(reminder_commands[1]->string, "store"));
+    }
 }
 
 int main(int argc, char **argv)
@@ -2052,7 +2159,9 @@ int main(int argc, char **argv)
         return 1;
     }
     test_saved_cvar_names();
+    test_saved_default_overrides();
     test_defaults_and_unbound_rows();
+    test_default_bindings();
     test_live_bindings_and_layout_labels();
     test_configured_rows_and_captions();
     test_alpha_and_hidden_groups();

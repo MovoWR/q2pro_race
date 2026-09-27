@@ -653,9 +653,7 @@ void Cvar_Command(cvar_t *v)
 // perform a variable print or set
     if (Cmd_Argc() < 2) {
         Com_Printf("\"%s\" is \"%s\"", v->name, v->string);
-        if (strcmp(v->string, v->default_string)) {
-            Com_Printf("  default: \"%s\"", v->default_string);
-        }
+        Com_Printf("  default: \"%s\"", v->default_string);
         if (v->latched_string && strcmp(v->latched_string, v->string)) {
             Com_Printf("  latched: \"%s\"", v->latched_string);
         }
